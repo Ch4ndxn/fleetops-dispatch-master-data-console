@@ -193,6 +193,8 @@ export interface BalancedPlanConstraints {
   skillMatch: boolean;
   shiftStartHour: number;   // e.g. 9
   shiftEndHour: number;     // e.g. 18
+  /** Ticket IDs to skip entirely — user excluded them from the plan */
+  excludedTicketIds?: Set<string>;
 }
 
 export interface BalancedPlanResult {
@@ -251,10 +253,12 @@ export function planBalancedRoutes(constraints: BalancedPlanConstraints): Balanc
     return { plans: [], unrouted: [], kmSaved: 0, balanceScore: 0, timeSavedMins: 0 };
   }
 
-  // Routable tickets: not closed, center has coordinates
+  // Routable tickets: not closed, center has coordinates, not excluded by user
+  const excludedIds = constraints.excludedTicketIds || new Set<string>();
   const priorityWeights: Record<string, number> = { CRITICAL: 1000, HIGH: 100, MEDIUM: 10, LOW: 1 };
   let routableTickets = tickets.filter(tk => {
     if (tk.status === 'Resolved' || tk.status === 'Closed') return false;
+    if (excludedIds.has(tk.ticketId)) return false;
     const center = centerMap.get(tk.centerName.trim().toLowerCase());
     return Boolean(center?.latitude && center?.longitude);
   });

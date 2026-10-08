@@ -283,7 +283,7 @@ function MetricsBar({ plans, unrouted, streaming, kmSaved, balanceScore, timeSav
 // ─── Per-tech route card (with drag-to-reorder) ──────────────────
 function TechRouteCard({
   plan, color, idx, unrouted, mode,
-  onReorder, onRemoveStop, onAddStop,
+  onReorder, onRemoveStop, onAddStop, onExcludeStop,
 }: {
   plan: TechnicianRoutePlan;
   color: string;
@@ -293,6 +293,7 @@ function TechRouteCard({
   onReorder: (planId: string, from: number, to: number) => void;
   onRemoveStop: (planId: string, stopOrder: number) => void;
   onAddStop: (planId: string, ticket: Ticket) => void;
+  onExcludeStop: (planId: string, stopOrder: number) => void;
 }) {
   const [expanded, setExpanded] = useState(true);
   const [showAddDropdown, setShowAddDropdown] = useState(false);
@@ -378,13 +379,22 @@ function TechRouteCard({
                   <div className="text-xs font-mono font-bold text-blue-700">{stop.estimatedArrival}</div>
                   <div className="text-[10px] text-slate-400">{stop.estimatedDurationMins}m</div>
                   {isEditable && (
-                    <button
-                      onClick={e => { e.stopPropagation(); onRemoveStop(plan.technicianId, stop.stopOrder); }}
-                      className="mt-1 p-0.5 text-slate-300 hover:text-rose-500 transition-colors"
-                      title="Remove stop"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
+                    <div className="flex flex-col items-end gap-0.5 mt-1">
+                      <button
+                        onClick={e => { e.stopPropagation(); onRemoveStop(plan.technicianId, stop.stopOrder); }}
+                        className="p-0.5 text-slate-300 hover:text-amber-500 transition-colors"
+                        title="Remove stop (back to unrouted)"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                      <button
+                        onClick={e => { e.stopPropagation(); onExcludeStop(plan.technicianId, stop.stopOrder); }}
+                        className="text-[9px] font-bold text-slate-300 hover:text-rose-600 transition-colors leading-none"
+                        title="Exclude ticket from plan entirely"
+                      >
+                        🚫
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -529,10 +539,11 @@ function LeafletMapView({ plans }: { plans: TechnicianRoutePlan[] }) {
 }
 
 // ─── Unrouted tickets panel ──────────────────────────────────────
-function UnroutedPanel({ tickets, plans, onAssign }: {
+function UnroutedPanel({ tickets, plans, onAssign, onExclude }: {
   tickets: Ticket[];
   plans: TechnicianRoutePlan[];
   onAssign: (ticket: Ticket, techId: string) => void;
+  onExclude: (ticket: Ticket) => void;
 }) {
   const [assignTarget, setAssignTarget] = useState<string | null>(null);
 
@@ -568,18 +579,55 @@ function UnroutedPanel({ tickets, plans, onAssign }: {
               <button onClick={() => setAssignTarget(null)} className="text-[10px] text-slate-400 hover:text-slate-600">cancel</button>
             </div>
           ) : (
-            <button
-              onClick={() => setAssignTarget(tk.ticketId)}
-              className="text-[10px] font-semibold text-blue-600 hover:text-blue-700"
-            >
-              <Plus className="w-3 h-3 inline mr-0.5" />Assign to tech
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setAssignTarget(tk.ticketId)}
+                className="text-[10px] font-semibold text-blue-600 hover:text-blue-700"
+              >
+                <Plus className="w-3 h-3 inline mr-0.5" />Assign
+              </button>
+              <button
+                onClick={() => onExclude(tk)}
+                className="text-[10px] font-semibold text-rose-500 hover:text-rose-700"
+                title="Exclude from plan"
+              >
+                🚫 Exclude
+              </button>
+            </div>
           )}
         </div>
       ))}
       {tickets.length > 30 && (
         <p className="text-[10px] text-slate-400 text-center">+{tickets.length - 30} more</p>
       )}
+    </div>
+  );
+}
+
+// ─── Excluded tickets panel ───────────────────────────────────────
+function ExcludedPanel({ tickets, onRestore }: {
+  tickets: Ticket[];
+  onRestore: (ticket: Ticket) => void;
+}) {
+  if (tickets.length === 0) return null;
+  return (
+    <div className="space-y-1">
+      {tickets.map(tk => (
+        <div key={tk.ticketId} className="bg-rose-50 border border-rose-200 rounded-lg p-2.5 opacity-80">
+          <div className="flex items-center gap-1.5 mb-1">
+            <span className={`text-[9px] font-bold px-1 py-0.5 rounded border ${PRIO_CLASS[tk.priority]}`}>{tk.priority}</span>
+            <span className="text-[11px] font-semibold text-slate-700 truncate line-through">{tk.centerName}</span>
+          </div>
+          <div className="text-[10px] text-slate-400 truncate mb-1.5">{tk.ticketId}</div>
+          <button
+            onClick={() => onRestore(tk)}
+            className="text-[10px] font-semibold text-emerald-600 hover:text-emerald-700"
+            title="Restore to unrouted pool"
+          >
+            ↩ Restore
+          </button>
+        </div>
+      ))}
     </div>
   );
 }
@@ -592,6 +640,7 @@ export const SmartRoutePlannerPage: React.FC = () => {
   const [basePlans, setBasePlans] = useState<TechnicianRoutePlan[]>([]);
   const [plans, setPlans] = useState<TechnicianRoutePlan[]>([]);
   const [unrouted, setUnrouted] = useState<Ticket[]>([]);
+  const [excludedTickets, setExcludedTickets] = useState<Ticket[]>([]);
   const [kmSaved, setKmSaved] = useState(0);
   const [balanceScore, setBalanceScore] = useState(0);
   const [timeSavedMins, setTimeSavedMins] = useState(0);
@@ -622,12 +671,13 @@ export const SmartRoutePlannerPage: React.FC = () => {
     setTimeout(() => setToast(''), 3000);
   }
 
-  // Rebuild unrouted when plans change
-  const rebuildUnrouted = useCallback((currentPlans: TechnicianRoutePlan[]) => {
+  // Rebuild unrouted when plans change (excluding already-excluded tickets)
+  const rebuildUnrouted = useCallback((currentPlans: TechnicianRoutePlan[], excluded: Ticket[] = []) => {
     const assignedIds = new Set(currentPlans.flatMap(p => p.stops.map(s => s.ticketId)));
+    const excludedIds = new Set(excluded.map(t => t.ticketId));
     const allTickets = getTickets();
     const ur = allTickets
-      .filter(t => !assignedIds.has(t.ticketId) && t.status !== 'Resolved' && t.status !== 'Closed')
+      .filter(t => !assignedIds.has(t.ticketId) && !excludedIds.has(t.ticketId) && t.status !== 'Resolved' && t.status !== 'Closed')
       .sort((a, b) => (PRIO_ORDER[b.priority] || 0) - (PRIO_ORDER[a.priority] || 0));
     setUnrouted(ur);
   }, []);
@@ -645,6 +695,8 @@ export const SmartRoutePlannerPage: React.FC = () => {
     const [startH] = constraints.shiftStart.split(':').map(Number);
     const [endH]   = constraints.shiftEnd.split(':').map(Number);
 
+    const excludedIds = new Set(excludedTickets.map(t => t.ticketId));
+
     const result = planBalancedRoutes({
       maxStopsPerTech: constraints.maxStops,
       maxKmPerTech:    constraints.maxKm,
@@ -652,6 +704,7 @@ export const SmartRoutePlannerPage: React.FC = () => {
       skillMatch:      constraints.skillMatch,
       shiftStartHour:  isNaN(startH) ? 9  : startH,
       shiftEndHour:    isNaN(endH)   ? 18 : endH,
+      excludedTicketIds: excludedIds,
     });
 
     if (result.plans.length === 0) {
@@ -678,10 +731,11 @@ export const SmartRoutePlannerPage: React.FC = () => {
     setBalanceScore(result.balanceScore);
     setTimeSavedMins(result.timeSavedMins);
 
-    // Rebuild unrouted accounting for avoid-reassignment filter
+    // Rebuild unrouted accounting for avoid-reassignment filter and excluded tickets
     const assignedIds = new Set(finalPlans.flatMap(p => p.stops.map(s => s.ticketId)));
     const ur = [...result.unrouted, ...getTickets().filter(t =>
       !assignedIds.has(t.ticketId) && t.status !== 'Resolved' && t.status !== 'Closed' &&
+      !excludedIds.has(t.ticketId) &&
       !result.unrouted.find(u => u.ticketId === t.ticketId)
     )].sort((a, b) => (PRIO_ORDER[b.priority] || 0) - (PRIO_ORDER[a.priority] || 0));
     setUnrouted(ur);
@@ -878,6 +932,42 @@ Optimize within constraints.`;
     handleAddStop(techId, ticket);
   }
 
+  // ── Exclude ticket from plan (from unrouted pool or from a stop) ─
+  function handleExcludeTicket(ticket: Ticket) {
+    setExcludedTickets(prev => {
+      if (prev.find(t => t.ticketId === ticket.ticketId)) return prev;
+      return [...prev, ticket];
+    });
+    setUnrouted(prev => prev.filter(t => t.ticketId !== ticket.ticketId));
+  }
+
+  // ── Exclude stop (remove from route AND add to excluded pool) ────
+  function handleExcludeStop(techId: string, stopOrder: number) {
+    let removedTicket: Ticket | null = null;
+    setPlans(prev => prev.map(p => {
+      if (p.technicianId !== techId) return p;
+      const stop = p.stops.find(s => s.stopOrder === stopOrder);
+      if (stop) {
+        const tk = getTickets().find(t => t.ticketId === stop.ticketId);
+        if (tk) removedTicket = tk;
+      }
+      const stops = p.stops.filter(s => s.stopOrder !== stopOrder);
+      return recalcPlan({ ...p, stops });
+    }));
+    if (removedTicket) {
+      handleExcludeTicket(removedTicket);
+    }
+  }
+
+  // ── Restore excluded ticket back to unrouted pool ────────────────
+  function handleRestoreTicket(ticket: Ticket) {
+    setExcludedTickets(prev => prev.filter(t => t.ticketId !== ticket.ticketId));
+    setUnrouted(prev => {
+      if (prev.find(t => t.ticketId === ticket.ticketId)) return prev;
+      return [...prev, ticket].sort((a, b) => (PRIO_ORDER[b.priority] || 0) - (PRIO_ORDER[a.priority] || 0));
+    });
+  }
+
   // ── Re-optimize current plan ─────────────────────────────────
   async function handleReOptimize() {
     setPhase('ai');
@@ -1012,9 +1102,27 @@ Optimize within constraints.`;
             <span className="text-[11px] font-mono font-bold text-rose-400">{unrouted.length}</span>
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto px-3 py-3 min-h-0">
-          <UnroutedPanel tickets={unrouted} plans={plans} onAssign={handleAssignFromPanel} />
+        <div className="overflow-y-auto px-3 py-3" style={{ maxHeight: excludedTickets.length > 0 ? '40%' : undefined, flex: excludedTickets.length > 0 ? 'none' : 1 }}>
+          <UnroutedPanel tickets={unrouted} plans={plans} onAssign={handleAssignFromPanel} onExclude={handleExcludeTicket} />
         </div>
+
+        {/* Excluded tickets */}
+        {excludedTickets.length > 0 && (
+          <>
+            <div className="px-4 py-2 border-t border-slate-700 border-b border-slate-800 bg-slate-800/50">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-rose-400 flex items-center gap-1">
+                  🚫 Excluded
+                </span>
+                <span className="text-[11px] font-mono font-bold text-rose-400">{excludedTickets.length}</span>
+              </div>
+              <p className="text-[9px] text-slate-500 mt-0.5">Skipped in next Rebuild</p>
+            </div>
+            <div className="overflow-y-auto px-3 py-3" style={{ maxHeight: '30%' }}>
+              <ExcludedPanel tickets={excludedTickets} onRestore={handleRestoreTicket} />
+            </div>
+          </>
+        )}
       </aside>
 
       {/* ── Main content ────────────────────────────────────────── */}
@@ -1179,6 +1287,7 @@ Optimize within constraints.`;
                   onReorder={handleReorder}
                   onRemoveStop={handleRemoveStop}
                   onAddStop={handleAddStop}
+                  onExcludeStop={handleExcludeStop}
                 />
               ))}
             </div>
