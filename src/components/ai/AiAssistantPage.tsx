@@ -189,11 +189,9 @@ export const AiAssistantPage: React.FC = () => {
 
   const saveApiKey = () => {
     try {
-      localStorage.setItem('fo_groq_key', apiKey);
-      // Inject into import.meta.env equivalent via window for runtime override
-      (window as any).__GROQ_KEY__ = apiKey;
-      resetGroqClient();
+      localStorage.setItem('fo_groq_key', apiKey.trim());
     } catch {}
+    resetGroqClient(); // force new client with updated key on next call
     setApiKeySaved(true);
     setTimeout(() => setApiKeySaved(false), 2000);
     setShowSettings(false);
@@ -226,13 +224,6 @@ export const AiAssistantPage: React.FC = () => {
     history.push({ role: 'user', content: userText.trim() });
 
     try {
-      // Runtime key override: if user pasted key into settings, use it
-      const runtimeKey = (window as any).__GROQ_KEY__;
-      if (runtimeKey) {
-        // Patch env for groqService which reads import.meta.env
-        (import.meta as any).env.VITE_GROQ_API_KEY = runtimeKey;
-      }
-
       let fullContent = '';
       for await (const chunk of streamChat(history, selectedModel)) {
         fullContent += chunk;

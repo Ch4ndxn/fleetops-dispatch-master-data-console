@@ -5,11 +5,23 @@ import { getTechnicians, getTickets, getCenters, getAttendance, getRoutePlans } 
 // Set in .env as VITE_GROQ_API_KEY=gsk_...
 let _client: Groq | null = null;
 
+/** Resolve API key: localStorage (runtime) > VITE env var (build-time) */
+function resolveApiKey(): string {
+  try {
+    const stored = localStorage.getItem('fo_groq_key');
+    if (stored && stored.trim()) return stored.trim();
+  } catch {}
+  const envKey = import.meta.env.VITE_GROQ_API_KEY as string | undefined;
+  if (envKey && envKey.trim()) return envKey.trim();
+  throw new Error('Groq API key not set. Click ⚙ Settings to add your key.');
+}
+
 function getClient(): Groq {
-  if (_client) return _client;
-  const key = import.meta.env.VITE_GROQ_API_KEY as string | undefined;
-  if (!key) throw new Error('VITE_GROQ_API_KEY is not set in your .env file');
-  _client = new Groq({ apiKey: key, dangerouslyAllowBrowser: true });
+  // Always resolve fresh so a newly-saved key takes effect without page reload
+  const key = resolveApiKey();
+  if (!_client) {
+    _client = new Groq({ apiKey: key, dangerouslyAllowBrowser: true });
+  }
   return _client;
 }
 
