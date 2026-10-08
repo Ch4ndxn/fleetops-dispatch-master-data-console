@@ -1040,14 +1040,77 @@ Optimize within constraints.`;
   const isRunning = phase === 'building' || phase === 'ai';
 
   return (
-    <div className="flex h-full" style={{ minHeight: 0 }}>
+    <div className="flex flex-col h-full w-full overflow-hidden" style={{ minHeight: 0 }}>
+
+      {/* ── Mobile top strip: Constraints toggle + Build button ── */}
+      <div className="lg:hidden flex items-center justify-between gap-2 px-3 py-2 bg-slate-900 shrink-0">
+        <button
+          onClick={() => setSidebarOpen(true)}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
+        >
+          <Sliders className="w-3.5 h-3.5 text-blue-400" /> Constraints
+          {unrouted.length > 0 && (
+            <span className="ml-1 px-1.5 py-0.5 bg-rose-500 text-white rounded-full text-[9px] font-bold">{unrouted.length}</span>
+          )}
+        </button>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
+            <button onClick={() => setView('cards')} className={`p-1.5 rounded-lg transition-colors ${view === 'cards' ? 'bg-blue-600 text-white' : 'text-slate-400 bg-slate-800 hover:bg-slate-700'}`}><List className="w-3.5 h-3.5" /></button>
+            <button onClick={() => setView('map')} className={`p-1.5 rounded-lg transition-colors ${view === 'map' ? 'bg-blue-600 text-white' : 'text-slate-400 bg-slate-800 hover:bg-slate-700'}`}><Map className="w-3.5 h-3.5" /></button>
+          </div>
+          <button
+            onClick={handleBuild}
+            disabled={isRunning}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-blue-600 hover:bg-blue-700 disabled:bg-slate-600 text-white rounded-lg transition-colors"
+          >
+            {isRunning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+            {phase === 'building' ? 'Building…' : phase === 'ai' ? 'AI…' : phase === 'done' ? 'Rebuild' : 'Build'}
+          </button>
+        </div>
+      </div>
+
+      {/* ── Mobile mode tabs ─────────────────────────────────────── */}
+      <div className="lg:hidden flex items-center gap-1 px-3 py-2 bg-white border-b border-slate-100 shrink-0 overflow-x-auto">
+        {([
+          { key: 'auto' as const, label: 'Auto', icon: <Zap className="w-3 h-3" /> },
+          { key: 'manual' as const, label: 'Manual', icon: <GripVertical className="w-3 h-3" /> },
+          { key: 'hybrid' as const, label: 'Hybrid', icon: <Sparkles className="w-3 h-3" /> },
+        ]).map(m => (
+          <button key={m.key} onClick={() => setMode(m.key)}
+            className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-lg whitespace-nowrap transition-colors ${mode === m.key ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'}`}
+          >{m.icon}{m.label}</button>
+        ))}
+        {phase === 'done' && (
+          <>
+            <div className="ml-auto flex items-center gap-1">
+              <button onClick={handleSave} className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold rounded-lg whitespace-nowrap transition-colors ${saved ? 'bg-emerald-100 text-emerald-700' : 'bg-emerald-600 text-white'}`}>
+                {saved ? <><CheckCircle2 className="w-3 h-3" /> Saved</> : <><Save className="w-3 h-3" /> Save</>}
+              </button>
+              <button onClick={handleExportWhatsApp} className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold bg-green-50 text-green-700 rounded-lg whitespace-nowrap border border-green-200">
+                <MessageSquare className="w-3 h-3" /> WA
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* ── Mobile metrics ───────────────────────────────────────── */}
+      {phase === 'done' && (
+        <div className="lg:hidden px-3 py-2 bg-slate-50 border-b border-slate-100 shrink-0 overflow-x-auto">
+          <MetricsBar plans={plans} unrouted={unrouted} streaming={aiStreamActive} kmSaved={kmSaved} balanceScore={balanceScore} timeSavedMins={timeSavedMins} shiftStartHour={parseInt(constraints.shiftStart.split(':')[0]) || 9} />
+        </div>
+      )}
+
+      {/* ── Desktop + mobile content row ─────────────────────────── */}
+      <div className="flex flex-1 min-h-0 overflow-hidden">
+
       {/* ── Mobile backdrop ────────────────────────────────────── */}
       {sidebarOpen && (
-        <div className="fixed inset-0 z-40 bg-black/40 lg:hidden" onClick={() => setSidebarOpen(false)} />
+        <div className="fixed inset-0 z-40 bg-black/50 lg:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
       {/* ── Left sidebar: constraints + unrouted ───────────────── */}
-      <aside className={`w-[280px] shrink-0 bg-slate-900 text-white flex flex-col h-full overflow-y-auto border-r border-slate-800 fixed inset-y-0 left-0 z-50 transition-transform duration-200 lg:static lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <aside className={`w-[280px] shrink-0 bg-slate-900 text-white flex flex-col overflow-y-auto border-r border-slate-800 fixed inset-y-0 left-0 z-50 transition-transform duration-200 lg:relative lg:inset-auto lg:z-auto lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         {/* Sidebar header */}
         <div className="px-4 py-4 border-b border-slate-800">
           <div className="flex items-center justify-between mb-0.5">
@@ -1144,24 +1207,15 @@ Optimize within constraints.`;
       </aside>
 
       {/* ── Main content ────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
-        {/* Top bar */}
-        <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-slate-100 bg-white shrink-0 flex-wrap">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="lg:hidden p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors"
-              title="Constraints"
-            >
-              <Sliders className="w-4 h-4" />
-            </button>
-            <div>
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {/* Top bar — desktop only */}
+        <div className="hidden lg:flex items-center justify-between gap-3 px-5 py-3 border-b border-slate-100 bg-white shrink-0 flex-wrap">
+          <div>
             <h1 className="text-base font-bold text-slate-900 flex items-center gap-2">
               <Navigation className="w-4 h-4 text-blue-600" />
               Smart Route Planner
             </h1>
             <p className="text-[10px] text-slate-400">Multi-mode dispatch console · Delhi NCR EV Fleet</p>
-            </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             {phase === 'done' && (
@@ -1201,8 +1255,8 @@ Optimize within constraints.`;
           </div>
         </div>
 
-        {/* Mode tabs */}
-        <div className="flex items-center gap-1 px-5 py-2 border-b border-slate-100 bg-white shrink-0">
+        {/* Mode tabs — desktop only */}
+        <div className="hidden lg:flex items-center gap-1 px-5 py-2 border-b border-slate-100 bg-white shrink-0">
           {([
             { key: 'auto', label: 'Auto', icon: <Zap className="w-3 h-3" />, desc: 'AI picks everything' },
             { key: 'manual', label: 'Manual Override', icon: <GripVertical className="w-3 h-3" />, desc: 'Drag to edit routes' },
@@ -1227,9 +1281,9 @@ Optimize within constraints.`;
           </div>
         </div>
 
-        {/* Metrics bar */}
+        {/* Metrics bar — desktop only */}
         {phase === 'done' && (
-          <div className="px-5 py-2 bg-slate-50 border-b border-slate-100 shrink-0">
+          <div className="hidden lg:block px-5 py-2 bg-slate-50 border-b border-slate-100 shrink-0">
             <MetricsBar
               plans={plans}
               unrouted={unrouted}
@@ -1251,7 +1305,7 @@ Optimize within constraints.`;
         )}
 
         {/* Main scrollable content */}
-        <div className="flex-1 overflow-y-auto min-h-0 p-5">
+        <div className="flex-1 overflow-y-auto min-h-0 p-3 sm:p-5">
           {/* Idle state */}
           {phase === 'idle' && (
             <div className="flex flex-col items-center justify-center h-full gap-6 text-center">
@@ -1302,7 +1356,7 @@ Optimize within constraints.`;
 
           {/* Card view */}
           {phase === 'done' && view === 'cards' && plans.length > 0 && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
               {plans.map((plan, idx) => (
                 <TechRouteCard
                   key={plan.technicianId}
@@ -1328,6 +1382,7 @@ Optimize within constraints.`;
           )}
         </div>
       </div>
+      </div>{/* end desktop+mobile content row */}
 
       {/* Toast */}
       {toast && (
