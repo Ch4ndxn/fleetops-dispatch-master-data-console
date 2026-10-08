@@ -89,7 +89,7 @@ export interface ChatMessage {
 /** Stream a chat completion. Returns an async generator of text chunks. */
 export async function* streamChat(
   messages: ChatMessage[],
-  model = 'meta-llama/llama-4-maverick-17b-128e-instruct'
+  model = 'llama-3.3-70b-versatile'
 ): AsyncGenerator<string> {
   const client = getClient();
   const context = buildFleetContext();
@@ -132,7 +132,7 @@ ${context}`;
 }
 
 /** One-shot (non-streaming) call — for quick structured outputs */
-export async function askGroq(prompt: string, model = 'meta-llama/llama-4-maverick-17b-128e-instruct'): Promise<string> {
+export async function askGroq(prompt: string, model = 'llama-3.3-70b-versatile'): Promise<string> {
   const client = getClient();
   const context = buildFleetContext();
 
@@ -149,10 +149,8 @@ export async function askGroq(prompt: string, model = 'meta-llama/llama-4-maveri
 }
 
 export const GROQ_MODELS = [
-  { id: 'meta-llama/llama-4-maverick-17b-128e-instruct', label: 'Llama 4 Maverick 17B (Default)' },
-  { id: 'meta-llama/llama-4-scout-17b-16e-instruct', label: 'Llama 4 Scout 17B (Fast)' },
-  { id: 'llama-3.3-70b-specdec', label: 'Llama 3.3 70B SpecDec' },
-  { id: 'llama-3.1-8b-instant', label: 'Llama 3.1 8B (Instant)' },
+  { id: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B (Default)' },
+  { id: 'llama-3.1-8b-instant', label: 'Llama 3.1 8B (Fast)' },
   { id: 'gemma2-9b-it', label: 'Gemma2 9B' },
 ];
 

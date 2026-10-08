@@ -252,7 +252,7 @@ Now produce the optimised plan.`;
     try {
       const client = getGroqClient();
       const stream = await client.chat.completions.create({
-        model: 'meta-llama/llama-4-maverick-17b-128e-instruct',
+        model: 'llama-3.3-70b-versatile',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user',   content: userMsg },
@@ -528,7 +528,7 @@ Now produce the optimised plan.`;
         <div className="bg-slate-900 rounded-xl overflow-hidden">
           <div className="flex items-center gap-2 px-4 py-2 border-b border-slate-700">
             <span className="w-2 h-2 rounded-full bg-teal-400 animate-pulse" />
-            <span className="text-xs font-mono text-slate-400">Groq stream · meta-llama/llama-4-maverick-17b-128e-instruct</span>
+            <span className="text-xs font-mono text-slate-400">Groq stream · llama-3.3-70b-versatile</span>
           </div>
           <div ref={logRef} className="px-4 py-3 text-[11px] font-mono text-slate-300 max-h-48 overflow-y-auto leading-relaxed whitespace-pre-wrap">
             {streamLog || 'Waiting for first token…'}
