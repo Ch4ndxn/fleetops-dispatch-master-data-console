@@ -9,8 +9,8 @@
  */
 
 import React, { useState, useMemo, useCallback } from 'react';
-import { getTechnicians, getTickets, saveTickets } from '../../services/storage';
-import { planTodayRoutes, calculateDistanceKm } from '../../services/routeOptimizer';
+import { getTechnicians, getTickets, saveTickets, getRoutePlans } from '../../services/storage';
+import { planBalancedRoutes, calculateDistanceKm } from '../../services/routeOptimizer';
 import { Technician, TechnicianRoutePlan, RouteStop, TicketPriority } from '../../types';
 import {
   CalendarDays,
@@ -54,36 +54,98 @@ function recalcEtas(stops: RouteStop[], startLat: number, startLng: number): Rou
 // ── Extended plan ─────────────────────────────────────────────────
 type MutablePlan = TechnicianRoutePlan & { tech: Technician };
 
-function buildPlans(): MutablePlan[] {
+function buildPlans(date?: string): MutablePlan[] {
   const techs = getTechnicians();
   const techMap = new Map(techs.map(t => [t.id, t]));
-  const base = planTodayRoutes();
+  const today = date ?? new Date().toISOString().split('T')[0];
+
+  // 1. Check for a saved Smart Route plan for this date (from SmartRoutePlannerPage.handleSave)
+  let base: TechnicianRoutePlan[] = [];
+  try {
+    const saved = localStorage.getItem(`fo_route_plan_${today}`);
+    if (saved) {
+      const parsed: TechnicianRoutePlan[] = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) base = parsed;
+    }
+  } catch {}
+
+  // 2. Also check storage-layer saved plans (saveRoutePlans writes here too)
+  if (base.length === 0) {
+    const storedPlans = getRoutePlans();
+    if (storedPlans && storedPlans.length > 0) base = storedPlans;
+  }
+
+  // 3. Fall back to fresh balanced calculation
+  if (base.length === 0) {
+    const result = planBalancedRoutes({
+      maxStopsPerTech: 8,
+      maxKmPerTech: 80,
+      priorityFilter: 'all',
+      skillMatch: false,
+      shiftStartHour: 9,
+      shiftEndHour: 18,
+    });
+    base = result.plans;
+  }
+
   const extended: MutablePlan[] = base
     .filter(p => techMap.has(p.technicianId))
     .map(p => ({ ...p, tech: techMap.get(p.technicianId)! }));
+
   // Add active techs with no tickets as empty rows
   techs
     .filter(t => t.status === 'Active' && !extended.find(p => p.technicianId === t.id) && t.startingLatitude && t.startingLongitude)
     .forEach(t => extended.push({
       technicianId: t.id, technicianName: t.name, employeeId: t.employeeId,
-      startLat: t.startingLatitude!, startLng: t.startingLongitude!, defaultDc: t.defaultDc,
+      startLat: t.startingLatitude!, startLng: t.startingLongitude!, defaultDc: t.defaultDc ?? '',
       stops: [], totalDistanceKm: 0, totalEstimatedMins: 0, status: 'Draft', tech: t,
     }));
   return extended;
 }
 
 // ── Component ─────────────────────────────────────────────────────
+function getPlanSource(date: string): 'saved' | 'storage' | 'fresh' {
+  try {
+    const saved = localStorage.getItem(`fo_route_plan_${date}`);
+    if (saved) { const p = JSON.parse(saved); if (Array.isArray(p) && p.length > 0) return 'saved'; }
+  } catch {}
+  const storedPlans = getRoutePlans();
+  if (storedPlans && storedPlans.length > 0) return 'storage';
+  return 'fresh';
+}
+
 export function RosterPage() {
-  const [selectedDate, setSelectedDate] = useState(toIso(new Date()));
-  const [plans, setPlans] = useState<MutablePlan[]>(buildPlans);
+  const today = toIso(new Date());
+  const [selectedDate, setSelectedDate] = useState(today);
+  const [plans, setPlans] = useState<MutablePlan[]>(() => buildPlans(today));
+  const [planSource, setPlanSource] = useState<'saved' | 'storage' | 'fresh'>(() => getPlanSource(today));
   const [reassignFrom, setReassignFrom] = useState<{ planIdx: number; stopIdx: number } | null>(null);
   const [filterCity, setFilterCity] = useState('All');
   const [spinning, setSpinning] = useState(false);
 
+  // Reload when date changes
+  const loadForDate = useCallback((date: string) => {
+    setSelectedDate(date);
+    setSpinning(true);
+    setTimeout(() => {
+      setPlans(buildPlans(date));
+      setPlanSource(getPlanSource(date));
+      setReassignFrom(null);
+      setSpinning(false);
+    }, 200);
+  }, []);
+
   const regenerate = useCallback(() => {
     setSpinning(true);
-    setTimeout(() => { setPlans(buildPlans()); setReassignFrom(null); setSpinning(false); }, 350);
-  }, []);
+    // Clear saved plan so we get a fresh calculation
+    try { localStorage.removeItem(`fo_route_plan_${selectedDate}`); } catch {}
+    setTimeout(() => {
+      setPlans(buildPlans(selectedDate));
+      setPlanSource('fresh');
+      setReassignFrom(null);
+      setSpinning(false);
+    }, 350);
+  }, [selectedDate]);
 
   // Reassign stop from one plan to another
   const handleReassign = (fromIdx: number, stopIdx: number, toIdx: number) => {
@@ -166,10 +228,20 @@ export function RosterPage() {
             <CalendarDays className="w-3.5 h-3.5 text-slate-400" />
             <input
               type="date" value={selectedDate}
-              onChange={e => setSelectedDate(e.target.value)}
+              onChange={e => loadForDate(e.target.value)}
               className="text-xs font-semibold text-slate-700 bg-transparent focus:outline-none"
             />
           </div>
+          {/* Plan source badge */}
+          <span className={`text-[10px] font-semibold px-2 py-1 rounded-lg border ${
+            planSource === 'saved'
+              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+              : planSource === 'storage'
+              ? 'bg-blue-50 text-blue-700 border-blue-200'
+              : 'bg-slate-100 text-slate-500 border-slate-200'
+          }`}>
+            {planSource === 'saved' ? '✓ From Smart Route Plan' : planSource === 'storage' ? '✓ From Saved Plan' : '↻ Auto-calculated'}
+          </span>
 
           <select value={filterCity} onChange={e => setFilterCity(e.target.value)}
             className="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none">
