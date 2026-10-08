@@ -6,6 +6,7 @@ import {
   QUICK_PROMPTS,
   resetGroqClient,
 } from '../../services/groqService';
+import { streamGemini, GEMINI_MODELS } from '../../services/geminiService';
 import {
   Bot,
   Send,
@@ -21,6 +22,8 @@ import {
   Sparkles,
   Key,
 } from 'lucide-react';
+
+type Provider = 'groq' | 'gemini';
 
 // ── Simple markdown renderer (bold, inline-code, bullet lists, headers) ────────
 function renderMarkdown(text: string): React.ReactNode[] {
@@ -164,12 +167,21 @@ export const AiAssistantPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [streamingId, setStreamingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [selectedModel, setSelectedModel] = useState(GROQ_MODELS[0].id);
+  const [provider, setProvider] = useState<Provider>('gemini');
+  const [selectedModel, setSelectedModel] = useState(GEMINI_MODELS[0].id);
   const [showSettings, setShowSettings] = useState(false);
-  const [apiKey, setApiKey] = useState(() => {
+  const [groqKey, setGroqKey] = useState(() => {
     try { return localStorage.getItem('fo_groq_key') || ''; } catch { return ''; }
   });
+  const [geminiKey, setGeminiKey] = useState(() => {
+    try { return localStorage.getItem('fo_gemini_key') || ''; } catch { return ''; }
+  });
   const [apiKeySaved, setApiKeySaved] = useState(false);
+
+  // Sync model when provider changes
+  useEffect(() => {
+    setSelectedModel(provider === 'groq' ? GROQ_MODELS[0].id : GEMINI_MODELS[0].id);
+  }, [provider]);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -189,9 +201,10 @@ export const AiAssistantPage: React.FC = () => {
 
   const saveApiKey = () => {
     try {
-      localStorage.setItem('fo_groq_key', apiKey.trim());
+      if (groqKey.trim()) localStorage.setItem('fo_groq_key', groqKey.trim());
+      if (geminiKey.trim()) localStorage.setItem('fo_gemini_key', geminiKey.trim());
     } catch {}
-    resetGroqClient(); // force new client with updated key on next call
+    resetGroqClient();
     setApiKeySaved(true);
     setTimeout(() => setApiKeySaved(false), 2000);
     setShowSettings(false);
@@ -225,7 +238,10 @@ export const AiAssistantPage: React.FC = () => {
 
     try {
       let fullContent = '';
-      for await (const chunk of streamChat(history, selectedModel)) {
+      const stream = provider === 'gemini'
+        ? streamGemini(history, selectedModel)
+        : streamChat(history, selectedModel);
+      for await (const chunk of stream) {
         fullContent += chunk;
         setMessages(prev =>
           prev.map(m => m.id === assistantId ? { ...m, content: fullContent } : m)
@@ -233,7 +249,7 @@ export const AiAssistantPage: React.FC = () => {
       }
     } catch (err: any) {
       const msg = err?.message ?? String(err);
-      setError(msg.includes('VITE_GROQ_API_KEY') ? 'Groq API key not set. Click ⚙ Settings to add your key.' : msg);
+      setError(msg);
       setMessages(prev => prev.filter(m => m.id !== assistantId));
     } finally {
       setIsLoading(false);
@@ -269,11 +285,25 @@ export const AiAssistantPage: React.FC = () => {
           </div>
           <div>
             <div className="text-sm font-bold text-slate-900 tracking-tight">FleetOps AI</div>
-            <div className="text-[10px] text-teal-600 font-mono">Powered by Groq · {GROQ_MODELS.find(m => m.id === selectedModel)?.label}</div>
+            <div className="text-[10px] text-teal-600 font-mono">
+              {provider === 'gemini' ? 'Powered by Google Gemini' : 'Powered by Groq'} · {(provider === 'gemini' ? GEMINI_MODELS : GROQ_MODELS).find(m => m.id === selectedModel)?.label}
+            </div>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Provider toggle */}
+          <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200">
+            <button
+              onClick={() => setProvider('gemini')}
+              className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-colors ${provider === 'gemini' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-500 hover:text-slate-700'}`}
+            >Gemini</button>
+            <button
+              onClick={() => setProvider('groq')}
+              className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-colors ${provider === 'groq' ? 'bg-teal-600 text-white shadow-xs' : 'text-slate-500 hover:text-slate-700'}`}
+            >Groq</button>
+          </div>
+
           {/* Model picker */}
           <div className="relative">
             <select
@@ -281,7 +311,7 @@ export const AiAssistantPage: React.FC = () => {
               onChange={e => setSelectedModel(e.target.value)}
               className="appearance-none text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200 rounded-lg px-2.5 py-1.5 pr-6 cursor-pointer focus:outline-none focus:ring-2 focus:ring-teal-500/40"
             >
-              {GROQ_MODELS.map(m => (
+              {(provider === 'gemini' ? GEMINI_MODELS : GROQ_MODELS).map(m => (
                 <option key={m.id} value={m.id}>{m.label}</option>
               ))}
             </select>
@@ -310,30 +340,34 @@ export const AiAssistantPage: React.FC = () => {
 
       {/* ── Settings panel ── */}
       {showSettings && (
-        <div className="shrink-0 bg-teal-50 border-b border-teal-200 px-5 py-3 flex flex-col sm:flex-row items-start sm:items-center gap-3">
-          <Key className="w-4 h-4 text-teal-700 shrink-0" />
-          <div className="flex-1 flex flex-col sm:flex-row gap-2 w-full">
-            <input
-              type="password"
-              value={apiKey}
-              onChange={e => setApiKey(e.target.value)}
-              placeholder="Paste your Groq API key (gsk_...)"
-              className="flex-1 text-xs px-3 py-2 rounded-lg border border-teal-300 bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/40 font-mono"
-            />
-            <button
-              onClick={saveApiKey}
-              className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 shrink-0"
-            >
+        <div className="shrink-0 bg-slate-50 border-b border-slate-200 px-5 py-3 flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700"><Key className="w-3.5 h-3.5" /> API Keys</div>
+            <button onClick={() => setShowSettings(false)} className="text-slate-400 hover:text-slate-600 p-1"><X className="w-4 h-4" /></button>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <div className="flex-1 flex items-center gap-2">
+              <span className="text-[10px] font-bold text-blue-600 w-14 shrink-0">Gemini</span>
+              <input type="password" value={geminiKey} onChange={e => setGeminiKey(e.target.value)}
+                placeholder="AIza... or AQ.Ab..."
+                className="flex-1 text-xs px-3 py-1.5 rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/40 font-mono" />
+            </div>
+            <div className="flex-1 flex items-center gap-2">
+              <span className="text-[10px] font-bold text-teal-600 w-14 shrink-0">Groq</span>
+              <input type="password" value={groqKey} onChange={e => setGroqKey(e.target.value)}
+                placeholder="gsk_..."
+                className="flex-1 text-xs px-3 py-1.5 rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/40 font-mono" />
+            </div>
+            <button onClick={saveApiKey}
+              className="px-4 py-1.5 bg-slate-800 hover:bg-black text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 shrink-0">
               {apiKeySaved ? <CheckCheck className="w-3.5 h-3.5" /> : <Key className="w-3.5 h-3.5" />}
-              {apiKeySaved ? 'Saved!' : 'Save Key'}
+              {apiKeySaved ? 'Saved!' : 'Save'}
             </button>
           </div>
-          <button onClick={() => setShowSettings(false)} className="text-teal-500 hover:text-teal-700 p-1 shrink-0">
-            <X className="w-4 h-4" />
-          </button>
-          <p className="text-[10px] text-teal-700 sm:hidden">
-            Get your free key at <a href="https://console.groq.com" target="_blank" rel="noreferrer" className="underline font-semibold">console.groq.com</a>
-          </p>
+          <div className="text-[10px] text-slate-400">
+            Gemini: <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer" className="text-blue-500 underline">aistudio.google.com/apikey</a>
+            {' · '}Groq: <a href="https://console.groq.com/keys" target="_blank" rel="noreferrer" className="text-teal-500 underline">console.groq.com/keys</a>
+          </div>
         </div>
       )}
 
@@ -352,11 +386,7 @@ export const AiAssistantPage: React.FC = () => {
                 Ask anything about your Delhi NCR fleet — ticket assignments, workload balance, anomalies, shift briefings, and more.
               </p>
               <p className="text-[10px] text-slate-400 mt-2">
-                Get your free API key at{' '}
-                <a href="https://console.groq.com" target="_blank" rel="noreferrer" className="text-teal-600 underline font-semibold">
-                  console.groq.com
-                </a>{' '}
-                then click ⚙ above.
+                Uses <span className="text-blue-500 font-semibold">Google Gemini</span> by default (free) · Switch to <span className="text-teal-500 font-semibold">Groq</span> anytime · Click ⚙ to manage keys.
               </p>
             </div>
 
