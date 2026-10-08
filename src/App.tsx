@@ -17,6 +17,7 @@ import { ImportHistoryPage } from './components/history/ImportHistoryPage';
 import { SettingsPage } from './components/settings/SettingsPage';
 import { ConnectionStatusPage } from './components/connections/ConnectionStatusPage';
 import { HexZoneMapPage } from './components/map/HexZoneMapPage';
+import { RosterPage } from './components/roster/RosterPage';
 
 // Modals
 import { AddEditTechnicianModal } from './components/technicians/AddEditTechnicianModal';
@@ -27,6 +28,7 @@ import { CsvUploadWizardModal } from './components/importer/CsvUploadWizardModal
 import {
   LayoutDashboard,
   CalendarCheck,
+  ClipboardList,
   AlertCircle,
   Compass,
   CheckSquare,
@@ -48,6 +50,7 @@ import {
 
 type NavTab =
   | 'OVERVIEW'
+  | 'ROSTER'
   | 'ATTENDANCE'
   | 'ACTIVE CASES'
   | 'ROUTE PLANNER'
@@ -72,6 +75,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { id: 'OVERVIEW', label: 'OVERVIEW', icon: LayoutDashboard },
   { id: 'HEX ZONE MAP', label: 'HEX ZONE MAP', icon: Hexagon },
+  { id: 'ROSTER', label: 'ROSTER', icon: ClipboardList },
   { id: 'ATTENDANCE', label: 'ATTENDANCE', icon: CalendarCheck },
   { id: 'ACTIVE CASES', label: 'ACTIVE CASES', icon: AlertCircle },
   { id: 'ROUTE PLANNER', label: 'ROUTE PLANNER', icon: Compass },
@@ -250,6 +254,10 @@ export default function App() {
               onOpenAddCenter={() => setIsAddCenterModalOpen(true)}
               onOpenUploadModal={handleOpenUpload}
             />
+          )}
+
+          {activeTab === 'ROSTER' && (
+            <RosterPage />
           )}
 
           {activeTab === 'ATTENDANCE' && (
