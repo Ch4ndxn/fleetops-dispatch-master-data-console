@@ -1,14 +1,12 @@
 /**
  * HexZoneMapPage — hexagonal cluster dispatch view for Delhi NCR
  *
- * Map layers (toggleable):
- *   • Centers with open tickets   — lit hex + DC marker (orange ring)
- *   • Centers with ignored tickets — dim hex + DC marker (grey ring)
- *   • Technician bases             — blue 🔧 dots
- *
- * Click a hex / center → side panel with:
- *   • Per-ticket list: Ignore (skip for today) | Reassign to another tech
- *   • Bulk-assign all open tickets to one technician
+ * Enhanced features:
+ *   • 12 vehicle-density clusters (k-means on hex centroids weighted by vehicle count)
+ *   • One technician auto-assigned per cluster (zone/specialisation match)
+ *   • Spare vehicle hub placed for every 20 vehicles in cluster (diamond marker ◆)
+ *   • All original layers: open-ticket hexes, DC markers, tech base dots
+ *   • Click hex/DC → side panel with bulk assign, per-ticket ignore/reassign
  */
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import * as L from 'leaflet';
@@ -19,26 +17,30 @@ import {
 import { Ticket, Technician, Center } from '../../types';
 import {
   Users, Zap, CheckCircle2, X, MapPin, AlertTriangle,
-  EyeOff, RefreshCw, Filter, Layers,
+  EyeOff, RefreshCw, Filter, Layers, Diamond, UserCheck,
 } from 'lucide-react';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
-type MapLayer = 'openTickets' | 'ignoredTickets' | 'techBases';
+type MapLayer = 'openTickets' | 'ignoredTickets' | 'techBases' | 'clusters' | 'spareHubs';
 
 // ─── Hex grid parameters ─────────────────────────────────────────────────────
 const BBOX = { minLat: 28.28, maxLat: 28.85, minLng: 76.80, maxLng: 77.58 };
 const HEX_R_LAT = 0.055;
 const HEX_R_LNG = 0.075;
+const NUM_CLUSTERS = 12;
+
+// ─── Cluster palette ──────────────────────────────────────────────────────────
+const CLUSTER_COLORS = [
+  '#e11d48','#7c3aed','#2563eb','#059669','#d97706','#0891b2',
+  '#9333ea','#16a34a','#dc2626','#0d9488','#b45309','#6366f1',
+];
 
 // ─── Priority colours ─────────────────────────────────────────────────────────
 const PRIORITY_COLOR: Record<string, string> = {
-  CRITICAL: '#dc2626',
-  HIGH:     '#ea580c',
-  MEDIUM:   '#ca8a04',
-  LOW:      '#16a34a',
+  CRITICAL: '#dc2626', HIGH: '#ea580c', MEDIUM: '#ca8a04', LOW: '#16a34a',
 };
 
-// ─── Ignored-ticket store (session-level; in localStorage) ───────────────────
+// ─── Ignored-ticket store ───────────────────────────────────────────────────
 const IGNORED_KEY = 'fleetops_ignored_tickets';
 function getIgnored(): Set<string> {
   try { return new Set(JSON.parse(localStorage.getItem(IGNORED_KEY) || '[]')); }
@@ -55,7 +57,6 @@ function hexCorners(cLat: number, cLng: number): [number, number][] {
     return [cLat + HEX_R_LAT * Math.sin(a), cLng + HEX_R_LNG * Math.cos(a)] as [number, number];
   });
 }
-
 function isInsideHex(pLat: number, pLng: number, cLat: number, cLng: number): boolean {
   const q = (pLng - cLng) / HEX_R_LNG;
   const r = (pLat - cLat) / HEX_R_LAT;
@@ -65,6 +66,18 @@ function isInsideHex(pLat: number, pLng: number, cLat: number, cLng: number): bo
 interface HexCell {
   key: string; col: number; row: number; cLat: number; cLng: number;
   tickets: Ticket[]; centers: Center[]; techs: Technician[];
+  vehicleCount: number; // unique vehicle numbers
+  clusterId: number;
+}
+
+interface Cluster {
+  id: number;
+  cells: HexCell[];
+  centLat: number; centLng: number;
+  vehicleCount: number;
+  assignedTech: Technician | null;
+  spareHubs: { lat: number; lng: number; hubIndex: number }[];
+  color: string;
 }
 
 const coordCache = new Map<string, { lat: number; lng: number } | null>();
@@ -87,15 +100,130 @@ function buildGrid(tickets: Ticket[], centers: Center[], techs: Technician[]): H
       const cLng = BBOX.minLng + col * stepLng;
       const cLat = BBOX.minLat + row * stepLat + (col % 2) * (stepLat / 2);
       if (cLat > BBOX.maxLat + HEX_R_LAT) continue;
+      const cellTickets = tickets.filter(t => {
+        const c = centerCoords(t.centerName, centers);
+        return c && isInsideHex(c.lat, c.lng, cLat, cLng);
+      });
+      const vehicles = new Set(cellTickets.map(t => t.vehicleNumber).filter(Boolean));
       cells.push({
         key: `${col}-${row}`, col, row, cLat, cLng,
-        tickets: tickets.filter(t => { const c = centerCoords(t.centerName, centers); return c && isInsideHex(c.lat, c.lng, cLat, cLng); }),
+        tickets: cellTickets,
         centers: centers.filter(c => isInsideHex(c.latitude, c.longitude, cLat, cLng)),
         techs: techs.filter(t => t.startingLatitude && t.startingLongitude && isInsideHex(t.startingLatitude, t.startingLongitude, cLat, cLng)),
+        vehicleCount: vehicles.size,
+        clusterId: -1,
       });
     }
   }
   return cells;
+}
+
+// ─── K-means clustering (weighted by vehicle density) ─────────────────────────
+function kMeansClusters(cells: HexCell[], k: number): number[] {
+  const activeCells = cells.filter(c => c.vehicleCount > 0 || c.tickets.length > 0 || c.centers.length > 0);
+  if (activeCells.length === 0) return cells.map(() => 0);
+
+  // Seed centroids: spread evenly across bounding box
+  const lats = activeCells.map(c => c.cLat);
+  const lngs = activeCells.map(c => c.cLng);
+  const minLat = Math.min(...lats), maxLat = Math.max(...lats);
+  const minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
+
+  let centroids: { lat: number; lng: number }[] = Array.from({ length: k }, (_, i) => ({
+    lat: minLat + (maxLat - minLat) * (i % 4) / 3,
+    lng: minLng + (maxLng - minLng) * Math.floor(i / 4) / (Math.ceil(k / 4) - 1 || 1),
+  }));
+
+  // Nudge apart any exact duplicates
+  centroids = centroids.map((c, i) => ({ lat: c.lat + i * 0.0001, lng: c.lng + i * 0.0001 }));
+
+  const assignments = new Array(cells.length).fill(0);
+  let changed = true;
+  let iters = 0;
+
+  while (changed && iters < 30) {
+    changed = false; iters++;
+    // Assign each active cell to nearest centroid (weight: vehicle count + 1)
+    cells.forEach((cell, idx) => {
+      let best = 0, bestDist = Infinity;
+      centroids.forEach((c, ci) => {
+        const d = Math.pow(cell.cLat - c.lat, 2) + Math.pow(cell.cLng - c.lng, 2);
+        if (d < bestDist) { bestDist = d; best = ci; }
+      });
+      if (assignments[idx] !== best) { assignments[idx] = best; changed = true; }
+    });
+    // Recompute centroids (weighted by vehicleCount)
+    centroids = centroids.map((_, ci) => {
+      const members = cells.filter((_, idx) => assignments[idx] === ci);
+      if (members.length === 0) return centroids[ci];
+      const totalW = members.reduce((s, c) => s + c.vehicleCount + 1, 0);
+      return {
+        lat: members.reduce((s, c) => s + c.cLat * (c.vehicleCount + 1), 0) / totalW,
+        lng: members.reduce((s, c) => s + c.cLng * (c.vehicleCount + 1), 0) / totalW,
+      };
+    });
+  }
+  return assignments;
+}
+
+// ─── Build cluster objects ─────────────────────────────────────────────────────
+function buildClusters(cells: HexCell[], techs: Technician[]): Cluster[] {
+  const activeTechs = techs.filter(t => t.status === 'Active');
+  const usedTechIds = new Set<string>();
+  const clusters: Cluster[] = [];
+
+  for (let ci = 0; ci < NUM_CLUSTERS; ci++) {
+    const members = cells.filter(c => c.clusterId === ci);
+    if (members.length === 0) continue;
+
+    // Weighted centroid
+    const totalV = members.reduce((s, c) => s + c.vehicleCount + 1, 0);
+    const centLat = members.reduce((s, c) => s + c.cLat * (c.vehicleCount + 1), 0) / totalV;
+    const centLng = members.reduce((s, c) => s + c.cLng * (c.vehicleCount + 1), 0) / totalV;
+    const vehicleCount = members.reduce((s, c) => s + c.vehicleCount, 0);
+
+    // Assign nearest available technician (prefer same zone/city)
+    let assignedTech: Technician | null = null;
+    const dominantCity = members.flatMap(c => c.centers).map(c => c.city || '').filter(Boolean);
+    const cityFreq: Record<string, number> = {};
+    dominantCity.forEach(c => { cityFreq[c] = (cityFreq[c] || 0) + 1; });
+    const topCity = Object.entries(cityFreq).sort((a, b) => b[1] - a[1])[0]?.[0] || '';
+
+    // Score techs: prefer zone match, then nearest
+    const scored = activeTechs
+      .filter(t => !usedTechIds.has(t.id))
+      .map(t => {
+        const zoneMatch = (t.zone || t.city || '').toLowerCase().includes(topCity.toLowerCase()) ? -1000 : 0;
+        const lat = t.startingLatitude || 28.58;
+        const lng = t.startingLongitude || 77.22;
+        const dist = Math.pow(lat - centLat, 2) + Math.pow(lng - centLng, 2);
+        return { tech: t, score: zoneMatch + dist };
+      })
+      .sort((a, b) => a.score - b.score);
+
+    if (scored.length > 0) {
+      assignedTech = scored[0].tech;
+      usedTechIds.add(assignedTech.id);
+    }
+
+    // Spare vehicle hubs: 1 hub per 20 vehicles, placed at cell centers sorted by density
+    const hubCount = Math.max(1, Math.floor(vehicleCount / 20));
+    const sortedByDensity = [...members].sort((a, b) => b.vehicleCount - a.vehicleCount);
+    const spareHubs = Array.from({ length: hubCount }, (_, hi) => {
+      const hostCell = sortedByDensity[hi % sortedByDensity.length];
+      // Offset slightly so it doesn't overlap DC markers
+      const offsetLat = hostCell.cLat + HEX_R_LAT * 0.35 * Math.cos((hi * 2.1));
+      const offsetLng = hostCell.cLng + HEX_R_LNG * 0.35 * Math.sin((hi * 2.1));
+      return { lat: offsetLat, lng: offsetLng, hubIndex: hi + 1 };
+    });
+
+    clusters.push({
+      id: ci, cells: members, centLat, centLng,
+      vehicleCount, assignedTech, spareHubs,
+      color: CLUSTER_COLORS[ci % CLUSTER_COLORS.length],
+    });
+  }
+  return clusters;
 }
 
 function hexFill(tickets: Ticket[], ignored: Set<string>): string {
@@ -114,6 +242,7 @@ function hexOpacity(tickets: Ticket[], ignored: Set<string>): number {
 // ─── Side panel ───────────────────────────────────────────────────────────────
 interface PanelProps {
   cell: HexCell;
+  cluster: Cluster | null;
   allTechs: Technician[];
   ignored: Set<string>;
   onIgnore: (id: string) => void;
@@ -123,34 +252,46 @@ interface PanelProps {
   onClose: () => void;
 }
 
-function ZonePanel({ cell, allTechs, ignored, onIgnore, onUnignore, onReassign, onBulkAssign, onClose }: PanelProps) {
+function ZonePanel({ cell, cluster, allTechs, ignored, onIgnore, onUnignore, onReassign, onBulkAssign, onClose }: PanelProps) {
   const [bulkTech, setBulkTech] = useState('');
   const [reassignTarget, setReassignTarget] = useState<string | null>(null);
   const [reassignTech, setReassignTech] = useState('');
   const [tab, setTab] = useState<'open' | 'ignored'>('open');
 
   const activeTechs = allTechs.filter(t => t.status === 'Active');
-  const allTickets = cell.tickets;
-  const openTickets  = allTickets.filter(t => !ignored.has(t.id) && t.status !== 'Resolved' && t.status !== 'Closed');
-  const ignoredInCell = allTickets.filter(t => ignored.has(t.id));
+  const openTickets = cell.tickets.filter(t => !ignored.has(t.id) && t.status !== 'Resolved' && t.status !== 'Closed');
+  const ignoredInCell = cell.tickets.filter(t => ignored.has(t.id));
 
   return (
     <div className="absolute top-3 right-3 z-[1000] w-84 bg-white border border-slate-200 rounded-xl shadow-2xl overflow-hidden flex flex-col" style={{ maxHeight: 'calc(100% - 24px)', width: '22rem' }}>
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 bg-slate-900 text-white shrink-0">
+      <div className="flex items-center justify-between px-4 py-3 text-white shrink-0" style={{ background: cluster ? cluster.color : '#0f172a' }}>
         <div className="flex items-center gap-2">
-          <MapPin className="w-4 h-4 text-blue-400" />
+          <MapPin className="w-4 h-4 text-white/80" />
           <div>
-            <div className="font-semibold text-sm">Zone {cell.key}</div>
-            <div className="text-[10px] text-slate-400 truncate">
+            <div className="font-semibold text-sm">
+              Zone {cell.key} {cluster ? `· Cluster ${cluster.id + 1}` : ''}
+            </div>
+            <div className="text-[10px] text-white/70 truncate">
               {cell.centers.map(c => c.name.replace(/_D$/, '')).join(' · ') || 'No center'}
             </div>
           </div>
         </div>
-        <button onClick={onClose} className="text-slate-400 hover:text-white shrink-0"><X className="w-4 h-4" /></button>
+        <button onClick={onClose} className="text-white/70 hover:text-white shrink-0"><X className="w-4 h-4" /></button>
       </div>
 
-      {/* Stats row */}
+      {/* Cluster tech badge */}
+      {cluster?.assignedTech && (
+        <div className="flex items-center gap-2 px-4 py-2 border-b border-slate-100 bg-slate-50 shrink-0">
+          <UserCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+          <div className="text-[11px]">
+            <span className="font-semibold text-slate-700">{cluster.assignedTech.name}</span>
+            <span className="text-slate-400"> · Cluster tech · {cluster.assignedTech.zone || cluster.assignedTech.city}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Stats */}
       <div className="grid grid-cols-3 divide-x divide-slate-100 border-b border-slate-100 shrink-0">
         {[
           { label: 'Open', val: openTickets.length, color: 'text-blue-700' },
@@ -174,11 +315,11 @@ function ZonePanel({ cell, allTechs, ignored, onIgnore, onUnignore, onReassign, 
         ))}
       </div>
 
-      {/* Ticket list — scrollable */}
+      {/* Ticket list */}
       <div className="overflow-y-auto flex-1 p-3 space-y-2">
         {tab === 'open' && (
           openTickets.length === 0
-            ? <div className="flex items-center gap-2 text-xs text-emerald-600 bg-emerald-50 rounded-lg px-3 py-2.5"><CheckCircle2 className="w-4 h-4" />All tickets assigned or ignored</div>
+            ? <div className="flex items-center gap-2 text-xs text-emerald-600 bg-emerald-50 rounded-lg px-3 py-2.5"><CheckCircle2 className="w-4 h-4" />All clear in this zone</div>
             : openTickets.map(t => (
               <div key={t.id} className="border border-slate-200 rounded-lg bg-slate-50 overflow-hidden">
                 <div className="flex items-center gap-2 px-2.5 py-2">
@@ -191,44 +332,32 @@ function ZonePanel({ cell, allTechs, ignored, onIgnore, onUnignore, onReassign, 
                 {t.assignedTechnicianName && (
                   <div className="px-2.5 pb-1.5 text-[11px] text-emerald-600 font-medium">✓ {t.assignedTechnicianName}</div>
                 )}
-                {/* Per-ticket actions */}
                 <div className="flex border-t border-slate-100">
-                  <button
-                    onClick={() => onIgnore(t.id)}
-                    className="flex-1 flex items-center justify-center gap-1 py-1.5 text-[11px] text-slate-500 hover:bg-slate-100 transition-colors font-medium"
-                  >
+                  <button onClick={() => onIgnore(t.id)}
+                    className="flex-1 flex items-center justify-center gap-1 py-1.5 text-[11px] text-slate-500 hover:bg-slate-100 transition-colors font-medium">
                     <EyeOff className="w-3 h-3" /> Ignore
                   </button>
                   <div className="w-px bg-slate-100" />
-                  <button
-                    onClick={() => { setReassignTarget(t.id); setReassignTech(t.assignedTechnicianId || ''); }}
-                    className="flex-1 flex items-center justify-center gap-1 py-1.5 text-[11px] text-blue-600 hover:bg-blue-50 transition-colors font-medium"
-                  >
+                  <button onClick={() => { setReassignTarget(t.id); setReassignTech(t.assignedTechnicianId || ''); }}
+                    className="flex-1 flex items-center justify-center gap-1 py-1.5 text-[11px] text-blue-600 hover:bg-blue-50 transition-colors font-medium">
                     <RefreshCw className="w-3 h-3" /> Reassign
                   </button>
                 </div>
-                {/* Inline reassign dropdown */}
                 {reassignTarget === t.id && (
                   <div className="px-2.5 pb-2.5 pt-1 space-y-1.5 bg-blue-50 border-t border-blue-100">
-                    <select
-                      value={reassignTech}
-                      onChange={e => setReassignTech(e.target.value)}
-                      className="w-full text-xs border border-blue-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
+                    <select value={reassignTech} onChange={e => setReassignTech(e.target.value)}
+                      className="w-full text-xs border border-blue-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
                       <option value="">— Pick technician —</option>
                       {activeTechs.map(tech => (
                         <option key={tech.id} value={tech.id}>
-                          {tech.name} · {tech.zone || tech.city}
-                          {tech.id === t.assignedTechnicianId ? ' (current)' : ''}
+                          {tech.name} · {tech.zone || tech.city}{tech.id === t.assignedTechnicianId ? ' (current)' : ''}
                         </option>
                       ))}
                     </select>
                     <div className="flex gap-1.5">
-                      <button
-                        disabled={!reassignTech}
+                      <button disabled={!reassignTech}
                         onClick={() => { onReassign(t.id, reassignTech); setReassignTarget(null); setReassignTech(''); }}
-                        className="flex-1 py-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-xs rounded-lg font-semibold"
-                      >Confirm</button>
+                        className="flex-1 py-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-xs rounded-lg font-semibold">Confirm</button>
                       <button onClick={() => setReassignTarget(null)} className="px-3 py-1 bg-white border border-slate-200 text-xs rounded-lg text-slate-600 hover:bg-slate-50">Cancel</button>
                     </div>
                   </div>
@@ -236,10 +365,9 @@ function ZonePanel({ cell, allTechs, ignored, onIgnore, onUnignore, onReassign, 
               </div>
             ))
         )}
-
         {tab === 'ignored' && (
           ignoredInCell.length === 0
-            ? <div className="text-xs text-slate-400 text-center py-4">No ignored tickets in this zone</div>
+            ? <div className="text-xs text-slate-400 text-center py-4">No ignored tickets here</div>
             : ignoredInCell.map(t => (
               <div key={t.id} className="border border-slate-200 rounded-lg bg-slate-50 overflow-hidden opacity-70">
                 <div className="flex items-center gap-2 px-2.5 py-2">
@@ -248,10 +376,8 @@ function ZonePanel({ cell, allTechs, ignored, onIgnore, onUnignore, onReassign, 
                   <span className="text-xs text-slate-400 truncate flex-1">{t.vehicleNumber}</span>
                 </div>
                 <div className="flex border-t border-slate-100">
-                  <button
-                    onClick={() => onUnignore(t.id)}
-                    className="flex-1 flex items-center justify-center gap-1 py-1.5 text-[11px] text-blue-600 hover:bg-blue-50 transition-colors font-medium"
-                  >
+                  <button onClick={() => onUnignore(t.id)}
+                    className="flex-1 flex items-center justify-center gap-1 py-1.5 text-[11px] text-blue-600 hover:bg-blue-50 transition-colors font-medium">
                     <RefreshCw className="w-3 h-3" /> Restore
                   </button>
                 </div>
@@ -264,23 +390,17 @@ function ZonePanel({ cell, allTechs, ignored, onIgnore, onUnignore, onReassign, 
       {openTickets.length > 0 && (
         <div className="border-t border-slate-200 p-3 space-y-2 bg-slate-50 shrink-0">
           <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-            Bulk assign all {openTickets.length} open ticket{openTickets.length > 1 ? 's' : ''}
+            Bulk assign all {openTickets.length} open tickets
           </div>
-          <select
-            value={bulkTech}
-            onChange={e => setBulkTech(e.target.value)}
-            className="w-full text-xs border border-slate-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
+          <select value={bulkTech} onChange={e => setBulkTech(e.target.value)}
+            className="w-full text-xs border border-slate-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
             <option value="">— Select technician —</option>
             {activeTechs.map(t => (
               <option key={t.id} value={t.id}>{t.name} · {t.specialisation} · {t.zone || t.city}</option>
             ))}
           </select>
-          <button
-            disabled={!bulkTech}
-            onClick={() => { onBulkAssign(bulkTech); setBulkTech(''); }}
-            className="w-full flex items-center justify-center gap-2 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg text-xs font-semibold"
-          >
+          <button disabled={!bulkTech} onClick={() => { onBulkAssign(bulkTech); setBulkTech(''); }}
+            className="w-full flex items-center justify-center gap-2 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white rounded-lg text-xs font-semibold">
             <Zap className="w-3.5 h-3.5" /> Assign to Zone
           </button>
         </div>
@@ -302,13 +422,13 @@ export function HexZoneMapPage() {
   const [selectedCell, setSelectedCell] = useState<HexCell | null>(null);
   const [ignored, setIgnoredState] = useState<Set<string>>(() => getIgnored());
   const [activeLayers, setActiveLayers] = useState<Set<MapLayer>>(
-    () => new Set(['openTickets', 'techBases'] as MapLayer[])
+    () => new Set(['openTickets', 'techBases', 'clusters', 'spareHubs'] as MapLayer[])
   );
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // Ticket filter for hex colouring
   type HexFilter = 'all' | 'open' | 'unassigned';
   const [hexFilter, setHexFilter] = useState<HexFilter>('open');
+  const [activeClusterView, setActiveClusterView] = useState(true);
 
   useEffect(() => { const u = subscribeToDataChanges(() => setTickets(getTickets())); return u; }, []);
   useEffect(() => { coordCache.clear(); }, [centers]);
@@ -317,7 +437,7 @@ export function HexZoneMapPage() {
 
   const handleIgnore = useCallback((id: string) => {
     const s = new Set(ignored); s.add(id); persistIgnored(s);
-    toast(`Ticket ignored — won't show on map until restored`);
+    toast('Ticket ignored — won\'t show on map until restored');
   }, [ignored]);
 
   const handleUnignore = useCallback((id: string) => {
@@ -356,24 +476,34 @@ export function HexZoneMapPage() {
   }, [selectedCell, allTechs, tickets, ignored]);
 
   function toast(msg: string) { setSuccessMsg(msg); setTimeout(() => setSuccessMsg(null), 4000); }
-
   function toggleLayer(l: MapLayer) {
     setActiveLayers(prev => { const s = new Set(prev); s.has(l) ? s.delete(l) : s.add(l); return s; });
   }
 
-  // Tickets fed to grid (respects hex filter)
   const filteredTickets = useMemo(() => tickets.filter(t => {
     if (hexFilter === 'open') return t.status !== 'Resolved' && t.status !== 'Closed';
     if (hexFilter === 'unassigned') return !t.assignedTechnicianId && t.status !== 'Resolved' && t.status !== 'Closed';
     return true;
   }), [tickets, hexFilter]);
 
-  const grid = useMemo(() => buildGrid(filteredTickets, centers, allTechs), [filteredTickets, centers, allTechs]);
+  // Build grid + run k-means
+  const grid = useMemo(() => {
+    const raw = buildGrid(filteredTickets, centers, allTechs);
+    const assignments = kMeansClusters(raw, NUM_CLUSTERS);
+    return raw.map((cell, i) => ({ ...cell, clusterId: assignments[i] }));
+  }, [filteredTickets, centers, allTechs]);
+
+  const clusters = useMemo(() => buildClusters(grid, allTechs), [grid, allTechs]);
+
+  // Find cluster for selected cell
+  const selectedCluster = useMemo(() =>
+    selectedCell ? clusters.find(c => c.cells.some(cc => cc.key === selectedCell.key)) ?? null : null,
+    [selectedCell, clusters]
+  );
 
   // ── Draw map ──
   useEffect(() => {
     if (!mapContainerRef.current) return;
-
     if (!mapRef.current) {
       mapRef.current = L.map(mapContainerRef.current, { center: [28.58, 77.22], zoom: 11, zoomControl: true });
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -384,7 +514,37 @@ export function HexZoneMapPage() {
     layersRef.current.forEach(l => { try { map.removeLayer(l); } catch { /**/ } });
     layersRef.current = [];
 
-    // Hex polygons
+    // Cluster tinted hex polygons (show under ticket layer)
+    if (activeLayers.has('clusters')) {
+      grid.forEach(cell => {
+        const cluster = clusters.find(c => c.id === cell.clusterId);
+        if (!cluster) return;
+        const poly = L.polygon(hexCorners(cell.cLat, cell.cLng), {
+          color: cluster.color, weight: 1, opacity: 0.5,
+          fillColor: cluster.color, fillOpacity: activeClusterView ? 0.08 : 0,
+        }).addTo(map);
+        layersRef.current.push(poly);
+      });
+
+      // Cluster centroid labels (cluster ID + assigned tech name)
+      clusters.forEach(cluster => {
+        const icon = L.divIcon({
+          className: '',
+          html: `<div style="background:${cluster.color};color:white;font-size:9px;font-weight:800;padding:2px 5px;border-radius:10px;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.4);border:1.5px solid white;opacity:0.9;">
+            C${cluster.id + 1}${cluster.assignedTech ? ' · ' + cluster.assignedTech.name.split(' ')[0] : ''}
+          </div>`,
+          iconSize: [0, 0], iconAnchor: [0, 0],
+        });
+        const m = L.marker([cluster.centLat, cluster.centLng], { icon }).addTo(map);
+        m.bindTooltip(
+          `Cluster ${cluster.id + 1} · ${cluster.vehicleCount} vehicles\n${cluster.assignedTech ? cluster.assignedTech.name + ' (' + cluster.assignedTech.employeeId + ')' : 'No tech assigned'}\n${cluster.spareHubs.length} spare hub${cluster.spareHubs.length > 1 ? 's' : ''}`,
+          { permanent: false, direction: 'top' }
+        );
+        layersRef.current.push(m);
+      });
+    }
+
+    // Hex polygons (ticket density)
     grid.forEach(cell => {
       const open = cell.tickets.filter(t => !ignored.has(t.id) && t.status !== 'Resolved' && t.status !== 'Closed');
       const ign  = cell.tickets.filter(t => ignored.has(t.id));
@@ -418,16 +578,15 @@ export function HexZoneMapPage() {
     // DC / Center markers
     centers.forEach(c => {
       if (!c.latitude || !c.longitude || isNaN(c.latitude)) return;
-      // Find if this center has open or ignored tickets
-      const cTickets = filteredTickets.filter(t => t.centerName.toLowerCase().trim() === c.name.toLowerCase().trim() || t.centerName.toLowerCase() === c.normalizedName);
+      const cTickets = filteredTickets.filter(t =>
+        t.centerName.toLowerCase().trim() === c.name.toLowerCase().trim() || t.centerName.toLowerCase() === c.normalizedName
+      );
       const hasOpen = cTickets.some(t => !ignored.has(t.id) && t.status !== 'Resolved' && t.status !== 'Closed');
       const hasIgn  = cTickets.some(t => ignored.has(t.id));
-
       const ringColor = hasOpen && activeLayers.has('openTickets') ? '#f97316'
                       : hasIgn && activeLayers.has('ignoredTickets') ? '#94a3b8'
                       : '#0f172a';
       const ringWidth = (hasOpen || hasIgn) ? 3 : 2;
-
       const icon = L.divIcon({
         className: '',
         html: `<div style="background:#0f172a;color:white;font-size:9px;font-weight:700;width:26px;height:26px;border-radius:5px;display:flex;align-items:center;justify-content:center;border:${ringWidth}px solid ${ringColor};box-shadow:0 2px 5px rgba(0,0,0,.35)">DC</div>`,
@@ -435,7 +594,6 @@ export function HexZoneMapPage() {
       });
       const m = L.marker([c.latitude, c.longitude], { icon }).addTo(map);
       m.bindTooltip(`${c.name.replace(/_D$/, '')} — ${cTickets.filter(t => !ignored.has(t.id) && t.status !== 'Resolved' && t.status !== 'Closed').length} open`, { permanent: false, direction: 'top' });
-      // Click center → find its hex cell
       m.on('click', () => {
         const cell = grid.find(cell => isInsideHex(c.latitude, c.longitude, cell.cLat, cell.cLng));
         if (cell) setSelectedCell(cell);
@@ -443,17 +601,38 @@ export function HexZoneMapPage() {
       layersRef.current.push(m);
     });
 
+    // Spare vehicle hub markers (diamond ◆)
+    if (activeLayers.has('spareHubs')) {
+      clusters.forEach(cluster => {
+        cluster.spareHubs.forEach(hub => {
+          const icon = L.divIcon({
+            className: '',
+            html: `<div style="display:flex;flex-direction:column;align-items:center;">
+              <div style="width:18px;height:18px;background:${cluster.color};transform:rotate(45deg);border:2px solid white;box-shadow:0 2px 5px rgba(0,0,0,.4);"></div>
+              <div style="font-size:9px;font-weight:700;color:${cluster.color};background:white;border-radius:3px;padding:0 3px;margin-top:2px;border:1px solid ${cluster.color};white-space:nowrap;">HUB ${hub.hubIndex}</div>
+            </div>`,
+            iconSize: [36, 36], iconAnchor: [18, 9],
+          });
+          const m = L.marker([hub.lat, hub.lng], { icon }).addTo(map);
+          m.bindTooltip(`Cluster ${cluster.id + 1} · Spare Hub ${hub.hubIndex}\n~${Math.round(cluster.vehicleCount / cluster.spareHubs.length)} vehicles/hub`, { permanent: false, direction: 'top' });
+          layersRef.current.push(m);
+        });
+      });
+    }
+
     // Technician base markers
     if (activeLayers.has('techBases')) {
       allTechs.forEach(t => {
         if (!t.startingLatitude || !t.startingLongitude) return;
+        const clusterOfTech = clusters.find(c => c.assignedTech?.id === t.id);
+        const dotColor = clusterOfTech ? clusterOfTech.color : '#2563eb';
         const icon = L.divIcon({
           className: '',
-          html: `<div style="background:#2563eb;color:white;font-size:10px;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,.3)">🔧</div>`,
+          html: `<div style="background:${dotColor};color:white;font-size:10px;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,.3)">🔧</div>`,
           iconSize: [22, 22], iconAnchor: [11, 11],
         });
         const m = L.marker([t.startingLatitude, t.startingLongitude], { icon }).addTo(map);
-        m.bindTooltip(`${t.name} · ${t.zone || t.city}`, { permanent: false, direction: 'top' });
+        m.bindTooltip(`${t.name} · ${t.zone || t.city}${clusterOfTech ? ' · Cluster ' + (clusterOfTech.id + 1) : ''}`, { permanent: false, direction: 'top' });
         layersRef.current.push(m);
       });
     }
@@ -463,7 +642,7 @@ export function HexZoneMapPage() {
       layersRef.current = [];
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filteredTickets, centers, allTechs, activeLayers, ignored]);
+  }, [filteredTickets, centers, allTechs, activeLayers, ignored, clusters, activeClusterView]);
 
   useEffect(() => () => { if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; } }, []);
 
@@ -472,11 +651,15 @@ export function HexZoneMapPage() {
   const unassigned = openAll.filter(t => !t.assignedTechnicianId && !ignored.has(t.id));
   const ignoredCount = [...ignored].filter(id => openAll.some(t => t.id === id)).length;
   const criticalZones = grid.filter(c => c.tickets.some(t => !ignored.has(t.id) && t.priority === 'CRITICAL' && t.status !== 'Resolved' && t.status !== 'Closed'));
+  const totalVehicles = new Set(tickets.map(t => t.vehicleNumber).filter(Boolean)).size;
+  const totalHubs = clusters.reduce((s, c) => s + c.spareHubs.length, 0);
 
   const LAYER_CONFIG: { id: MapLayer; label: string; color: string; activeColor: string }[] = [
-    { id: 'openTickets',    label: 'Open Tickets',    color: 'border-slate-200 text-slate-600',          activeColor: 'bg-orange-500 border-orange-500 text-white' },
-    { id: 'ignoredTickets', label: 'Ignored Tickets', color: 'border-slate-200 text-slate-600',          activeColor: 'bg-slate-500 border-slate-500 text-white' },
-    { id: 'techBases',      label: 'Tech Bases',      color: 'border-slate-200 text-slate-600',          activeColor: 'bg-blue-600 border-blue-600 text-white' },
+    { id: 'clusters',      label: '12 Clusters',    color: 'border-slate-200 text-slate-600', activeColor: 'bg-purple-600 border-purple-600 text-white' },
+    { id: 'openTickets',   label: 'Open Tickets',   color: 'border-slate-200 text-slate-600', activeColor: 'bg-orange-500 border-orange-500 text-white' },
+    { id: 'spareHubs',     label: 'Spare Hubs ◆',  color: 'border-slate-200 text-slate-600', activeColor: 'bg-teal-600 border-teal-600 text-white' },
+    { id: 'techBases',     label: 'Tech Bases 🔧',  color: 'border-slate-200 text-slate-600', activeColor: 'bg-blue-600 border-blue-600 text-white' },
+    { id: 'ignoredTickets',label: 'Ignored',        color: 'border-slate-200 text-slate-600', activeColor: 'bg-slate-500 border-slate-500 text-white' },
   ];
 
   return (
@@ -485,9 +668,10 @@ export function HexZoneMapPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-slate-900 tracking-tight">HEX ZONE MAP</h1>
-          <p className="text-xs text-slate-500 mt-0.5">Delhi NCR service clusters · click a hex or center to manage tickets</p>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Delhi NCR · {NUM_CLUSTERS} vehicle-density clusters · 1 technician/cluster · spare hubs every 20 vehicles
+          </p>
         </div>
-        {/* Hex filter */}
         <div className="flex items-center gap-1.5">
           <Filter className="w-3.5 h-3.5 text-slate-400" />
           {(['all', 'open', 'unassigned'] as const).map(f => (
@@ -502,7 +686,7 @@ export function HexZoneMapPage() {
       {/* Layer toggles */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-          <Layers className="w-3.5 h-3.5" /> Show:
+          <Layers className="w-3.5 h-3.5" /> Layers:
         </div>
         {LAYER_CONFIG.map(l => (
           <button key={l.id} onClick={() => toggleLayer(l.id)}
@@ -519,16 +703,18 @@ export function HexZoneMapPage() {
       </div>
 
       {/* KPI row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
         {[
-          { label: 'Open Tickets',   val: openAll.length,    color: 'text-blue-700',    bg: 'bg-blue-50 border-blue-200' },
-          { label: 'Unassigned',     val: unassigned.length, color: 'text-amber-700',   bg: 'bg-amber-50 border-amber-200' },
-          { label: 'Ignored',        val: ignoredCount,      color: 'text-slate-600',   bg: 'bg-slate-50 border-slate-200' },
-          { label: 'Critical Zones', val: criticalZones.length, color: 'text-red-700',  bg: 'bg-red-50 border-red-200' },
+          { label: 'Open Tickets',   val: openAll.length,    color: 'text-blue-700',   bg: 'bg-blue-50 border-blue-200' },
+          { label: 'Unassigned',     val: unassigned.length, color: 'text-amber-700',  bg: 'bg-amber-50 border-amber-200' },
+          { label: 'Total Vehicles', val: totalVehicles,     color: 'text-slate-700',  bg: 'bg-slate-50 border-slate-200' },
+          { label: 'Spare Hubs',     val: totalHubs,         color: 'text-teal-700',   bg: 'bg-teal-50 border-teal-200' },
+          { label: 'Ignored',        val: ignoredCount,      color: 'text-slate-600',  bg: 'bg-slate-50 border-slate-200' },
+          { label: 'Critical Zones', val: criticalZones.length, color: 'text-red-700', bg: 'bg-red-50 border-red-200' },
         ].map(k => (
-          <div key={k.label} className={`border rounded-xl px-4 py-3 ${k.bg}`}>
-            <div className={`text-2xl font-bold ${k.color}`}>{k.val}</div>
-            <div className={`text-[11px] font-semibold ${k.color} opacity-70 uppercase tracking-wide`}>{k.label}</div>
+          <div key={k.label} className={`border rounded-xl px-3 py-3 ${k.bg}`}>
+            <div className={`text-2xl font-bold ${k.color}`} style={{ fontFamily: 'JetBrains Mono, monospace' }}>{k.val}</div>
+            <div className={`text-[10px] font-semibold ${k.color} opacity-70 uppercase tracking-wide`}>{k.label}</div>
           </div>
         ))}
       </div>
@@ -546,13 +732,12 @@ export function HexZoneMapPage() {
 
         {/* Legend */}
         <div className="absolute bottom-3 left-3 z-[500] bg-white/95 backdrop-blur-xs px-3 py-2.5 rounded-lg border border-slate-200 shadow-sm text-xs space-y-1.5">
-          <div className="font-semibold text-slate-700 mb-1 text-[11px] uppercase tracking-wide">Hex colour</div>
+          <div className="font-semibold text-slate-700 mb-1 text-[11px] uppercase tracking-wide">Legend</div>
           {[
-            { color: '#dc2626', label: 'CRITICAL priority' },
-            { color: '#ea580c', label: 'HIGH priority' },
+            { color: '#dc2626', label: 'CRITICAL hex' },
+            { color: '#ea580c', label: 'HIGH hex' },
             { color: '#ca8a04', label: 'MEDIUM / 3+ tickets' },
             { color: '#3b82f6', label: 'LOW / 1–2 tickets' },
-            { color: '#94a3b8', label: 'Ignored tickets' },
           ].map(l => (
             <div key={l.label} className="flex items-center gap-2">
               <span className="w-3 h-3 rounded-sm inline-block shrink-0" style={{ background: l.color }} />
@@ -561,16 +746,27 @@ export function HexZoneMapPage() {
           ))}
           <div className="pt-1 mt-1 border-t border-slate-100 space-y-1">
             <div className="flex items-center gap-2">
+              <span className="w-3 h-3 inline-block shrink-0 border-2 border-white shadow-xs" style={{ background: '#8b5cf6', transform: 'rotate(45deg)' }} />
+              <span className="text-[11px] text-slate-600">Spare vehicle hub ◆</span>
+            </div>
+            <div className="flex items-center gap-2">
               <span className="w-4 h-4 bg-slate-900 rounded-xs inline-block shrink-0 border-2 border-orange-500" />
               <span className="text-[11px] text-slate-600">DC with open tickets</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="w-4 h-4 bg-slate-900 rounded-xs inline-block shrink-0 border-2 border-slate-400" />
-              <span className="text-[11px] text-slate-600">DC with ignored tickets</span>
-            </div>
-            <div className="flex items-center gap-2">
               <span className="w-3 h-3 bg-blue-600 rounded-full inline-block shrink-0" />
               <span className="text-[11px] text-slate-600">Technician base</span>
+            </div>
+          </div>
+          <div className="pt-1 mt-1 border-t border-slate-100">
+            <div className="text-[10px] font-semibold text-slate-400 uppercase mb-1">Clusters (C1–C{NUM_CLUSTERS})</div>
+            <div className="grid grid-cols-4 gap-1">
+              {clusters.slice(0, 12).map(c => (
+                <div key={c.id} className="flex items-center gap-0.5">
+                  <span className="w-2.5 h-2.5 rounded-xs inline-block shrink-0" style={{ background: c.color }} />
+                  <span className="text-[9px] text-slate-500">C{c.id + 1}</span>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -579,6 +775,7 @@ export function HexZoneMapPage() {
         {selectedCell && (
           <ZonePanel
             cell={selectedCell}
+            cluster={selectedCluster}
             allTechs={allTechs}
             ignored={ignored}
             onIgnore={handleIgnore}
@@ -592,12 +789,71 @@ export function HexZoneMapPage() {
         {!selectedCell && (
           <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[500] bg-white/90 backdrop-blur-xs px-3 py-1.5 rounded-full border border-slate-200 shadow-sm text-[11px] text-slate-500 flex items-center gap-1.5 pointer-events-none">
             <AlertTriangle className="w-3 h-3 text-amber-500" />
-            Click a coloured hex or center marker to manage tickets
+            Click a coloured hex or DC marker to manage tickets
           </div>
         )}
       </div>
 
-      {/* Zone table */}
+      {/* Cluster assignment table */}
+      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+        <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-2">
+          <Diamond className="w-4 h-4 text-teal-600" />
+          <span className="text-sm font-semibold text-slate-800">Cluster Assignments</span>
+          <span className="text-xs text-slate-400 ml-1">— {NUM_CLUSTERS} zones · 1 technician each · spare hubs every 20 vehicles</span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead className="bg-slate-50">
+              <tr>
+                {['Cluster', 'Color', 'Vehicles', 'Open Tickets', 'Assigned Technician', 'Zone/City', 'Spare Hubs', 'Hexes'].map(h => (
+                  <th key={h} className="text-left px-4 py-2.5 font-semibold text-slate-500 uppercase tracking-wide text-[10px]">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {clusters.map(cluster => {
+                const openInCluster = cluster.cells.reduce((s, c) =>
+                  s + c.tickets.filter(t => !ignored.has(t.id) && t.status !== 'Resolved' && t.status !== 'Closed').length, 0);
+                return (
+                  <tr key={cluster.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-4 py-2.5 font-bold text-slate-700">C{cluster.id + 1}</td>
+                    <td className="px-4 py-2.5">
+                      <span className="w-4 h-4 rounded inline-block border border-white shadow-xs" style={{ background: cluster.color }} />
+                    </td>
+                    <td className="px-4 py-2.5 font-mono font-semibold text-slate-900">{cluster.vehicleCount}</td>
+                    <td className="px-4 py-2.5">
+                      {openInCluster > 0 ? (
+                        <span className="text-blue-700 font-semibold">{openInCluster}</span>
+                      ) : <span className="text-emerald-600 text-[11px]">✓ clear</span>}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      {cluster.assignedTech ? (
+                        <div>
+                          <div className="font-semibold text-slate-900">{cluster.assignedTech.name}</div>
+                          <div className="text-[10px] text-slate-400">{cluster.assignedTech.employeeId} · {cluster.assignedTech.specialisation}</div>
+                        </div>
+                      ) : <span className="text-slate-400 italic">No tech available</span>}
+                    </td>
+                    <td className="px-4 py-2.5 text-slate-500 text-[11px]">
+                      {cluster.assignedTech?.zone || cluster.assignedTech?.city || '—'}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <div className="flex items-center gap-1">
+                        <span className="w-2.5 h-2.5 inline-block shrink-0 border border-white shadow-xs" style={{ background: cluster.color, transform: 'rotate(45deg)' }} />
+                        <span className="font-semibold text-teal-700">{cluster.spareHubs.length}</span>
+                        <span className="text-slate-400 text-[10px]">hub{cluster.spareHubs.length > 1 ? 's' : ''}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-2.5 text-slate-400 text-[11px]">{cluster.cells.length}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Zone-level table */}
       <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
         <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-2">
           <Users className="w-4 h-4 text-slate-500" />
@@ -608,7 +864,7 @@ export function HexZoneMapPage() {
           <table className="w-full text-xs">
             <thead className="bg-slate-50">
               <tr>
-                {['Zone', 'Centers', 'Open', 'Unassigned', 'Ignored', 'Priority', 'Based Techs'].map(h => (
+                {['Zone', 'Cluster', 'Centers', 'Open', 'Unassigned', 'Ignored', 'Priority', 'Based Techs'].map(h => (
                   <th key={h} className="text-left px-4 py-2.5 font-semibold text-slate-500 uppercase tracking-wide text-[10px]">{h}</th>
                 ))}
               </tr>
@@ -626,13 +882,22 @@ export function HexZoneMapPage() {
                   const ign  = cell.tickets.filter(t => ignored.has(t.id));
                   const una  = open.filter(t => !t.assignedTechnicianId).length;
                   const top  = (['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] as const).find(p => open.some(t => t.priority === p));
+                  const cCluster = clusters.find(c => c.id === cell.clusterId);
                   return (
                     <tr key={cell.key} onClick={() => setSelectedCell(cell)} className="hover:bg-blue-50 cursor-pointer transition-colors">
                       <td className="px-4 py-2.5 font-mono text-slate-500 text-[11px]">{cell.key}</td>
+                      <td className="px-4 py-2.5">
+                        {cCluster && (
+                          <span className="flex items-center gap-1.5">
+                            <span className="w-2.5 h-2.5 rounded-xs inline-block" style={{ background: cCluster.color }} />
+                            <span className="text-[11px] font-semibold text-slate-700">C{cCluster.id + 1}</span>
+                          </span>
+                        )}
+                      </td>
                       <td className="px-4 py-2.5 text-slate-700 text-[11px]">{cell.centers.map(c => c.name.replace(/_D$/, '')).join(', ') || '—'}</td>
                       <td className="px-4 py-2.5 font-bold text-slate-900">{open.length || '—'}</td>
                       <td className="px-4 py-2.5">
-                        {una > 0 ? <span className="text-amber-700 font-semibold">{una}</span> : open.length > 0 ? <span className="text-emerald-600 text-[11px]">✓ all assigned</span> : '—'}
+                        {una > 0 ? <span className="text-amber-700 font-semibold">{una}</span> : open.length > 0 ? <span className="text-emerald-600 text-[11px]">✓ assigned</span> : '—'}
                       </td>
                       <td className="px-4 py-2.5">
                         {ign.length > 0 ? <span className="text-slate-400 flex items-center gap-1"><EyeOff className="w-3 h-3" />{ign.length}</span> : '—'}
