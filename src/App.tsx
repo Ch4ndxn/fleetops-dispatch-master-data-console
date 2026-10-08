@@ -20,6 +20,7 @@ import { HexZoneMapPage } from './components/map/HexZoneMapPage';
 import { RosterPage } from './components/roster/RosterPage';
 import { PlannerPage } from './components/planner/PlannerPage';
 import { VehiclesPage } from './components/vehicles/VehiclesPage';
+import { TicketsPage } from './components/tickets/TicketsPage';
 
 // Modals
 import { AddEditTechnicianModal } from './components/technicians/AddEditTechnicianModal';
@@ -49,7 +50,8 @@ import {
   Plus,
   Activity,
   Hexagon,
-  Truck
+  Truck,
+  Ticket
 } from 'lucide-react';
 
 type NavTab =
@@ -69,7 +71,8 @@ type NavTab =
   | 'SETTINGS'
   | 'CONNECTIONS'
   | 'HEX ZONE MAP'
-  | 'VEHICLES';
+  | 'VEHICLES'
+  | 'TICKETS';
 
 interface NavItem {
   id: NavTab;
@@ -81,6 +84,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { id: 'OVERVIEW', label: 'OVERVIEW', icon: LayoutDashboard },
   { id: 'PLANNER', label: 'NCR PLANNER', icon: Map },
+  { id: 'TICKETS', label: 'TICKETS', icon: Ticket },
   { id: 'VEHICLES', label: 'VEHICLES', icon: Truck },
   { id: 'HEX ZONE MAP', label: 'HEX ZONE MAP', icon: Hexagon },
   { id: 'ROSTER', label: 'ROSTER', icon: ClipboardList },
@@ -322,6 +326,10 @@ export default function App() {
 
           {activeTab === 'HEX ZONE MAP' && (
             <HexZoneMapPage />
+          )}
+
+          {activeTab === 'TICKETS' && (
+            <TicketsPage onOpenUploadModal={handleOpenUpload} />
           )}
 
           {activeTab === 'VEHICLES' && (
