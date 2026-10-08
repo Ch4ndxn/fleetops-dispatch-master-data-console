@@ -1,0 +1,6 @@
+{
+  "name": "FleetOps Dispatch & Master Data Console",
+  "description": "Operations master data management, technician route optimization, center coordinate geocoding, and bulk CSV ingestion engine.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
