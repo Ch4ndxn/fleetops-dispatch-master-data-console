@@ -19,6 +19,7 @@ import { ConnectionStatusPage } from './components/connections/ConnectionStatusP
 import { HexZoneMapPage } from './components/map/HexZoneMapPage';
 import { RosterPage } from './components/roster/RosterPage';
 import { PlannerPage } from './components/planner/PlannerPage';
+import { VehiclesPage } from './components/vehicles/VehiclesPage';
 
 // Modals
 import { AddEditTechnicianModal } from './components/technicians/AddEditTechnicianModal';
@@ -47,7 +48,8 @@ import {
   Search,
   Plus,
   Activity,
-  Hexagon
+  Hexagon,
+  Truck
 } from 'lucide-react';
 
 type NavTab =
@@ -66,7 +68,8 @@ type NavTab =
   | 'HISTORY'
   | 'SETTINGS'
   | 'CONNECTIONS'
-  | 'HEX ZONE MAP';
+  | 'HEX ZONE MAP'
+  | 'VEHICLES';
 
 interface NavItem {
   id: NavTab;
@@ -78,6 +81,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { id: 'OVERVIEW', label: 'OVERVIEW', icon: LayoutDashboard },
   { id: 'PLANNER', label: 'NCR PLANNER', icon: Map },
+  { id: 'VEHICLES', label: 'VEHICLES', icon: Truck },
   { id: 'HEX ZONE MAP', label: 'HEX ZONE MAP', icon: Hexagon },
   { id: 'ROSTER', label: 'ROSTER', icon: ClipboardList },
   { id: 'ATTENDANCE', label: 'ATTENDANCE', icon: CalendarCheck },
@@ -318,6 +322,10 @@ export default function App() {
 
           {activeTab === 'HEX ZONE MAP' && (
             <HexZoneMapPage />
+          )}
+
+          {activeTab === 'VEHICLES' && (
+            <VehiclesPage />
           )}
         </main>
       </div>
