@@ -12,7 +12,7 @@ import {
   getTechnicians, getCenters, getTickets, getAttendance,
   saveRoutePlans, saveTickets,
 } from '../../services/storage';
-import { planTodayRoutes, calculateDistanceKm } from '../../services/routeOptimizer';
+import { planBalancedRoutes, calculateDistanceKm } from '../../services/routeOptimizer';
 import Groq from 'groq-sdk';
 import {
   BrainCircuit, Zap, Map, List, Sliders, RefreshCw,
@@ -236,8 +236,14 @@ function Slider({ label, min, max, value, onChange, unit }: {
 }
 
 // ─── Live metrics bar ─────────────────────────────────────────────
-function MetricsBar({ plans, unrouted, streaming }: {
-  plans: TechnicianRoutePlan[]; unrouted: Ticket[]; streaming: boolean;
+function MetricsBar({ plans, unrouted, streaming, kmSaved, balanceScore, timeSavedMins, shiftStartHour }: {
+  plans: TechnicianRoutePlan[];
+  unrouted: Ticket[];
+  streaming: boolean;
+  kmSaved: number;
+  balanceScore: number;
+  timeSavedMins: number;
+  shiftStartHour: number;
 }) {
   const totalKm = Math.round(plans.reduce((a, p) => a + p.totalDistanceKm, 0) * 10) / 10;
   const totalStops = plans.reduce((a, p) => a + p.stops.length, 0);
@@ -245,12 +251,16 @@ function MetricsBar({ plans, unrouted, streaming }: {
   const allOpen = getTickets().filter(t => t.status !== 'Resolved' && t.status !== 'Closed').length;
   const coveragePct = allOpen > 0 ? Math.round((totalStops / allOpen) * 100) : 0;
   const maxMins = Math.max(...plans.map(p => p.totalEstimatedMins), 0);
-  const estCompletionH = Math.floor((9 * 60 + 30 + maxMins) / 60);
-  const estCompletionM = (9 * 60 + 30 + maxMins) % 60;
+  const shiftStartMins = shiftStartHour * 60 + 30;
+  const estCompletionH = Math.floor((shiftStartMins + maxMins) / 60);
+  const estCompletionM = (shiftStartMins + maxMins) % 60;
 
   const stats = [
     { label: 'Fleet km', value: `${totalKm}`, unit: 'km', color: 'text-blue-700' },
+    { label: 'Km saved', value: `${kmSaved}`, unit: 'km', color: kmSaved > 0 ? 'text-emerald-700' : 'text-slate-400', title: 'vs naive round-robin' },
+    { label: 'Time saved', value: `${timeSavedMins}`, unit: 'min', color: timeSavedMins > 0 ? 'text-emerald-700' : 'text-slate-400', title: 'vs naive assignment' },
     { label: 'Avg stops/tech', value: avgStops, unit: '', color: 'text-violet-700' },
+    { label: 'Balance', value: `${balanceScore}`, unit: '/100', color: balanceScore >= 80 ? 'text-emerald-700' : balanceScore >= 60 ? 'text-amber-700' : 'text-rose-700', title: '100 = perfect workload balance' },
     { label: 'Coverage', value: `${coveragePct}`, unit: '%', color: coveragePct >= 80 ? 'text-emerald-700' : 'text-amber-700' },
     { label: 'Unrouted', value: `${unrouted.length}`, unit: '', color: unrouted.length > 0 ? 'text-rose-700' : 'text-emerald-700' },
     { label: 'Est. complete', value: `${String(estCompletionH).padStart(2,'0')}:${String(estCompletionM).padStart(2,'0')}`, unit: '', color: 'text-slate-800' },
@@ -259,7 +269,7 @@ function MetricsBar({ plans, unrouted, streaming }: {
   return (
     <div className="flex gap-2 flex-wrap">
       {stats.map(s => (
-        <div key={s.label} className="flex-1 min-w-[100px] bg-white border border-slate-200 rounded-lg px-3 py-2 shadow-xs">
+        <div key={s.label} className="flex-1 min-w-[90px] bg-white border border-slate-200 rounded-lg px-3 py-2 shadow-xs" title={(s as {title?: string}).title}>
           <div className="text-[9px] text-slate-400 font-semibold uppercase tracking-wider">{s.label}</div>
           <div className={`text-base font-bold font-mono mt-0.5 ${s.color} ${streaming ? 'animate-pulse' : ''}`}>
             {s.value}<span className="text-[10px] font-normal text-slate-400 ml-0.5">{s.unit}</span>
@@ -582,6 +592,9 @@ export const SmartRoutePlannerPage: React.FC = () => {
   const [basePlans, setBasePlans] = useState<TechnicianRoutePlan[]>([]);
   const [plans, setPlans] = useState<TechnicianRoutePlan[]>([]);
   const [unrouted, setUnrouted] = useState<Ticket[]>([]);
+  const [kmSaved, setKmSaved] = useState(0);
+  const [balanceScore, setBalanceScore] = useState(0);
+  const [timeSavedMins, setTimeSavedMins] = useState(0);
   const [streamLog, setStreamLog] = useState('');
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
@@ -627,27 +640,60 @@ export const SmartRoutePlannerPage: React.FC = () => {
     setSaved(false);
 
     await new Promise(r => setTimeout(r, 100));
-    const base = planTodayRoutes();
-    setBasePlans(base);
 
-    if (base.length === 0) {
+    // Parse shift times from HH:MM strings
+    const [startH] = constraints.shiftStart.split(':').map(Number);
+    const [endH]   = constraints.shiftEnd.split(':').map(Number);
+
+    const result = planBalancedRoutes({
+      maxStopsPerTech: constraints.maxStops,
+      maxKmPerTech:    constraints.maxKm,
+      priorityFilter:  constraints.priorityFilter === 'critical_high' ? 'critical_high' : 'all',
+      skillMatch:      constraints.skillMatch,
+      shiftStartHour:  isNaN(startH) ? 9  : startH,
+      shiftEndHour:    isNaN(endH)   ? 18 : endH,
+    });
+
+    if (result.plans.length === 0) {
       setError('No routable tickets or available technicians. Import data and ensure technicians have coordinates.');
       setPhase('error');
       return;
     }
 
-    const allTickets = getTickets();
-    const { plans: constrained, unrouted: ur } = applyConstraints(base, constraints, allTickets);
+    // Apply avoid-reassignment constraint on top (not in balanced planner)
+    let finalPlans = result.plans;
+    if (constraints.avoidReassignment) {
+      const allTickets = getTickets();
+      finalPlans = finalPlans.map(plan => ({
+        ...plan,
+        stops: plan.stops.filter(s => {
+          const tk = allTickets.find(t => t.ticketId === s.ticketId);
+          return !tk?.assignedTechnicianId || tk.assignedTechnicianId === plan.technicianId;
+        }),
+      })).filter(p => p.stops.length > 0);
+    }
+
+    setBasePlans(finalPlans);
+    setKmSaved(result.kmSaved);
+    setBalanceScore(result.balanceScore);
+    setTimeSavedMins(result.timeSavedMins);
+
+    // Rebuild unrouted accounting for avoid-reassignment filter
+    const assignedIds = new Set(finalPlans.flatMap(p => p.stops.map(s => s.ticketId)));
+    const ur = [...result.unrouted, ...getTickets().filter(t =>
+      !assignedIds.has(t.ticketId) && t.status !== 'Resolved' && t.status !== 'Closed' &&
+      !result.unrouted.find(u => u.ticketId === t.ticketId)
+    )].sort((a, b) => (PRIO_ORDER[b.priority] || 0) - (PRIO_ORDER[a.priority] || 0));
     setUnrouted(ur);
 
     if (mode === 'auto' || mode === 'manual') {
-      setPlans(constrained);
+      setPlans(finalPlans);
       setPhase('done');
     } else {
       // hybrid: build base, then ask AI to improve
-      setPlans(constrained);
+      setPlans(finalPlans);
       setPhase('ai');
-      await runAiOptimize(constrained, base);
+      await runAiOptimize(finalPlans, finalPlans);
     }
   }
 
@@ -837,7 +883,7 @@ Optimize within constraints.`;
     setPhase('ai');
     setStreamLog('');
     setSaved(false);
-    await runAiOptimize(plans, basePlans);
+    await runAiOptimize(plans, basePlans.length > 0 ? basePlans : plans);
   }
 
   // ── Save plan ────────────────────────────────────────────────
@@ -1049,7 +1095,15 @@ Optimize within constraints.`;
         {/* Metrics bar */}
         {phase === 'done' && (
           <div className="px-5 py-2 bg-slate-50 border-b border-slate-100 shrink-0">
-            <MetricsBar plans={plans} unrouted={unrouted} streaming={aiStreamActive} />
+            <MetricsBar
+              plans={plans}
+              unrouted={unrouted}
+              streaming={aiStreamActive}
+              kmSaved={kmSaved}
+              balanceScore={balanceScore}
+              timeSavedMins={timeSavedMins}
+              shiftStartHour={parseInt(constraints.shiftStart.split(':')[0]) || 9}
+            />
           </div>
         )}
 
