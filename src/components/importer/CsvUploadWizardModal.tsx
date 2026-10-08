@@ -572,17 +572,128 @@ export const CsvUploadWizardModal: React.FC<Props> = ({
     downloadCSV(`import_errors_${file?.name || 'report'}.csv`, csvContent);
   };
 
+  // ── Delhi NCR locality → [lat, lng] lookup ──────────────────────
+  const NCR_GEO: Record<string, [number, number]> = {
+    // Delhi localities
+    budhvihar: [28.6992, 77.1268], budh_vihar: [28.6992, 77.1268],
+    tughlaqabad: [28.5093, 77.2614], tughlakabd: [28.5093, 77.2614],
+    badharpur: [28.5009, 77.2890], badarpur: [28.5009, 77.2890],
+    mandoli: [28.7103, 77.3025],
+    rohini: [28.7357, 77.1098],
+    dwarka: [28.5921, 77.0460],
+    janakpuri: [28.6219, 77.0878],
+    uttamnagar: [28.6210, 77.0565], uttam_nagar: [28.6210, 77.0565],
+    vikaspuri: [28.6368, 77.0713],
+    najafgarh: [28.6092, 76.9794],
+    narela: [28.8522, 77.0921],
+    bawana: [28.8019, 77.0381],
+    mundka: [28.6798, 77.0297],
+    punjabibagh: [28.6686, 77.1310], punjabi_bagh: [28.6686, 77.1310],
+    shahdara: [28.6737, 77.2938],
+    patparganj: [28.6271, 77.2936],
+    mayurvihar: [28.6123, 77.2939], mayur_vihar: [28.6123, 77.2939],
+    laxminagar: [28.6313, 77.2779], laxmi_nagar: [28.6313, 77.2779],
+    karolbagh: [28.6514, 77.1906], karol_bagh: [28.6514, 77.1906],
+    connaught: [28.6315, 77.2167],
+    okhla: [28.5501, 77.2714],
+    saket: [28.5244, 77.2167],
+    vasantkunj: [28.5205, 77.1577], vasant_kunj: [28.5205, 77.1577],
+    mehrauli: [28.5244, 77.1855],
+    mahipalpur: [28.5533, 77.1220],
+    kapashera: [28.5196, 77.0840],
+    bijwasan: [28.5412, 77.0709],
+    palam: [28.5921, 77.0873],
+    tilak_nagar: [28.6375, 77.0976], tilaknagar: [28.6375, 77.0976],
+    subhashnagar: [28.6436, 77.1063],
+    tagore_garden: [28.6478, 77.1158], tagoregarden: [28.6478, 77.1158],
+    rajouri_garden: [28.6476, 77.1228], rajourigarden: [28.6476, 77.1228],
+    moti_nagar: [28.6567, 77.1453], motinagar: [28.6567, 77.1453],
+    kirti_nagar: [28.6566, 77.1530], kirtinagar: [28.6566, 77.1530],
+    shadipur: [28.6509, 77.1600],
+    patel_nagar: [28.6492, 77.1709], patelnagar: [28.6492, 77.1709],
+    ramesh_nagar: [28.6498, 77.1326], rameshnagar: [28.6498, 77.1326],
+    nangloi: [28.6765, 77.0635],
+    nilothi: [28.6918, 77.0474],
+    sultanpur_majra: [28.7001, 77.0594],
+    hastsal: [28.6609, 77.0531],
+    molarband: [28.5073, 77.2952],
+    sangam_vihar: [28.5150, 77.2648], sangamvihar: [28.5150, 77.2648],
+    govindpuri: [28.5305, 77.2596],
+    kalkaji: [28.5361, 77.2588],
+    nehru_place: [28.5491, 77.2530], nehruplace: [28.5491, 77.2530],
+    lajpat_nagar: [28.5660, 77.2378], lajpatnagar: [28.5660, 77.2378],
+    ashram: [28.5717, 77.2503],
+    nizamuddin: [28.5882, 77.2517],
+    new_friends_colony: [28.5620, 77.2822],
+    jasola: [28.5526, 77.2921],
+    sarita_vihar: [28.5378, 77.2960], saritavihar: [28.5378, 77.2960],
+    // Gurgaon / Gurugram
+    jharsa: [28.4595, 77.0266],
+    kadipur: [28.3894, 77.0128],
+    gurgaon: [28.4595, 77.0266],
+    gurugram: [28.4595, 77.0266],
+    sohna: [28.2469, 77.0709],
+    pataudi: [28.3219, 76.8006],
+    manesar: [28.3557, 76.9376],
+    faridabad: [28.4089, 77.3178],
+    ballabhgarh: [28.3418, 77.3226],
+    palwal: [28.1483, 77.3321],
+    // Noida / Greater Noida
+    noida: [28.5355, 77.3910],
+    greater_noida: [28.4745, 77.5040], greaternoida: [28.4745, 77.5040],
+    ghaziabad: [28.6692, 77.4538],
+    // Rohtak / Sonipat
+    sonipat: [28.9931, 77.0151],
+    rohtak: [28.8955, 76.6066],
+    // Default fallback — central Delhi
+    default: [28.6139, 77.2090],
+  };
+
+  function resolveCoords(centerName: string): { lat: number; lng: number; city: string } {
+    // Normalise: lowercase, remove trailing _D/_DC, replace spaces/- with _
+    const norm = centerName
+      .toLowerCase()
+      .replace(/[_\-\s]+d[c]?$/i, '')   // strip _D, _DC suffix
+      .replace(/[\s\-]+/g, '_')
+      .replace(/[^a-z0-9_]/g, '');
+
+    // Try full normalised name first, then each segment
+    const segments = norm.split('_').filter(Boolean);
+    const candidates = [
+      norm,
+      ...segments.map((_, i) => segments.slice(i).join('_')),
+      ...segments,
+    ];
+
+    let coords: [number, number] = NCR_GEO.default;
+    for (const c of candidates) {
+      if (NCR_GEO[c]) { coords = NCR_GEO[c]; break; }
+    }
+
+    // Derive city from name
+    const upper = centerName.toUpperCase();
+    const city =
+      upper.includes('GURGAON') || upper.includes('GURUGRAM') ? 'Gurgaon' :
+      upper.includes('NOIDA') ? 'Noida' :
+      upper.includes('FARIDABAD') ? 'Faridabad' :
+      upper.includes('GHAZIABAD') ? 'Ghaziabad' :
+      upper.includes('SONIPAT') ? 'Sonipat' :
+      upper.includes('ROHTAK') ? 'Rohtak' : 'Delhi';
+
+    return { lat: coords[0], lng: coords[1], city };
+  }
+
   const handleQuickCreateMissingCenters = () => {
-    // Creates stub centers for missing ones with default central coordinates so tickets can be routed
-    missingCenters.forEach((centerName, idx) => {
+    missingCenters.forEach((centerName) => {
+      const { lat, lng, city } = resolveCoords(centerName);
       upsertCenter({
         name: centerName,
-        city: 'Delhi',
-        latitude: 28.6139 + (idx * 0.01),
-        longitude: 77.2090 + (idx * 0.01),
+        city,
+        latitude: lat,
+        longitude: lng,
         defaultDc: `${centerName} DC`,
         active: true,
-        notes: 'Auto-created from ticket import - please refine coordinates on map'
+        notes: 'Auto-created from ticket import with geocoded coordinates',
       });
     });
     setMissingCenters([]);
