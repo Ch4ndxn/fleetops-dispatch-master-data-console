@@ -247,31 +247,80 @@ ${customPrompt ? `ADDITIONAL INSTRUCTIONS FROM DISPATCHER:\n${customPrompt}` : '
 
 Now produce the optimised plan.`;
 
-    // Stream from Groq
+    // Stream via Gemini (primary) → Groq fallback
     let fullText = '';
+    let usedProvider = 'Gemini';
     try {
-      const client = getGroqClient();
-      const stream = await client.chat.completions.create({
-        model: 'llama-3.3-70b-versatile',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user',   content: userMsg },
-        ],
-        stream: true,
-        max_tokens: 2048,
-        temperature: 0.2,
-      });
+      // Try Gemini first
+      let geminiKey = '';
+      try { geminiKey = localStorage.getItem('fo_gemini_key') || ''; } catch {}
+      if (!geminiKey) geminiKey = (import.meta.env.VITE_GEMINI_API_KEY as string) || '';
 
-      for await (const chunk of stream) {
-        const delta = chunk.choices[0]?.delta?.content || '';
-        fullText += delta;
-        setStreamLog(fullText);
+      if (geminiKey) {
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:streamGenerateContent?alt=sse&key=${geminiKey}`;
+        const geminiBody = {
+          system_instruction: { parts: [{ text: systemPrompt }] },
+          contents: [{ role: 'user', parts: [{ text: userMsg }] }],
+          generationConfig: { maxOutputTokens: 2048, temperature: 0.2 },
+        };
+        const res = await fetch(geminiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(geminiBody),
+        });
+        if (!res.ok) throw new Error(`Gemini ${res.status}: ${await res.text()}`);
+        const reader = res.body!.getReader();
+        const decoder = new TextDecoder();
+        let buf = '';
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buf += decoder.decode(value, { stream: true });
+          const lines = buf.split('\n');
+          buf = lines.pop() ?? '';
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            const data = line.slice(6).trim();
+            if (data === '[DONE]') break;
+            try {
+              const json = JSON.parse(data);
+              const text = json?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+              fullText += text;
+              setStreamLog(fullText);
+            } catch {}
+          }
+        }
+      } else {
+        throw new Error('no-gemini-key');
       }
-    } catch (err: any) {
-      setError(err?.message ?? String(err));
-      setPhase('error');
-      return;
+    } catch (geminiErr: any) {
+      // Fallback to Groq
+      usedProvider = 'Groq';
+      fullText = '';
+      try {
+        const client = getGroqClient();
+        const stream = await client.chat.completions.create({
+          model: 'llama3-70b-8192',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user',   content: userMsg },
+          ],
+          stream: true,
+          max_tokens: 2048,
+          temperature: 0.2,
+        });
+        for await (const chunk of stream) {
+          const delta = chunk.choices[0]?.delta?.content || '';
+          fullText += delta;
+          setStreamLog(fullText);
+        }
+      } catch (groqErr: any) {
+        setError(`Gemini: ${geminiErr?.message} | Groq: ${groqErr?.message}`);
+        setPhase('error');
+        return;
+      }
     }
+    void usedProvider;
 
     // Parse routes + extract reasoning
     const routes = parseGroqRoutes(fullText, base);
