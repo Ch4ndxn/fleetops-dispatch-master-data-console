@@ -267,15 +267,17 @@ function MetricsBar({ plans, unrouted, streaming, kmSaved, balanceScore, timeSav
   ];
 
   return (
-    <div className="flex gap-2 flex-wrap">
-      {stats.map(s => (
-        <div key={s.label} className="flex-1 min-w-[90px] bg-white border border-slate-200 rounded-lg px-3 py-2 shadow-xs" title={(s as {title?: string}).title}>
-          <div className="text-[9px] text-slate-400 font-semibold uppercase tracking-wider">{s.label}</div>
-          <div className={`text-base font-bold font-mono mt-0.5 ${s.color} ${streaming ? 'animate-pulse' : ''}`}>
-            {s.value}<span className="text-[10px] font-normal text-slate-400 ml-0.5">{s.unit}</span>
+    <div className="overflow-x-auto -mx-1 px-1">
+      <div className="flex gap-2 min-w-max">
+        {stats.map(s => (
+          <div key={s.label} className="min-w-[90px] bg-white border border-slate-200 rounded-lg px-3 py-2 shadow-xs" title={(s as {title?: string}).title}>
+            <div className="text-[9px] text-slate-400 font-semibold uppercase tracking-wider">{s.label}</div>
+            <div className={`text-base font-bold font-mono mt-0.5 ${s.color} ${streaming ? 'animate-pulse' : ''}`}>
+              {s.value}<span className="text-[10px] font-normal text-slate-400 ml-0.5">{s.unit}</span>
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }
@@ -650,6 +652,8 @@ export const SmartRoutePlannerPage: React.FC = () => {
   const [toast, setToast] = useState('');
   const [aiStreamActive, setAiStreamActive] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
+
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [constraints, setConstraints] = useState<Constraints>({
     maxStops: 8,
@@ -1037,13 +1041,27 @@ Optimize within constraints.`;
 
   return (
     <div className="flex h-full" style={{ minHeight: 0 }}>
+      {/* ── Mobile backdrop ────────────────────────────────────── */}
+      {sidebarOpen && (
+        <div className="fixed inset-0 z-40 bg-black/40 lg:hidden" onClick={() => setSidebarOpen(false)} />
+      )}
+
       {/* ── Left sidebar: constraints + unrouted ───────────────── */}
-      <aside className="w-[280px] shrink-0 bg-slate-900 text-white flex flex-col h-full overflow-y-auto border-r border-slate-800">
+      <aside className={`w-[280px] shrink-0 bg-slate-900 text-white flex flex-col h-full overflow-y-auto border-r border-slate-800 fixed inset-y-0 left-0 z-50 transition-transform duration-200 lg:static lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         {/* Sidebar header */}
         <div className="px-4 py-4 border-b border-slate-800">
-          <div className="flex items-center gap-2 mb-0.5">
-            <Sliders className="w-4 h-4 text-blue-400" />
-            <span className="text-sm font-bold text-white">Constraints</span>
+          <div className="flex items-center justify-between mb-0.5">
+            <div className="flex items-center gap-2">
+              <Sliders className="w-4 h-4 text-blue-400" />
+              <span className="text-sm font-bold text-white">Constraints</span>
+            </div>
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="lg:hidden p-1 rounded text-slate-400 hover:text-white transition-colors"
+              title="Close"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
           <p className="text-[10px] text-slate-400">Limits applied to each route</p>
         </div>
@@ -1129,12 +1147,21 @@ Optimize within constraints.`;
       <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
         {/* Top bar */}
         <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-slate-100 bg-white shrink-0 flex-wrap">
-          <div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="lg:hidden p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors"
+              title="Constraints"
+            >
+              <Sliders className="w-4 h-4" />
+            </button>
+            <div>
             <h1 className="text-base font-bold text-slate-900 flex items-center gap-2">
               <Navigation className="w-4 h-4 text-blue-600" />
               Smart Route Planner
             </h1>
             <p className="text-[10px] text-slate-400">Multi-mode dispatch console · Delhi NCR EV Fleet</p>
+            </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             {phase === 'done' && (
