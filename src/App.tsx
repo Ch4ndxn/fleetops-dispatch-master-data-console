@@ -16,6 +16,7 @@ import { ImportDataPage } from './components/importer/ImportDataPage';
 import { ImportHistoryPage } from './components/history/ImportHistoryPage';
 import { SettingsPage } from './components/settings/SettingsPage';
 import { ConnectionStatusPage } from './components/connections/ConnectionStatusPage';
+import { HexZoneMapPage } from './components/map/HexZoneMapPage';
 
 // Modals
 import { AddEditTechnicianModal } from './components/technicians/AddEditTechnicianModal';
@@ -41,7 +42,8 @@ import {
   Bell,
   Search,
   Plus,
-  Activity
+  Activity,
+  Hexagon
 } from 'lucide-react';
 
 type NavTab =
@@ -57,7 +59,8 @@ type NavTab =
   | 'IMPORT DATA'
   | 'HISTORY'
   | 'SETTINGS'
-  | 'CONNECTIONS';
+  | 'CONNECTIONS'
+  | 'HEX ZONE MAP';
 
 interface NavItem {
   id: NavTab;
@@ -68,6 +71,7 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { id: 'OVERVIEW', label: 'OVERVIEW', icon: LayoutDashboard },
+  { id: 'HEX ZONE MAP', label: 'HEX ZONE MAP', icon: Hexagon },
   { id: 'ATTENDANCE', label: 'ATTENDANCE', icon: CalendarCheck },
   { id: 'ACTIVE CASES', label: 'ACTIVE CASES', icon: AlertCircle },
   { id: 'ROUTE PLANNER', label: 'ROUTE PLANNER', icon: Compass },
@@ -294,6 +298,10 @@ export default function App() {
 
           {activeTab === 'CONNECTIONS' && (
             <ConnectionStatusPage />
+          )}
+
+          {activeTab === 'HEX ZONE MAP' && (
+            <HexZoneMapPage />
           )}
         </main>
       </div>
