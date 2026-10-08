@@ -89,7 +89,7 @@ export interface ChatMessage {
 /** Stream a chat completion. Returns an async generator of text chunks. */
 export async function* streamChat(
   messages: ChatMessage[],
-  model = 'llama-3.3-70b-versatile'
+  model = 'llama3-70b-8192'
 ): AsyncGenerator<string> {
   const client = getClient();
   const context = buildFleetContext();
@@ -132,7 +132,7 @@ ${context}`;
 }
 
 /** One-shot (non-streaming) call — for quick structured outputs */
-export async function askGroq(prompt: string, model = 'llama-3.3-70b-versatile'): Promise<string> {
+export async function askGroq(prompt: string, model = 'llama3-70b-8192'): Promise<string> {
   const client = getClient();
   const context = buildFleetContext();
 
@@ -149,8 +149,9 @@ export async function askGroq(prompt: string, model = 'llama-3.3-70b-versatile')
 }
 
 export const GROQ_MODELS = [
-  { id: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B (Default)' },
-  { id: 'llama-3.1-8b-instant', label: 'Llama 3.1 8B (Fast)' },
+  { id: 'llama3-70b-8192', label: 'Llama 3 70B (Default)' },
+  { id: 'llama3-8b-8192', label: 'Llama 3 8B (Fast)' },
+  { id: 'mixtral-8x7b-32768', label: 'Mixtral 8x7B' },
   { id: 'gemma2-9b-it', label: 'Gemma2 9B' },
 ];
 
