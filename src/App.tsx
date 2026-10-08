@@ -15,6 +15,7 @@ import { CenterManagement } from './components/centers/CenterManagement';
 import { ImportDataPage } from './components/importer/ImportDataPage';
 import { ImportHistoryPage } from './components/history/ImportHistoryPage';
 import { SettingsPage } from './components/settings/SettingsPage';
+import { ConnectionStatusPage } from './components/connections/ConnectionStatusPage';
 
 // Modals
 import { AddEditTechnicianModal } from './components/technicians/AddEditTechnicianModal';
@@ -39,7 +40,8 @@ import {
   X,
   Bell,
   Search,
-  Plus
+  Plus,
+  Activity
 } from 'lucide-react';
 
 type NavTab =
@@ -54,7 +56,8 @@ type NavTab =
   | 'CENTER MANAGEMENT'
   | 'IMPORT DATA'
   | 'HISTORY'
-  | 'SETTINGS';
+  | 'SETTINGS'
+  | 'CONNECTIONS';
 
 interface NavItem {
   id: NavTab;
@@ -75,7 +78,8 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'CENTER MANAGEMENT', label: 'CENTER MANAGEMENT', icon: Building2 },
   { id: 'IMPORT DATA', label: 'IMPORT DATA', icon: UploadCloud },
   { id: 'HISTORY', label: 'HISTORY', icon: History },
-  { id: 'SETTINGS', label: 'SETTINGS', icon: Settings }
+  { id: 'SETTINGS', label: 'SETTINGS', icon: Settings },
+  { id: 'CONNECTIONS', label: 'CONNECTIONS', icon: Activity },
 ];
 
 export default function App() {
@@ -286,6 +290,10 @@ export default function App() {
 
           {activeTab === 'SETTINGS' && (
             <SettingsPage />
+          )}
+
+          {activeTab === 'CONNECTIONS' && (
+            <ConnectionStatusPage />
           )}
         </main>
       </div>
