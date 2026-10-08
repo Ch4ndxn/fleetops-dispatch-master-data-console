@@ -2,11 +2,8 @@ services:
   - type: web
     name: fleetops-dispatch-master-data-console
     runtime: static
-    buildCommand: npm install && npm run build
+    buildCommand: npm install --legacy-peer-deps && npm run build
     staticPublishPath: dist
-    envVars:
-      - key: GEMINI_API_KEY
-        sync: false
     routes:
       - type: rewrite
         source: /*
