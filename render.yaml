@@ -10,6 +10,6 @@ services:
         destination: /index.html
     envVars:
       - key: VITE_SUPABASE_URL
-        sync: false
+        value: https://fiuyaoxecouuxmrdqqot.supabase.co
       - key: VITE_SUPABASE_ANON_KEY
-        sync: false
+        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpdXlhb3hlY291dXhtcmRxcW90Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE0NzIzNjUsImV4cCI6MjEwNzA0ODM2NX0.9NQdU899C-YSbrBTeukAknpl6GkL8cYnJwmhheFORYA
