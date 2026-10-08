@@ -77,7 +77,7 @@ Use markdown for tables and lists where it improves readability.`;
 /** Stream chat via Gemini 2.0 Flash */
 export async function* streamGemini(
   messages: ChatMessage[],
-  model = 'gemini-2.0-flash'
+  model = 'gemini-3.8-flash'
 ): AsyncGenerator<string> {
   const key = resolveApiKey();
   const context = buildFleetContext();
@@ -131,7 +131,7 @@ export async function* streamGemini(
 }
 
 export const GEMINI_MODELS = [
-  { id: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash (Default)' },
-  { id: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash' },
+  { id: 'gemini-3.8-flash', label: 'Gemini 3.8 Flash (Default)' },
+  { id: 'gemini-3.8-flash-lite', label: 'Gemini 3.8 Flash Lite' },
   { id: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
 ];
