@@ -101,8 +101,10 @@ export function normalizeCenterName(name: string): string {
   if (!name) return '';
   return name
     .trim()
-    .replace(/\s+/g, ' ')
-    .toLowerCase();
+    .toLowerCase()
+    .replace(/[_\-]+d[c]?$/i, '')   // strip trailing _D, _DC, -D, -DC suffixes
+    .replace(/[\s_\-]+/g, '')        // remove all spaces, underscores, hyphens
+    .replace(/[^a-z0-9]/g, '');      // strip any remaining non-alphanumeric
 }
 
 /**
