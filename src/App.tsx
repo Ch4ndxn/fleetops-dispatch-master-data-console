@@ -23,6 +23,7 @@ import { VehiclesPage } from './components/vehicles/VehiclesPage';
 import { TicketsPage } from './components/tickets/TicketsPage';
 import { AiAssistantPage } from './components/ai/AiAssistantPage';
 import { AiRoutePlannerPage } from './components/airouter/AiRoutePlannerPage';
+import { SmartRoutePlannerPage } from './components/smartrouter/SmartRoutePlannerPage';
 
 // Modals
 import { AddEditTechnicianModal } from './components/technicians/AddEditTechnicianModal';
@@ -78,7 +79,8 @@ type NavTab =
   | 'VEHICLES'
   | 'TICKETS'
   | 'AI ASSISTANT'
-  | 'AI ROUTE';
+  | 'AI ROUTE'
+  | 'SMART ROUTE';
 
 interface NavItem {
   id: NavTab;
@@ -99,6 +101,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'ACTIVE CASES', label: 'ACTIVE CASES', icon: AlertCircle },
   { id: 'ROUTE PLANNER', label: 'ROUTE PLANNER', icon: Compass },
   { id: 'AI ROUTE', label: 'AI ROUTE', icon: BrainCircuit },
+  { id: 'SMART ROUTE', label: 'SMART ROUTE', icon: Compass },
   { id: 'TICKET ASSIGNMENT', label: 'TICKET ASSIGNMENT', icon: CheckSquare },
   { id: 'LIVE TRACKING', label: 'LIVE TRACKING', icon: Radio },
   { id: 'TECHNICIAN PERFORMANCE', label: 'TECHNICIAN PERFORMANCE', icon: Award },
@@ -266,7 +269,7 @@ export default function App() {
         )}
 
         {/* Page Content Viewport */}
-        <main className={`flex-1 overflow-hidden ${activeTab === 'PLANNER' || activeTab === 'AI ASSISTANT' || activeTab === 'AI ROUTE' ? '' : 'overflow-y-auto p-4 sm:p-6 lg:p-8'}`}>
+        <main className={`flex-1 overflow-hidden ${activeTab === 'PLANNER' || activeTab === 'AI ASSISTANT' || activeTab === 'AI ROUTE' || activeTab === 'SMART ROUTE' ? '' : 'overflow-y-auto p-4 sm:p-6 lg:p-8'}`}>
           {activeTab === 'OVERVIEW' && (
             <OverviewPage
               onNavigate={(tab) => setActiveTab(tab as NavTab)}
@@ -342,6 +345,10 @@ export default function App() {
 
           {activeTab === 'AI ROUTE' && (
             <AiRoutePlannerPage />
+          )}
+
+          {activeTab === 'SMART ROUTE' && (
+            <SmartRoutePlannerPage />
           )}
 
           {activeTab === 'TICKETS' && (
