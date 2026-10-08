@@ -21,6 +21,7 @@ import { RosterPage } from './components/roster/RosterPage';
 import { PlannerPage } from './components/planner/PlannerPage';
 import { VehiclesPage } from './components/vehicles/VehiclesPage';
 import { TicketsPage } from './components/tickets/TicketsPage';
+import { AiAssistantPage } from './components/ai/AiAssistantPage';
 
 // Modals
 import { AddEditTechnicianModal } from './components/technicians/AddEditTechnicianModal';
@@ -51,7 +52,8 @@ import {
   Activity,
   Hexagon,
   Truck,
-  Ticket
+  Ticket,
+  Sparkles
 } from 'lucide-react';
 
 type NavTab =
@@ -72,7 +74,8 @@ type NavTab =
   | 'CONNECTIONS'
   | 'HEX ZONE MAP'
   | 'VEHICLES'
-  | 'TICKETS';
+  | 'TICKETS'
+  | 'AI ASSISTANT';
 
 interface NavItem {
   id: NavTab;
@@ -84,6 +87,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { id: 'OVERVIEW', label: 'OVERVIEW', icon: LayoutDashboard },
   { id: 'PLANNER', label: 'NCR PLANNER', icon: Map },
+  { id: 'AI ASSISTANT', label: 'AI ASSISTANT', icon: Sparkles },
   { id: 'TICKETS', label: 'TICKETS', icon: Ticket },
   { id: 'VEHICLES', label: 'VEHICLES', icon: Truck },
   { id: 'HEX ZONE MAP', label: 'HEX ZONE MAP', icon: Hexagon },
@@ -258,7 +262,7 @@ export default function App() {
         )}
 
         {/* Page Content Viewport */}
-        <main className={`flex-1 overflow-hidden ${activeTab === 'PLANNER' ? '' : 'overflow-y-auto p-4 sm:p-6 lg:p-8'}`}>
+        <main className={`flex-1 overflow-hidden ${activeTab === 'PLANNER' || activeTab === 'AI ASSISTANT' ? '' : 'overflow-y-auto p-4 sm:p-6 lg:p-8'}`}>
           {activeTab === 'OVERVIEW' && (
             <OverviewPage
               onNavigate={(tab) => setActiveTab(tab as NavTab)}
@@ -326,6 +330,10 @@ export default function App() {
 
           {activeTab === 'HEX ZONE MAP' && (
             <HexZoneMapPage />
+          )}
+
+          {activeTab === 'AI ASSISTANT' && (
+            <AiAssistantPage />
           )}
 
           {activeTab === 'TICKETS' && (
