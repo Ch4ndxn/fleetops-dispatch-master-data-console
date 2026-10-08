@@ -18,6 +18,7 @@ import { SettingsPage } from './components/settings/SettingsPage';
 import { ConnectionStatusPage } from './components/connections/ConnectionStatusPage';
 import { HexZoneMapPage } from './components/map/HexZoneMapPage';
 import { RosterPage } from './components/roster/RosterPage';
+import { PlannerPage } from './components/planner/PlannerPage';
 
 // Modals
 import { AddEditTechnicianModal } from './components/technicians/AddEditTechnicianModal';
@@ -35,6 +36,7 @@ import {
   Radio,
   Award,
   Users,
+  Map,
   Building2,
   UploadCloud,
   History,
@@ -50,6 +52,7 @@ import {
 
 type NavTab =
   | 'OVERVIEW'
+  | 'PLANNER'
   | 'ROSTER'
   | 'ATTENDANCE'
   | 'ACTIVE CASES'
@@ -74,6 +77,7 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { id: 'OVERVIEW', label: 'OVERVIEW', icon: LayoutDashboard },
+  { id: 'PLANNER', label: 'NCR PLANNER', icon: Map },
   { id: 'HEX ZONE MAP', label: 'HEX ZONE MAP', icon: Hexagon },
   { id: 'ROSTER', label: 'ROSTER', icon: ClipboardList },
   { id: 'ATTENDANCE', label: 'ATTENDANCE', icon: CalendarCheck },
@@ -246,7 +250,7 @@ export default function App() {
         )}
 
         {/* Page Content Viewport */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+        <main className={`flex-1 overflow-hidden ${activeTab === 'PLANNER' ? '' : 'overflow-y-auto p-4 sm:p-6 lg:p-8'}`}>
           {activeTab === 'OVERVIEW' && (
             <OverviewPage
               onNavigate={(tab) => setActiveTab(tab as NavTab)}
@@ -258,6 +262,10 @@ export default function App() {
 
           {activeTab === 'ROSTER' && (
             <RosterPage />
+          )}
+
+          {activeTab === 'PLANNER' && (
+            <PlannerPage />
           )}
 
           {activeTab === 'ATTENDANCE' && (
