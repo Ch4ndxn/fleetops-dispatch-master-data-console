@@ -77,6 +77,26 @@ export interface AttendanceRecord {
   updatedAt: string;
 }
 
+// ─── Visit Log ────────────────────────────────────────────────────────────────
+export type VisitOutcome = 'Resolved' | 'Partial Fix' | 'Pending Spares' | 'Escalated' | 'No Access' | 'Revisit Needed';
+
+export interface VisitLog {
+  id: string;
+  ticketId: string;          // business key, e.g. INC-1234
+  technicianId: string;
+  technicianName: string;
+  employeeId: string;
+  centerName: string;
+  vehicleNumber: string;
+  visitDate: string;         // YYYY-MM-DD
+  checkInTime?: string;      // HH:mm
+  checkOutTime?: string;     // HH:mm
+  outcome: VisitOutcome;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type ImportType = 'CENTER_CSV' | 'TICKET_CSV' | 'TECHNICIAN_CSV' | 'ATTENDANCE_CSV';
 export type ImportStatus = 'COMPLETED' | 'FAILED' | 'PARTIAL';
 

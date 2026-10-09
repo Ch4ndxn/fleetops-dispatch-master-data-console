@@ -11,7 +11,7 @@
 
 import {
   Technician, Center, Ticket, AttendanceRecord,
-  ImportJob, DataQualityStats, TechnicianRoutePlan,
+  ImportJob, DataQualityStats, TechnicianRoutePlan, VisitLog,
 } from '../types';
 import { normalizeCenterName, isValidLatitude, isValidLongitude } from './csvParser';
 import { supabase, isDbEnabled } from '../lib/supabase';
@@ -26,6 +26,7 @@ const STORAGE_KEYS = {
   ATTENDANCE: 'fleetops_attendance_v2',
   IMPORT_JOBS: 'fleetops_import_jobs_v2',
   ROUTES: 'fleetops_routes_v2',
+  VISIT_LOGS: 'fleetops_visit_logs_v1',
   DB_LOADED: 'fleetops_db_loaded',
 };
 
@@ -112,12 +113,13 @@ async function pullFromSupabase(): Promise<void> {
   if (!isDbEnabled()) return;
   const db = supabase!;
   try {
-    const [c, t, tk, a, j] = await Promise.all([
+    const [c, t, tk, a, j, vl] = await Promise.all([
       db.from('centers').select('*').order('name'),
       db.from('technicians').select('*').order('name'),
       db.from('tickets').select('*').order('created_at', { ascending: false }),
       db.from('attendance').select('*').order('date', { ascending: false }),
       db.from('import_jobs').select('*').order('uploaded_at', { ascending: false }),
+      db.from('visit_logs').select('*').order('created_at', { ascending: false }),
     ]);
 
     if (c.data?.length) lsSet(STORAGE_KEYS.CENTERS, c.data.map(toCenter));
@@ -136,6 +138,8 @@ async function pullFromSupabase(): Promise<void> {
 
     if (j.data?.length) lsSet(STORAGE_KEYS.IMPORT_JOBS, j.data.map(toJob));
     else await db.from('import_jobs').insert(INITIAL_IMPORT_JOBS.map(fromJob));
+
+    if (vl.data?.length) lsSet(STORAGE_KEYS.VISIT_LOGS, vl.data.map(toVisitLog));
 
     localStorage.setItem(STORAGE_KEYS.DB_LOADED, '1');
     notify();
@@ -331,6 +335,82 @@ export function computeDataQuality(): DataQualityStats {
 // ─────────────────────────────────────────────────────────────────
 export function getRoutePlans(): TechnicianRoutePlan[] { return lsGet<TechnicianRoutePlan[]>(STORAGE_KEYS.ROUTES, []); }
 export function saveRoutePlans(plans: TechnicianRoutePlan[]): void { lsSet(STORAGE_KEYS.ROUTES, plans); }
+
+// ─────────────────────────────────────────────────────────────────
+// VISIT LOGS  (localStorage + Supabase)
+// ─────────────────────────────────────────────────────────────────
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const toVisitLog = (r: any): VisitLog => ({
+  id: r.id,
+  ticketId: r.ticket_id,
+  technicianId: r.technician_id,
+  technicianName: r.technician_name,
+  employeeId: r.employee_id,
+  centerName: r.center_name,
+  vehicleNumber: r.vehicle_number,
+  visitDate: r.visit_date,
+  checkInTime: r.check_in_time ?? undefined,
+  checkOutTime: r.check_out_time ?? undefined,
+  outcome: r.outcome,
+  notes: r.notes ?? undefined,
+  createdAt: r.created_at,
+  updatedAt: r.updated_at,
+});
+const fromVisitLog = (v: VisitLog) => ({
+  id: v.id,
+  ticket_id: v.ticketId,
+  technician_id: v.technicianId,
+  technician_name: v.technicianName,
+  employee_id: v.employeeId,
+  center_name: v.centerName,
+  vehicle_number: v.vehicleNumber,
+  visit_date: v.visitDate,
+  check_in_time: v.checkInTime ?? null,
+  check_out_time: v.checkOutTime ?? null,
+  outcome: v.outcome,
+  notes: v.notes ?? null,
+  created_at: v.createdAt,
+  updated_at: v.updatedAt,
+});
+
+export function getVisitLogs(): VisitLog[] {
+  return lsGet<VisitLog[]>(STORAGE_KEYS.VISIT_LOGS, []);
+}
+export function saveVisitLogs(logs: VisitLog[]): void {
+  lsSet(STORAGE_KEYS.VISIT_LOGS, logs);
+}
+export function upsertVisitLog(input: Omit<VisitLog, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }): VisitLog {
+  const now = new Date().toISOString();
+  const logs = getVisitLogs();
+  const existingIdx = input.id ? logs.findIndex(l => l.id === input.id) : -1;
+  if (existingIdx >= 0) {
+    const updated: VisitLog = { ...logs[existingIdx], ...input, id: logs[existingIdx].id, updatedAt: now };
+    logs[existingIdx] = updated;
+    saveVisitLogs(logs);
+    pushToDb('visit_logs', fromVisitLog(updated), 'id');
+    return updated;
+  }
+  const newLog: VisitLog = {
+    id: `vl-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    ...input,
+    createdAt: now,
+    updatedAt: now,
+  };
+  logs.unshift(newLog);
+  saveVisitLogs(logs);
+  pushToDb('visit_logs', fromVisitLog(newLog), 'id');
+  return newLog;
+}
+export function deleteVisitLog(id: string): void {
+  saveVisitLogs(getVisitLogs().filter(l => l.id !== id));
+  deleteFromDb('visit_logs', id);
+}
+export function getVisitLogsForTicket(ticketId: string): VisitLog[] {
+  return getVisitLogs().filter(l => l.ticketId === ticketId);
+}
+export function getVisitLogsForTech(technicianId: string): VisitLog[] {
+  return getVisitLogs().filter(l => l.technicianId === technicianId);
+}
 
 // ─────────────────────────────────────────────────────────────────
 // RESET

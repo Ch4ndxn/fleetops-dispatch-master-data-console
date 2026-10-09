@@ -121,3 +121,33 @@ create trigger centers_updated_at before update on centers for each row execute 
 create trigger technicians_updated_at before update on technicians for each row execute function update_updated_at();
 create trigger tickets_updated_at before update on tickets for each row execute function update_updated_at();
 create trigger attendance_updated_at before update on attendance for each row execute function update_updated_at();
+
+-- ── Visit Logs ──────────────────────────────────────────────────────────────
+create table if not exists visit_logs (
+  id                text primary key,
+  ticket_id         text not null,
+  technician_id     text not null,
+  technician_name   text not null,
+  employee_id       text not null,
+  center_name       text not null,
+  vehicle_number    text not null,
+  visit_date        date not null,
+  check_in_time     text,
+  check_out_time    text,
+  outcome           text not null check (outcome in ('Resolved','Partial Fix','Pending Spares','Escalated','No Access','Revisit Needed')),
+  notes             text,
+  created_at        timestamptz default now(),
+  updated_at        timestamptz default now()
+);
+
+-- RLS
+alter table visit_logs enable row level security;
+create policy "Allow all" on visit_logs for all using (true) with check (true);
+
+-- Index for fast per-ticket and per-tech queries
+create index if not exists visit_logs_ticket_idx     on visit_logs (ticket_id);
+create index if not exists visit_logs_tech_idx       on visit_logs (technician_id);
+create index if not exists visit_logs_date_idx       on visit_logs (visit_date desc);
+
+-- updated_at trigger
+create trigger visit_logs_updated_at before update on visit_logs for each row execute function update_updated_at();

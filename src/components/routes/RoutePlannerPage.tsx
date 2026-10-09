@@ -5,7 +5,9 @@ import {
   Ticket,
   Technician,
   Center,
-  TicketPriority
+  TicketPriority,
+  VisitLog,
+  VisitOutcome,
 } from '../../types';
 import {
   getRoutePlans,
@@ -13,7 +15,9 @@ import {
   getTechnicians,
   getCenters,
   getTickets,
-  saveTickets
+  saveTickets,
+  getVisitLogs,
+  upsertVisitLog,
 } from '../../services/storage';
 import {
   planBalancedRoutes,
@@ -41,7 +45,9 @@ import {
   Maximize2,
   GripVertical,
   ArrowRight,
-  Edit2
+  Edit2,
+  ClipboardList,
+  History,
 } from 'lucide-react';
 
 // ─── Recalc helper ────────────────────────────────────────────────────────────
@@ -186,6 +192,22 @@ export const RoutePlannerPage: React.FC = () => {
   // Last plan result metadata
   const [planMeta, setPlanMeta] = useState<{ kmSaved: number; balanceScore: number; timeSavedMins: number } | null>(null);
 
+  // ── Visit Log state ────────────────────────────────────────────────────────
+  const [visitLogs, setVisitLogs] = useState<VisitLog[]>(() => getVisitLogs());
+  // Modal: which stop is being logged
+  const [visitModal, setVisitModal] = useState<{
+    plan: TechnicianRoutePlan;
+    stop: RouteStop;
+  } | null>(null);
+  const [visitForm, setVisitForm] = useState<{
+    checkInTime: string;
+    checkOutTime: string;
+    outcome: VisitOutcome;
+    notes: string;
+  }>({ checkInTime: '', checkOutTime: '', outcome: 'Resolved', notes: '' });
+  // History panel: which ticketId to show logs for
+  const [visitHistoryTicketId, setVisitHistoryTicketId] = useState<string | null>(null);
+
   // ── Feature 1: Drag-to-reorder ────────────────────────────────────────────
   const [dragState, setDragState] = useState<{ techId: string; fromIdx: number } | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<{ techId: string; idx: number } | null>(null);
@@ -197,6 +219,51 @@ export const RoutePlannerPage: React.FC = () => {
   const [editingStop, setEditingStop] = useState<{ techId: string; ticketId: string; priority: string; issue: string } | null>(null);
 
   const today = new Date().toISOString().split('T')[0];
+
+  // ── Visit log handlers ─────────────────────────────────────────────────────
+  const openVisitModal = (plan: TechnicianRoutePlan, stop: RouteStop) => {
+    const nowHHMM = new Date().toTimeString().slice(0, 5);
+    setVisitForm({ checkInTime: nowHHMM, checkOutTime: '', outcome: 'Resolved', notes: '' });
+    setVisitModal({ plan, stop });
+  };
+
+  const handleSaveVisit = () => {
+    if (!visitModal) return;
+    const { plan, stop } = visitModal;
+    const saved = upsertVisitLog({
+      ticketId: stop.ticketId,
+      technicianId: plan.technicianId,
+      technicianName: plan.technicianName,
+      employeeId: plan.employeeId,
+      centerName: stop.centerName,
+      vehicleNumber: stop.vehicleNumber,
+      visitDate: today,
+      checkInTime: visitForm.checkInTime || undefined,
+      checkOutTime: visitForm.checkOutTime || undefined,
+      outcome: visitForm.outcome,
+      notes: visitForm.notes || undefined,
+    });
+    // Refresh visit logs from storage
+    setVisitLogs(getVisitLogs());
+
+    // Auto-update ticket status based on outcome
+    const newTicketStatus =
+      visitForm.outcome === 'Resolved' ? 'Resolved' :
+      visitForm.outcome === 'Partial Fix' ? 'In Progress' :
+      visitForm.outcome === 'Pending Spares' ? 'Pending Spares' :
+      visitForm.outcome === 'Escalated' ? 'In Progress' : 'In Progress';
+
+    const updatedTickets = allTickets.map(tk =>
+      tk.ticketId === stop.ticketId
+        ? { ...tk, status: newTicketStatus as Ticket['status'], updatedAt: new Date().toISOString() }
+        : tk
+    );
+    saveTickets(updatedTickets);
+    setAllTickets(updatedTickets);
+
+    setVisitModal(null);
+    showToast(`Visit logged for ${stop.ticketId} — ${visitForm.outcome}`, 'success');
+  };
 
   // ── helpers ────────────────────────────────────────────────────────────────
   const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
@@ -740,6 +807,7 @@ export const RoutePlannerPage: React.FC = () => {
 
   // ── render ────────────────────────────────────────────────────────────────
   return (
+    <>
     <div className="space-y-5">
       {/* Toast */}
       {toastMessage && (
@@ -1130,6 +1198,13 @@ export const RoutePlannerPage: React.FC = () => {
                             const isMoveOpen = moveStopOpen?.techId === plan.technicianId && moveStopOpen?.ticketId === stop.ticketId;
                             const isEditing = editingStop?.techId === plan.technicianId && editingStop?.ticketId === stop.ticketId;
 
+                            {/* Derived visit info for this stop */}
+                            const stopVisitLogs = visitLogs.filter(v => v.ticketId === stop.ticketId);
+                            const lastVisit = stopVisitLogs[0];
+                            const isVisited = stopVisitLogs.length > 0;
+                            const liveStatus = allTickets.find(t => t.ticketId === stop.ticketId)?.status ?? 'Open';
+                            const isClosed = liveStatus === 'Resolved' || liveStatus === 'Closed';
+
                             return (
                               <div key={stop.ticketId}>
                                 {/* Stop row */}
@@ -1139,9 +1214,11 @@ export const RoutePlannerPage: React.FC = () => {
                                   onDragOver={e => handleDragOver(e, plan.technicianId, idx)}
                                   onDrop={e => handleDrop(e, plan.technicianId, idx)}
                                   onDragEnd={handleDragEnd}
-                                  className={`flex items-center gap-2 p-2.5 bg-slate-50 rounded-lg border border-slate-100 text-xs transition-all ${
-                                    isDragging ? 'opacity-50' : ''
-                                  } ${isDropTarget ? 'border-t-2 border-t-blue-500' : ''}`}
+                                  className={`flex items-center gap-2 p-2.5 rounded-lg border text-xs transition-all ${
+                                    isClosed ? 'bg-emerald-50 border-emerald-200' :
+                                    isVisited ? 'bg-blue-50 border-blue-200' :
+                                    'bg-slate-50 border-slate-100'
+                                  } ${isDragging ? 'opacity-50' : ''} ${isDropTarget ? 'border-t-2 border-t-blue-500' : ''}`}
                                 >
                                   {/* Drag handle */}
                                   <span
@@ -1151,8 +1228,10 @@ export const RoutePlannerPage: React.FC = () => {
                                     <GripVertical className="w-3.5 h-3.5" />
                                   </span>
 
-                                  <span className="w-5 h-5 rounded-full bg-slate-800 text-white font-mono text-[10px] flex items-center justify-center font-bold shrink-0">
-                                    {stop.stopOrder}
+                                  <span className={`w-5 h-5 rounded-full text-white font-mono text-[10px] flex items-center justify-center font-bold shrink-0 ${
+                                    isClosed ? 'bg-emerald-600' : isVisited ? 'bg-blue-600' : 'bg-slate-800'
+                                  }`}>
+                                    {isClosed ? '✓' : stop.stopOrder}
                                   </span>
                                   <div className="flex-1 min-w-0">
                                     <div className="font-semibold text-slate-900 truncate">{stop.centerName}</div>
@@ -1160,10 +1239,56 @@ export const RoutePlannerPage: React.FC = () => {
                                       <span>{stop.vehicleNumber}</span>
                                       <span className="truncate max-w-[160px]">{stop.issue}</span>
                                     </div>
+                                    {/* Visit badge */}
+                                    {lastVisit && (
+                                      <div className="mt-0.5 flex items-center gap-1 text-[10px]">
+                                        <span className={`px-1.5 py-0.5 rounded font-semibold ${
+                                          lastVisit.outcome === 'Resolved' ? 'bg-emerald-100 text-emerald-700' :
+                                          lastVisit.outcome === 'Partial Fix' ? 'bg-blue-100 text-blue-700' :
+                                          lastVisit.outcome === 'Pending Spares' ? 'bg-amber-100 text-amber-700' :
+                                          lastVisit.outcome === 'Escalated' ? 'bg-red-100 text-red-700' :
+                                          'bg-slate-100 text-slate-600'
+                                        }`}>
+                                          {lastVisit.outcome}
+                                        </span>
+                                        {lastVisit.checkInTime && (
+                                          <span className="text-slate-400">In {lastVisit.checkInTime}{lastVisit.checkOutTime ? ` → Out ${lastVisit.checkOutTime}` : ''}</span>
+                                        )}
+                                        {stopVisitLogs.length > 1 && (
+                                          <span className="text-slate-400">· {stopVisitLogs.length} visits</span>
+                                        )}
+                                      </div>
+                                    )}
                                   </div>
                                   <div className="flex items-center gap-1.5 shrink-0">
                                     <PriorityBadge priority={stop.priority} />
                                     <span className="font-mono text-[11px] font-bold text-blue-600">{stop.estimatedArrival}</span>
+
+                                    {/* Mark Visit button */}
+                                    <button
+                                      onClick={() => openVisitModal(plan, stop)}
+                                      title="Log a visit for this stop"
+                                      className={`w-5 h-5 flex items-center justify-center rounded transition-colors ${
+                                        isClosed
+                                          ? 'text-emerald-500 hover:bg-emerald-100'
+                                          : 'text-slate-400 hover:bg-emerald-50 hover:text-emerald-600'
+                                      }`}
+                                    >
+                                      <ClipboardList className="w-3 h-3" />
+                                    </button>
+
+                                    {/* Visit history button — only if logs exist */}
+                                    {stopVisitLogs.length > 0 && (
+                                      <button
+                                        onClick={() => setVisitHistoryTicketId(
+                                          visitHistoryTicketId === stop.ticketId ? null : stop.ticketId
+                                        )}
+                                        title="View visit history"
+                                        className="w-5 h-5 flex items-center justify-center rounded text-blue-400 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                                      >
+                                        <History className="w-3 h-3" />
+                                      </button>
+                                    )}
 
                                     {/* Inline edit button */}
                                     <button
@@ -1234,6 +1359,33 @@ export const RoutePlannerPage: React.FC = () => {
                                     </button>
                                   </div>
                                 </div>
+
+                                {/* Visit History panel */}
+                                {visitHistoryTicketId === stop.ticketId && stopVisitLogs.length > 0 && (
+                                  <div className="mt-1 ml-5 p-3 bg-blue-50 border border-blue-200 rounded-lg space-y-2">
+                                    <div className="text-[10px] font-bold text-blue-800 uppercase tracking-wider mb-1 flex items-center gap-1">
+                                      <History className="w-3 h-3" /> Visit History — {stop.ticketId}
+                                    </div>
+                                    {stopVisitLogs.map(vl => (
+                                      <div key={vl.id} className="bg-white border border-blue-100 rounded-lg px-3 py-2 text-[11px]">
+                                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                                          <span className="font-semibold text-slate-800">{vl.visitDate}</span>
+                                          <span className={`px-1.5 py-0.5 rounded font-bold text-[10px] ${
+                                            vl.outcome === 'Resolved' ? 'bg-emerald-100 text-emerald-700' :
+                                            vl.outcome === 'Partial Fix' ? 'bg-blue-100 text-blue-700' :
+                                            vl.outcome === 'Pending Spares' ? 'bg-amber-100 text-amber-700' :
+                                            vl.outcome === 'Escalated' ? 'bg-red-100 text-red-700' :
+                                            'bg-slate-100 text-slate-600'
+                                          }`}>{vl.outcome}</span>
+                                        </div>
+                                        <div className="text-slate-500 mt-0.5">
+                                          {vl.technicianName} · {vl.checkInTime ?? '—'}{vl.checkOutTime ? ` → ${vl.checkOutTime}` : ''}
+                                        </div>
+                                        {vl.notes && <div className="text-slate-600 mt-0.5 italic">"{vl.notes}"</div>}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
 
                                 {/* Inline edit form */}
                                 {isEditing && editingStop && (
@@ -1593,5 +1745,115 @@ export const RoutePlannerPage: React.FC = () => {
         </div>
       </div>
     </div>
+
+    {/* ── Visit Log Modal ─────────────────────────────────────────────────── */}
+    {visitModal && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 py-4 bg-slate-900 text-white">
+            <div>
+              <div className="font-bold text-sm flex items-center gap-2">
+                <ClipboardList className="w-4 h-4 text-emerald-400" />
+                Log Visit
+              </div>
+              <div className="text-[11px] text-slate-400 mt-0.5">
+                {visitModal.stop.ticketId} · {visitModal.stop.centerName.replace(/_D$/, '')} · {visitModal.stop.vehicleNumber}
+              </div>
+            </div>
+            <button onClick={() => setVisitModal(null)} className="p-1 rounded-lg hover:bg-slate-700 transition-colors">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="p-5 space-y-4">
+            {/* Tech + date (read-only info) */}
+            <div className="flex gap-3 text-xs text-slate-600 bg-slate-50 rounded-xl px-3 py-2.5">
+              <span className="font-semibold">{visitModal.plan.technicianName}</span>
+              <span>·</span>
+              <span>{visitModal.plan.employeeId}</span>
+              <span>·</span>
+              <span className="font-mono">{today}</span>
+            </div>
+
+            {/* Check-in / Check-out times */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Check-In Time</label>
+                <input
+                  type="time"
+                  value={visitForm.checkInTime}
+                  onChange={e => setVisitForm(f => ({ ...f, checkInTime: e.target.value }))}
+                  className="w-full text-xs rounded-lg border border-slate-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Check-Out Time</label>
+                <input
+                  type="time"
+                  value={visitForm.checkOutTime}
+                  onChange={e => setVisitForm(f => ({ ...f, checkOutTime: e.target.value }))}
+                  className="w-full text-xs rounded-lg border border-slate-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+              </div>
+            </div>
+
+            {/* Outcome */}
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Outcome</label>
+              <div className="grid grid-cols-3 gap-2">
+                {(['Resolved', 'Partial Fix', 'Pending Spares', 'Escalated', 'No Access', 'Revisit Needed'] as VisitOutcome[]).map(o => (
+                  <button
+                    key={o}
+                    onClick={() => setVisitForm(f => ({ ...f, outcome: o }))}
+                    className={`px-2 py-1.5 rounded-lg text-[11px] font-semibold border transition-all ${
+                      visitForm.outcome === o
+                        ? o === 'Resolved' ? 'bg-emerald-600 text-white border-emerald-600'
+                          : o === 'Partial Fix' ? 'bg-blue-600 text-white border-blue-600'
+                          : o === 'Pending Spares' ? 'bg-amber-500 text-white border-amber-500'
+                          : o === 'Escalated' ? 'bg-red-600 text-white border-red-600'
+                          : 'bg-slate-700 text-white border-slate-700'
+                        : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400'
+                    }`}
+                  >
+                    {o}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Notes */}
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Notes / Remarks</label>
+              <textarea
+                rows={3}
+                placeholder="Parts replaced, issues found, next steps..."
+                value={visitForm.notes}
+                onChange={e => setVisitForm(f => ({ ...f, notes: e.target.value }))}
+                className="w-full text-xs rounded-lg border border-slate-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none"
+              />
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-2 justify-end pt-1">
+              <button
+                onClick={() => setVisitModal(null)}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveVisit}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors flex items-center gap-1.5"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                Save Visit
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 };
