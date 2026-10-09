@@ -586,9 +586,9 @@ interface RoutePlannerDrawerProps {
 function RoutePlannerDrawer({ open, onClose, routePlans, setRoutePlans, tickets, ignored, onToast }: RoutePlannerDrawerProps) {
   const [constraints, setConstraints] = useState<BalancedPlanConstraints>({
     maxStopsPerTech: 8,
-    maxKmPerTech: 60,
+    maxKmPerTech: 80,
     priorityFilter: 'all',
-    skillMatch: true,
+    skillMatch: false,
     shiftStartHour: 9,
     shiftEndHour: 18,
   });

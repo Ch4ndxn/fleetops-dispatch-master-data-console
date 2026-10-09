@@ -356,16 +356,17 @@ export function planBalancedRoutes(constraints: BalancedPlanConstraints): Balanc
       const minsAfterStop = ts.totalMins + travelMins + durationMins;
       if (minsAfterStop > shiftDurationMins + 30) continue; // 30-min OT buffer
 
-      // LOAD PENALTY: techs with more stops than average get a significant penalty
-      // Only count techs that still have capacity when computing average
+      // LOAD PENALTY: techs with more stops than average get a heavy penalty
+      // This forces even distribution — an overloaded tech loses the bid even if nearest
       const eligibleCounts = techStates.map(t => t.stopCount);
       const avgStops = eligibleCounts.reduce((s, n) => s + n, 0) / Math.max(1, techStates.length);
-      // Strong penalty: each stop above average adds 60% to the score
-      const loadPenaltyFactor = 1 + Math.max(0, ts.stopCount - avgStops) * 0.6;
+      // Very strong penalty: each stop above average multiplies score by 2×
+      // At 1 stop above avg → 2× penalty, 2 stops above → 3× etc.
+      const loadPenaltyFactor = 1 + Math.max(0, ts.stopCount - avgStops) * 1.5;
 
       // SCORE = (travel_time × load_penalty) + distance_penalty (lower = better candidate)
-      // Load penalty is dominant so work distributes evenly before proximity matters
-      const score = travelMins * loadPenaltyFactor + distKm * 0.3;
+      // Load penalty dominates so work distributes evenly before proximity matters
+      const score = travelMins * loadPenaltyFactor + distKm * 0.2;
 
       if (score < bestScore) {
         bestScore = score;
@@ -409,6 +410,43 @@ export function planBalancedRoutes(constraints: BalancedPlanConstraints): Balanc
     ts.plan.totalEstimatedMins = ts.totalMins;
     ts.curLat = center.latitude;
     ts.curLng = center.longitude;
+  }
+
+  // ── REBALANCE PASS: move stops from overloaded to underloaded techs ──────────
+  // Run up to 3 iterations to even out stop counts
+  for (let pass = 0; pass < 3; pass++) {
+    const sorted = [...techStates].sort((a, b) => b.stopCount - a.stopCount);
+    const mostLoaded = sorted[0];
+    const leastLoaded = sorted[sorted.length - 1];
+
+    // Only rebalance if the gap is ≥ 2 stops
+    if (mostLoaded.stopCount - leastLoaded.stopCount < 2) break;
+
+    // Try to move the last (lowest priority) stop from most-loaded to least-loaded
+    const stopToMove = mostLoaded.plan.stops[mostLoaded.plan.stops.length - 1];
+    if (!stopToMove) break;
+
+    // Check least-loaded tech can take it
+    if (leastLoaded.stopCount >= constraints.maxStopsPerTech) break;
+    const moveDist = calculateDistanceKm(leastLoaded.curLat, leastLoaded.curLng, stopToMove.latitude, stopToMove.longitude);
+    if (leastLoaded.totalKm + moveDist > constraints.maxKmPerTech) break;
+
+    // Move it
+    mostLoaded.plan.stops.pop();
+    mostLoaded.stopCount--;
+    mostLoaded.totalKm = Math.max(0, mostLoaded.totalKm - moveDist);
+    mostLoaded.plan.totalDistanceKm = Math.round(mostLoaded.totalKm * 10) / 10;
+
+    stopToMove.stopOrder = leastLoaded.plan.stops.length + 1;
+    leastLoaded.plan.stops.push(stopToMove);
+    leastLoaded.stopCount++;
+    leastLoaded.totalKm += moveDist;
+    leastLoaded.curLat = stopToMove.latitude;
+    leastLoaded.curLng = stopToMove.longitude;
+    leastLoaded.plan.totalDistanceKm = Math.round(leastLoaded.totalKm * 10) / 10;
+
+    // Recalc stop orders for the modified plan
+    mostLoaded.plan.stops = mostLoaded.plan.stops.map((s, i) => ({ ...s, stopOrder: i + 1 }));
   }
 
   const plans = techStates

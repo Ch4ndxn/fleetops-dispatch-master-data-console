@@ -132,9 +132,9 @@ function openWhatsApp(text: string) {
 // ─── Default constraints ──────────────────────────────────────────────────────
 const DEFAULT_CONSTRAINTS: BalancedPlanConstraints = {
   maxStopsPerTech: 8,
-  maxKmPerTech: 60,
+  maxKmPerTech: 80,
   priorityFilter: 'all',
-  skillMatch: true,
+  skillMatch: false,
   shiftStartHour: 9,
   shiftEndHour: 18
 };
