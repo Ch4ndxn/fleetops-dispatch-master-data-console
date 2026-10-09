@@ -15,7 +15,7 @@ import {
 import { planBalancedRoutes, calculateDistanceKm } from '../../services/routeOptimizer';
 import Groq from 'groq-sdk';
 import {
-  BrainCircuit, Zap, Map, List, Sliders, RefreshCw,
+  BrainCircuit, Zap, Map as MapIcon, List, Sliders, RefreshCw,
   Download, CheckCircle2, Loader2, ChevronDown, ChevronUp,
   X, Plus, GripVertical, Navigation, AlertTriangle, Home,
   Copy, FileJson, MessageSquare, Save, Sparkles, RotateCcw,
@@ -1056,7 +1056,7 @@ Optimize within constraints.`;
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1">
             <button onClick={() => setView('cards')} className={`p-1.5 rounded-lg transition-colors ${view === 'cards' ? 'bg-blue-600 text-white' : 'text-slate-400 bg-slate-800 hover:bg-slate-700'}`}><List className="w-3.5 h-3.5" /></button>
-            <button onClick={() => setView('map')} className={`p-1.5 rounded-lg transition-colors ${view === 'map' ? 'bg-blue-600 text-white' : 'text-slate-400 bg-slate-800 hover:bg-slate-700'}`}><Map className="w-3.5 h-3.5" /></button>
+            <button onClick={() => setView('map')} className={`p-1.5 rounded-lg transition-colors ${view === 'map' ? 'bg-blue-600 text-white' : 'text-slate-400 bg-slate-800 hover:bg-slate-700'}`}><MapIcon className="w-3.5 h-3.5" /></button>
           </div>
           <button
             onClick={handleBuild}
@@ -1276,7 +1276,7 @@ Optimize within constraints.`;
               <List className="w-4 h-4" />
             </button>
             <button onClick={() => setView('map')} className={`p-1.5 rounded-lg transition-colors ${view === 'map' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'}`} title="Map view">
-              <Map className="w-4 h-4" />
+              <MapIcon className="w-4 h-4" />
             </button>
           </div>
         </div>
