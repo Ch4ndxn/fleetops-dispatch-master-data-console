@@ -1076,17 +1076,22 @@ export const RoutePlannerPage: React.FC = () => {
       <div className="overflow-x-auto pb-1">
         <div className="flex gap-3 min-w-max lg:min-w-0 lg:grid lg:grid-cols-7">
           {[
-            { label: 'Active Techs', value: activeTechs, color: 'text-slate-900' },
-            { label: 'Total Stops', value: totalStops, color: 'text-blue-600' },
-            { label: 'Unassigned', value: unassignedTicketsRaw.length, color: 'text-amber-600' },
-            { label: 'Total Distance', value: `${totalKm} km`, color: 'text-slate-900' },
-            { label: 'Avg Stops/Tech', value: avgStopsPerTech, color: 'text-slate-700' },
-            { label: 'Plan Status', value: planStatus, color: planStatus === 'All Confirmed' ? 'text-emerald-600' : 'text-amber-600' },
-            { label: 'Coverage', value: `${coveragePct}%`, color: coveragePct >= 80 ? 'text-emerald-600' : coveragePct >= 50 ? 'text-amber-600' : 'text-rose-600' }
+            { label: 'Active Techs', value: activeTechs, color: 'text-slate-900', icon: <Navigation className="w-3.5 h-3.5 text-slate-500" /> },
+            { label: 'Total Stops', value: totalStops, color: 'text-blue-600', icon: <MapPin className="w-3.5 h-3.5 text-blue-500" /> },
+            { label: 'Unassigned', value: unassignedTicketsRaw.length, color: 'text-amber-600', icon: <AlertCircle className="w-3.5 h-3.5 text-amber-500" /> },
+            { label: 'Total Distance', value: `${totalKm} km`, color: 'text-slate-900', icon: <Compass className="w-3.5 h-3.5 text-slate-500" /> },
+            { label: 'Avg Stops/Tech', value: avgStopsPerTech, color: 'text-slate-700', icon: <Layers className="w-3.5 h-3.5 text-slate-400" /> },
+            { label: 'Plan Status', value: planStatus, color: planStatus === 'All Confirmed' ? 'text-emerald-600' : 'text-amber-600', icon: <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> },
+            { label: 'Coverage', value: `${coveragePct}%`, color: coveragePct >= 80 ? 'text-emerald-600' : coveragePct >= 50 ? 'text-amber-600' : 'text-rose-600', icon: <Clock className="w-3.5 h-3.5 text-slate-400" /> }
           ].map(stat => (
-            <div key={stat.label} className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs min-w-[110px] lg:min-w-0">
-              <span className="text-[10px] text-slate-500 font-medium block whitespace-nowrap">{stat.label}</span>
-              <div className={`text-base font-bold mt-0.5 ${stat.color}`}>{stat.value}</div>
+            <div key={stat.label} className="bg-white px-3 py-2.5 rounded-xl border border-slate-200 shadow-2xs min-w-[110px] lg:min-w-0 flex items-center gap-2.5">
+              <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-slate-100`}>
+                {stat.icon}
+              </div>
+              <div>
+                <div className={`text-sm font-bold leading-none ${stat.color}`}>{stat.value}</div>
+                <div className="text-[10px] text-slate-400 mt-0.5 whitespace-nowrap">{stat.label}</div>
+              </div>
             </div>
           ))}
         </div>
@@ -1129,12 +1134,24 @@ export const RoutePlannerPage: React.FC = () => {
 
           {/* Cards */}
           {routePlans.length === 0 ? (
-            <div className="bg-white rounded-xl border border-slate-200 p-10 text-center space-y-3">
-              <Navigation className="w-10 h-10 text-slate-300 mx-auto" />
-              <h3 className="text-sm font-bold text-slate-800">No Routes Generated Yet</h3>
-              <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                Click <strong>AUTO-PLAN ROUTES</strong> to generate optimized routes for all present technicians.
-              </p>
+            <div className="bg-white rounded-xl border-2 border-dashed border-slate-200 p-12 text-center space-y-4">
+              <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto">
+                <Navigation className="w-8 h-8 text-slate-400" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-800">No Routes Generated Yet</h3>
+                <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">
+                  Hit <strong className="text-blue-600">AUTO-PLAN ROUTES</strong> to run the geospatial optimizer across all active technicians.
+                </p>
+              </div>
+              <button
+                onClick={handlePlanRoutes}
+                disabled={isOptimizing}
+                className="mx-auto flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white rounded-xl text-xs font-bold shadow-sm transition-colors"
+              >
+                <Compass className="w-4 h-4" />
+                {isOptimizing ? 'Planning…' : 'AUTO-PLAN ROUTES'}
+              </button>
             </div>
           ) : filteredPlans.length === 0 ? (
             <div className="bg-white rounded-xl border border-slate-200 p-8 text-center text-xs text-slate-500">
@@ -1188,6 +1205,24 @@ export const RoutePlannerPage: React.FC = () => {
                           <span className="font-semibold text-blue-600">{plan.stops.length} stops</span>
                         </div>
                       </div>
+
+                      {/* Mini progress bar for this tech */}
+                      {(() => {
+                        const done = plan.stops.filter(s => {
+                          const tk = allTickets.find(t => t.ticketId === s.ticketId);
+                          return tk?.status === 'Resolved' || tk?.status === 'Closed';
+                        }).length;
+                        const total = plan.stops.length;
+                        const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+                        return total > 0 ? (
+                          <div className="hidden lg:flex flex-col items-end gap-0.5 mr-2 shrink-0">
+                            <div className="text-[9px] text-slate-400 font-mono">{done}/{total}</div>
+                            <div className="w-16 h-1 bg-slate-100 rounded-full overflow-hidden">
+                              <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                            </div>
+                          </div>
+                        ) : null;
+                      })()}
 
                       {/* WhatsApp per-tech */}
                       <button
@@ -1253,7 +1288,11 @@ export const RoutePlannerPage: React.FC = () => {
                                   onDragOver={e => handleDragOver(e, plan.technicianId, idx)}
                                   onDrop={e => handleDrop(e, plan.technicianId, idx)}
                                   onDragEnd={handleDragEnd}
-                                  className={`flex items-center gap-2 p-2.5 rounded-lg border text-xs transition-all ${
+                                  className={`flex items-center gap-2 p-2.5 rounded-lg border border-l-2 ${
+                                    stop.priority === 'CRITICAL' ? 'border-l-rose-500' :
+                                    stop.priority === 'HIGH' ? 'border-l-orange-400' :
+                                    stop.priority === 'MEDIUM' ? 'border-l-amber-400' : 'border-l-slate-300'
+                                  } text-xs transition-all ${
                                     isClosed ? 'bg-emerald-50 border-emerald-200' :
                                     isVisited ? 'bg-blue-50 border-blue-200' :
                                     'bg-slate-50 border-slate-100'
@@ -1273,7 +1312,10 @@ export const RoutePlannerPage: React.FC = () => {
                                     {isClosed ? '✓' : stop.stopOrder}
                                   </span>
                                   <div className="flex-1 min-w-0">
-                                    <div className="font-semibold text-slate-900 truncate">{stop.centerName}</div>
+                                    <div className="flex items-center gap-1.5 min-w-0">
+                                      <span className="font-mono text-[9px] font-bold text-teal-700 bg-teal-50 px-1 py-0.5 rounded shrink-0">{stop.ticketId}</span>
+                                      <span className="font-semibold text-slate-900 truncate text-xs">{stop.centerName}</span>
+                                    </div>
                                     <div className="text-[10px] text-slate-500 flex gap-2 flex-wrap">
                                       <span>{stop.vehicleNumber}</span>
                                       <span className="truncate max-w-[160px]">{stop.issue}</span>
@@ -1730,9 +1772,20 @@ export const RoutePlannerPage: React.FC = () => {
                       <td className="px-3 py-2 text-center font-bold text-slate-700">{stop.stopOrder}</td>
                       <td className="px-3 py-2 font-mono text-blue-700 font-semibold whitespace-nowrap">{stop.estimatedArrival}</td>
                       <td className="px-3 py-2">
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded text-[10px] font-semibold">
-                          <CheckCircle2 className="w-3 h-3" /> Assigned
-                        </span>
+                        {(() => {
+                          const tk = allTickets.find(t => t.ticketId === stop.ticketId);
+                          const s = tk?.status ?? 'Open';
+                          const cls = s === 'Resolved' || s === 'Closed' ? 'bg-emerald-100 text-emerald-700' :
+                            s === 'In Progress' ? 'bg-blue-100 text-blue-700' :
+                            s === 'Pending Spares' ? 'bg-amber-100 text-amber-700' :
+                            'bg-slate-100 text-slate-600';
+                          return (
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold ${cls}`}>
+                              {s === 'Resolved' || s === 'Closed' ? <CheckCircle2 className="w-3 h-3" /> : null}
+                              {s}
+                            </span>
+                          );
+                        })()}
                       </td>
                     </tr>
                   ))
