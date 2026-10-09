@@ -1376,6 +1376,7 @@ export const RoutePlannerPage: React.FC = () => {
               technicians={technicians}
               routePlans={routePlans}
               selectedTechId={selectedTechId}
+              allTickets={allTickets}
               height={mapHeight}
             />
           </div>
