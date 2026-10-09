@@ -881,6 +881,7 @@ function rebuild() {
 
 function onTechChange(val) {
   __state.attActive = null; // manual slider override clears attendance filter
+  __state.sliderOverride = true; // keep the user's choice across database refreshes
   document.getElementById('tech-val').textContent = val;
   rebuild();
 }
@@ -1387,6 +1388,7 @@ function applyAttendance() {
 
   // Store active indices for assignTechnicians to use
   __state.attActive = activeTechIndices;
+  __state.sliderOverride = false;
   __hooks.onApplyAttendance && __hooks.onApplyAttendance(REAL_TECHS.map((t, i) => ({ tech: t, ...(attendance[i] || {}) })));
   Object.values(attendance).forEach(a => { if (a) delete a.__dirty; });
   rebuild();
@@ -1583,6 +1585,7 @@ function __applyDbState(data) {
     const a = (data.attendance || {})[t._id];
     if (a && !(attendance[i] && attendance[i].__dirty)) attendance[i] = { ...a };
   });
+  if (__state.sliderOverride) return; // user picked a technician count with the slider — respect it
   const anyMarked = REAL_TECHS.some(t => (data.attendance || {})[t._id]);
   __state.attActive = anyMarked
     ? REAL_TECHS.map((_, i) => i).filter(i => (attendance[i] || {}).status !== 'absent')
@@ -1592,7 +1595,8 @@ function __syncHeaderStatics() {
   const s = __root.querySelector('#tech-slider');
   if (s) {
     s.max = Math.max(1, REAL_TECHS.length);
-    if (__state.attActive) s.value = __state.attActive.length;
+    if (__state.sliderOverride) { if (parseInt(s.value) > REAL_TECHS.length) s.value = REAL_TECHS.length; }
+    else if (__state.attActive) s.value = __state.attActive.length;
     else if (!s.dataset.touched || parseInt(s.value) > REAL_TECHS.length) s.value = REAL_TECHS.length;
     __root.querySelector('#tech-val').textContent = s.value;
   }
