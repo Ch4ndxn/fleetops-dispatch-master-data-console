@@ -109,10 +109,60 @@ const fromJob = (j: ImportJob) => ({ id: j.id, import_type: j.importType, file_n
 // Pulls data from Supabase into localStorage on app start (once).
 // All writes go to localStorage first, then replicate to Supabase silently.
 // ─────────────────────────────────────────────────────────────────
-async function pullFromSupabase(): Promise<void> {
-  if (!isDbEnabled()) return;
+export type SyncStatus = 'disabled' | 'loading' | 'synced' | 'error';
+export interface SyncState { status: SyncStatus; lastSyncedAt: string | null; error: string | null; }
+let syncState: SyncState = { status: isDbEnabled() ? 'loading' : 'disabled', lastSyncedAt: null, error: null };
+export function getSyncState(): SyncState { return syncState; }
+function setSyncState(patch: Partial<SyncState>) { syncState = { ...syncState, ...patch }; notify(); }
+
+// Writes still in flight — a pull must not overwrite local data with an older DB copy.
+let pendingWrites = 0;
+const MIGRATED_KEY = 'fleetops_db_migrated_v1';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rawLocal<T>(key: string): T[] { try { const r = localStorage.getItem(key); return r ? JSON.parse(r) : []; } catch { return []; } }
+
+/**
+ * One-time: upload rows that only ever lived in this browser (older versions
+ * saved most edits locally only), so making the DB authoritative loses nothing.
+ * Local rows win when they are missing from the DB or have a newer updatedAt.
+ */
+async function migrateLocalOnlyRows(): Promise<void> {
+  if (localStorage.getItem(MIGRATED_KEY)) return;
+  const db = supabase!;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const specs: Array<[string, string, (x: any) => object]> = [
+    ['centers', STORAGE_KEYS.CENTERS, fromCenter],
+    ['technicians', STORAGE_KEYS.TECHNICIANS, fromTech],
+    ['tickets', STORAGE_KEYS.TICKETS, fromTicket],
+    ['attendance', STORAGE_KEYS.ATTENDANCE, fromAtt],
+  ];
+  for (const [table, key, toRow] of specs) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const local = rawLocal<any>(key);
+    if (!local.length) continue;
+    const { data, error } = await db.from(table).select('id, updated_at');
+    if (error) throw error;
+    const remote = new Map((data ?? []).map((r: { id: string; updated_at: string }) => [r.id, r.updated_at]));
+    const toPush = local.filter(l => !remote.has(l.id) || (l.updatedAt && l.updatedAt > (remote.get(l.id) ?? '')));
+    if (toPush.length) {
+      const { error: upErr } = await db.from(table).upsert(toPush.map(toRow), { onConflict: 'id' });
+      if (upErr) throw upErr;
+      console.log(`[FleetOps] Uploaded ${toPush.length} local-only ${table} rows to Supabase`);
+    }
+  }
+  localStorage.setItem(MIGRATED_KEY, new Date().toISOString());
+}
+
+let pulling = false;
+/** Pull everything from Supabase. The database is the source of truth: empty tables clear the local copy. */
+export async function refreshFromDb(): Promise<void> {
+  if (!isDbEnabled() || pulling) return;
+  if (pendingWrites > 0) { setTimeout(refreshFromDb, 1500); return; }
+  pulling = true;
   const db = supabase!;
   try {
+    await migrateLocalOnlyRows();
     const [c, t, tk, a, j, vl] = await Promise.all([
       db.from('centers').select('*').order('name'),
       db.from('technicians').select('*').order('name'),
@@ -121,36 +171,76 @@ async function pullFromSupabase(): Promise<void> {
       db.from('import_jobs').select('*').order('uploaded_at', { ascending: false }),
       db.from('visit_logs').select('*').order('created_at', { ascending: false }),
     ]);
+    const firstError = [c, t, tk, a, j, vl].find(r => r.error)?.error;
+    if (firstError) throw firstError;
+    if (pendingWrites > 0) { pulling = false; setTimeout(refreshFromDb, 1500); return; } // a write started mid-pull
 
-    if (c.data?.length) lsSet(STORAGE_KEYS.CENTERS, c.data.map(toCenter));
-    else if (!c.data?.length) {
-      // seed centers
-      await db.from('centers').insert(INITIAL_CENTERS.map(fromCenter));
-    }
-
-    if (t.data?.length) lsSet(STORAGE_KEYS.TECHNICIANS, t.data.map(toTech));
-    else await db.from('technicians').insert(INITIAL_TECHNICIANS.map(fromTech));
-
-    if (tk.data?.length) lsSet(STORAGE_KEYS.TICKETS, tk.data.map(toTicket));
-    else await db.from('tickets').insert(INITIAL_TICKETS.map(fromTicket));
-
-    if (a.data?.length) lsSet(STORAGE_KEYS.ATTENDANCE, a.data.map(toAtt));
-
-    if (j.data?.length) lsSet(STORAGE_KEYS.IMPORT_JOBS, j.data.map(toJob));
-    else await db.from('import_jobs').insert(INITIAL_IMPORT_JOBS.map(fromJob));
-
-    if (vl.data?.length) lsSet(STORAGE_KEYS.VISIT_LOGS, vl.data.map(toVisitLog));
-
+    writeLocal(STORAGE_KEYS.CENTERS, (c.data ?? []).map(toCenter));
+    writeLocal(STORAGE_KEYS.TECHNICIANS, (t.data ?? []).map(toTech));
+    writeLocal(STORAGE_KEYS.TICKETS, (tk.data ?? []).map(toTicket));
+    writeLocal(STORAGE_KEYS.ATTENDANCE, (a.data ?? []).map(toAtt));
+    writeLocal(STORAGE_KEYS.IMPORT_JOBS, (j.data ?? []).map(toJob));
+    writeLocal(STORAGE_KEYS.VISIT_LOGS, (vl.data ?? []).map(toVisitLog));
     localStorage.setItem(STORAGE_KEYS.DB_LOADED, '1');
-    notify();
-    console.log('[FleetOps] Supabase sync complete ✓');
+    setSyncState({ status: 'synced', lastSyncedAt: new Date().toISOString(), error: null });
   } catch (err) {
-    console.error('[FleetOps] Supabase pull failed, using localStorage:', err);
+    const msg = err instanceof Error ? err.message : (err as { message?: string })?.message ?? String(err);
+    console.error('[FleetOps] Supabase pull failed, showing cached data:', msg);
+    setSyncState({ status: 'error', error: msg });
+  } finally {
+    pulling = false;
   }
 }
 
-// Fire and forget on module load
-pullFromSupabase();
+/** Write to localStorage only if the content actually changed (avoids needless re-renders). */
+function writeLocal<T>(key: string, val: T): void {
+  try {
+    const next = JSON.stringify(val);
+    if (localStorage.getItem(key) === next) return;
+    localStorage.setItem(key, next);
+    notify();
+  } catch (e) { console.error(e); }
+}
+
+/** Upsert rows that are new/changed and delete rows that were removed, in two batched calls. */
+function syncListToDb<T extends { id: string }>(table: string, prev: T[], next: T[], toRow: (x: T) => object) {
+  if (!isDbEnabled()) return;
+  const prevById = new Map(prev.map(p => [p.id, JSON.stringify(p)]));
+  const nextIds = new Set(next.map(n => n.id));
+  const changed = next.filter(n => prevById.get(n.id) !== JSON.stringify(n));
+  const removed = prev.filter(p => !nextIds.has(p.id)).map(p => p.id);
+  const db = supabase!;
+  if (changed.length) {
+    pendingWrites++;
+    db.from(table).upsert(changed.map(toRow), { onConflict: 'id' }).then(({ error }) => {
+      pendingWrites--;
+      if (error) { console.error(`[FleetOps] Supabase upsert ${table}:`, error.message); setSyncState({ status: 'error', error: `Saving ${table}: ${error.message}` }); }
+    });
+  }
+  if (removed.length) {
+    pendingWrites++;
+    db.from(table).delete().in('id', removed).then(({ error }) => {
+      pendingWrites--;
+      if (error) { console.error(`[FleetOps] Supabase delete ${table}:`, error.message); setSyncState({ status: 'error', error: `Deleting ${table}: ${error.message}` }); }
+    });
+  }
+}
+
+// Initial load, then keep the local copy current:
+//  • realtime push from Supabase (if Realtime is enabled on the tables)
+//  • every 60 s while the tab is visible, and whenever the tab regains focus
+if (isDbEnabled() && typeof window !== 'undefined') {
+  refreshFromDb();
+  let debounce: ReturnType<typeof setTimeout> | undefined;
+  const soon = () => { clearTimeout(debounce); debounce = setTimeout(refreshFromDb, 800); };
+  try {
+    supabase!.channel('fleetops-db')
+      .on('postgres_changes', { event: '*', schema: 'public' }, soon)
+      .subscribe();
+  } catch (e) { console.warn('[FleetOps] Realtime unavailable, polling only', e); }
+  setInterval(() => { if (document.visibilityState === 'visible') refreshFromDb(); }, 60_000);
+  window.addEventListener('focus', soon);
+}
 
 // Helper: push a single record to Supabase silently
 function pushToDb(table: string, row: object, conflict: string) {
@@ -173,7 +263,9 @@ export function getCenters(): Center[] {
   return lsGet<Center[]>(STORAGE_KEYS.CENTERS, INITIAL_CENTERS);
 }
 export function saveCenters(centers: Center[]): void {
+  const prev = lsGet<Center[]>(STORAGE_KEYS.CENTERS, []);
   lsSet(STORAGE_KEYS.CENTERS, centers);
+  syncListToDb('centers', prev, centers, fromCenter);
 }
 export function findCenterByName(name: string): Center | undefined {
   const n = normalizeCenterName(name);
@@ -188,13 +280,11 @@ export function upsertCenter(input: Partial<Center> & { name: string; latitude: 
     const updated: Center = { ...centers[idx], ...input, normalizedName: normalized, updatedAt: now };
     centers[idx] = updated;
     saveCenters(centers);
-    pushToDb('centers', fromCenter(updated), 'id');
     return { center: updated, isNew: false };
   }
   const newCenter: Center = { id: input.id || `dc-${Date.now()}`, name: input.name.trim(), normalizedName: normalized, city: input.city || 'Delhi', latitude: Number(input.latitude), longitude: Number(input.longitude), defaultDc: input.defaultDc || `${input.name} DC`, active: input.active !== undefined ? Boolean(input.active) : true, notes: input.notes || '', createdAt: now, updatedAt: now };
   centers.push(newCenter);
   saveCenters(centers);
-  pushToDb('centers', fromCenter(newCenter), 'id');
   return { center: newCenter, isNew: true };
 }
 export function deleteCenter(id: string): void {
@@ -206,10 +296,12 @@ export function deleteCenter(id: string): void {
 // TECHNICIANS  (synchronous)
 // ─────────────────────────────────────────────────────────────────
 export function getTechnicians(): Technician[] {
-  return lsGet<Technician[]>(STORAGE_KEYS.TECHNICIANS, INITIAL_TECHNICIANS);
+  return lsGet<Technician[]>(STORAGE_KEYS.TECHNICIANS, isDbEnabled() ? [] : INITIAL_TECHNICIANS);
 }
 export function saveTechnicians(technicians: Technician[]): void {
+  const prev = lsGet<Technician[]>(STORAGE_KEYS.TECHNICIANS, []);
   lsSet(STORAGE_KEYS.TECHNICIANS, technicians);
+  syncListToDb('technicians', prev, technicians, fromTech);
 }
 export function findTechnicianByEmployeeId(empId: string): Technician | undefined {
   if (!empId) return undefined;
@@ -225,13 +317,11 @@ export function upsertTechnician(input: Partial<Technician> & { employeeId: stri
     const updated: Technician = { ...techs[idx], ...input, employeeId: cleanEmpId, updatedAt: now };
     techs[idx] = updated;
     saveTechnicians(techs);
-    pushToDb('technicians', fromTech(updated), 'id');
     return { technician: updated, isNew: false };
   }
   const newTech: Technician = { id: input.id || `tech-${Date.now()}`, employeeId: cleanEmpId, name: input.name.trim(), phone: input.phone || '', alternatePhone: input.alternatePhone || '', role: input.role || 'Field Engineer', vendor: input.vendor || 'In-House Ops', city: input.city || 'Delhi', zone: input.zone || 'Central', specialisation: input.specialisation || 'General Fleet', status: input.status || 'Active', joinedDate: input.joinedDate || now.split('T')[0], assignedStm: input.assignedStm || '', notes: input.notes || '', startingLatitude: input.startingLatitude, startingLongitude: input.startingLongitude, defaultDc: input.defaultDc || '', createdAt: now, updatedAt: now };
   techs.push(newTech);
   saveTechnicians(techs);
-  pushToDb('technicians', fromTech(newTech), 'id');
   return { technician: newTech, isNew: true };
 }
 export function deleteTechnician(id: string): void {
@@ -246,7 +336,9 @@ export function getTickets(): Ticket[] {
   return lsGet<Ticket[]>(STORAGE_KEYS.TICKETS, INITIAL_TICKETS);
 }
 export function saveTickets(tickets: Ticket[]): void {
+  const prev = lsGet<Ticket[]>(STORAGE_KEYS.TICKETS, []);
   lsSet(STORAGE_KEYS.TICKETS, tickets);
+  syncListToDb('tickets', prev, tickets, fromTicket);
 }
 export function upsertTicket(input: Partial<Ticket> & { ticketId: string; vehicleNumber: string; centerName: string }): { ticket: Ticket; isNew: boolean } {
   const now = new Date().toISOString();
@@ -257,13 +349,11 @@ export function upsertTicket(input: Partial<Ticket> & { ticketId: string; vehicl
     const updated: Ticket = { ...tickets[idx], ...input, ticketId: cleanTicketId, updatedAt: now };
     tickets[idx] = updated;
     saveTickets(tickets);
-    pushToDb('tickets', fromTicket(updated), 'id');
     return { ticket: updated, isNew: false };
   }
   const newTicket: Ticket = { id: input.id || `ticket-${Date.now()}`, ticketId: cleanTicketId, vehicleNumber: input.vehicleNumber.trim().toUpperCase(), vendor: input.vendor || 'Zen', location: input.location || '', centerName: input.centerName.trim(), issue: input.issue || 'General Maintenance', category: input.category || 'Mechanical', status: input.status || 'Open', priority: input.priority || 'MEDIUM', affectedSpare: input.affectedSpare || '', issueType: input.issueType || 'Breakdown', assignedTechnicianId: input.assignedTechnicianId, assignedTechnicianName: input.assignedTechnicianName, scheduledSlot: input.scheduledSlot, createdAt: now, updatedAt: now, isNew: true };
   tickets.unshift(newTicket);
   saveTickets(tickets);
-  pushToDb('tickets', fromTicket(newTicket), 'id');
   return { ticket: newTicket, isNew: true };
 }
 export function deleteTicket(id: string): void {
@@ -278,7 +368,9 @@ export function getAttendance(): AttendanceRecord[] {
   return lsGet<AttendanceRecord[]>(STORAGE_KEYS.ATTENDANCE, []);
 }
 export function saveAttendance(records: AttendanceRecord[]): void {
+  const prev = lsGet<AttendanceRecord[]>(STORAGE_KEYS.ATTENDANCE, []);
   lsSet(STORAGE_KEYS.ATTENDANCE, records);
+  syncListToDb('attendance', prev, records, fromAtt);
 }
 export function upsertAttendanceRecord(record: Partial<AttendanceRecord> & { employeeId: string; date: string }): { record: AttendanceRecord; isNew: boolean } {
   const now = new Date().toISOString();
@@ -292,13 +384,11 @@ export function upsertAttendanceRecord(record: Partial<AttendanceRecord> & { emp
     const updated: AttendanceRecord = { ...list[idx], ...record, employeeId: cleanEmpId, technicianName: techName, date: targetDate, updatedAt: now };
     list[idx] = updated;
     saveAttendance(list);
-    pushToDb('attendance', fromAtt(updated), 'id');
     return { record: updated, isNew: false };
   }
   const newRecord: AttendanceRecord = { id: record.id || `att-${Date.now()}`, employeeId: cleanEmpId, technicianName: techName, date: targetDate, status: record.status || 'Present', checkInTime: record.checkInTime || '09:00', checkOutTime: record.checkOutTime || '', notes: record.notes || '', verifiedBy: record.verifiedBy || 'System Admin', updatedAt: now };
   list.unshift(newRecord);
   saveAttendance(list);
-  pushToDb('attendance', fromAtt(newRecord), 'id');
   return { record: newRecord, isNew: true };
 }
 

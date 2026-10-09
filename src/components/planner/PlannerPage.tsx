@@ -14,8 +14,9 @@ import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import * as L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import {
-  getTechnicians, getTickets, saveTickets,
+  getTechnicians, getTickets, upsertTicket,
   getAttendance, getCenters, upsertAttendanceRecord,
+  subscribeToDataChanges, getSyncState, refreshFromDb,
 } from '../../services/storage';
 import { planTodayRoutes, calculateDistanceKm } from '../../services/routeOptimizer';
 import {
@@ -52,6 +53,7 @@ const STATUS_META: Record<string, { color: string; bg: string }> = {
 type SubTab = 'roster' | 'tickets' | 'tracker' | 'attend';
 type TrackerStatus = 'Assigned' | 'Visited' | 'Closed';
 type MutablePlan = TechnicianRoutePlan & { tech: Technician };
+type WriteTicket = (input: Parameters<typeof upsertTicket>[0]) => void;
 
 interface TicketTrackerRow {
   ticketId: string;
@@ -92,12 +94,21 @@ function buildPlans(): MutablePlan[] {
     .filter(t => t.status === 'Active' && !extended.find(p => p.technicianId === t.id))
     .forEach(t => extended.push({
       technicianId: t.id, technicianName: t.name, employeeId: t.employeeId,
-      startLat: t.startingLatitude ?? 28.6139, startLng: t.startingLongitude ?? 77.2090,
+      // No base location → NaN: kept off the map and can't receive manual stops
+      startLat: t.startingLatitude ?? NaN, startLng: t.startingLongitude ?? NaN,
       defaultDc: t.defaultDc,
       stops: [], totalDistanceKm: 0, totalEstimatedMins: 0, status: 'Draft', tech: t,
     }));
   return extended.sort((a, b) =>
     (b.stops.length - a.stops.length) || a.technicianName.localeCompare(b.technicianName));
+}
+
+function planInputsSignature(): string {
+  const tk = getTickets().map(t => `${t.ticketId}|${t.status}|${t.priority}|${t.centerName}|${t.assignedTechnicianId ?? ''}`).sort().join(';');
+  const te = getTechnicians().map(t => `${t.id}|${t.status}|${t.startingLatitude}|${t.startingLongitude}`).sort().join(';');
+  const at = getAttendance().filter(a => a.date === TODAY).map(a => `${a.employeeId}|${a.status}`).sort().join(';');
+  const ce = getCenters().map(c => `${c.name}|${c.latitude}|${c.longitude}`).sort().join(';');
+  return [tk, te, at, ce].join('#');
 }
 
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -110,7 +121,7 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
 const TECH_COLORS = ['#0E6B6E','#3B82F6','#8B5CF6','#F97316','#10B981','#EF4444','#EC4899','#EAB308','#14B8A6','#6366F1','#F59E0B','#64748B','#0EA5E9','#A855F7'];
 
 // ── Roster Sub-tab ────────────────────────────────────────────────────
-function RosterView({ plans, setPlans, onManualEdit }: { plans: MutablePlan[]; setPlans: React.Dispatch<React.SetStateAction<MutablePlan[]>>; onManualEdit: () => void }) {
+function RosterView({ plans, setPlans, onManualEdit, writeTicket }: { plans: MutablePlan[]; setPlans: React.Dispatch<React.SetStateAction<MutablePlan[]>>; onManualEdit: () => void; writeTicket: WriteTicket }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [reassignFrom, setReassignFrom] = useState<{ planIdx: number; stopIdx: number } | null>(null);
 
@@ -122,27 +133,25 @@ function RosterView({ plans, setPlans, onManualEdit }: { plans: MutablePlan[]; s
 
   const handleReassign = useCallback((fromIdx: number, stopIdx: number, toIdx: number) => {
     if (fromIdx === toIdx) { setReassignFrom(null); return; }
+    const stop = plans[fromIdx].stops[stopIdx];
+    const target = plans[toIdx];
+    if (!stop || !target || Number.isNaN(target.startLat)) { setReassignFrom(null); return; }
     setPlans(prev => {
       const next = prev.map(p => ({ ...p, stops: [...p.stops] }));
-      const [stop] = next[fromIdx].stops.splice(stopIdx, 1);
+      next[fromIdx].stops.splice(stopIdx, 1);
       next[toIdx].stops.push(stop);
-      // Recalc ETAs for both plans
       next[fromIdx].stops = recalcEtas(next[fromIdx].stops, next[fromIdx].startLat, next[fromIdx].startLng);
       next[toIdx].stops = recalcEtas(next[toIdx].stops, next[toIdx].startLat, next[toIdx].startLng);
-      // Persist assignment on ticket
-      const tickets = getTickets();
-      const t = tickets.find(t => t.ticketId === stop.ticketId);
-      if (t) {
-        t.assignedTechnicianId = next[toIdx].technicianId;
-        t.assignedTechnicianName = next[toIdx].technicianName;
-        t.status = 'Assigned';
-        saveTickets(tickets);
-      }
       return next;
+    });
+    // Persist the new assignment (writes to Supabase)
+    writeTicket({
+      ticketId: stop.ticketId, vehicleNumber: stop.vehicleNumber, centerName: stop.centerName,
+      assignedTechnicianId: target.technicianId, assignedTechnicianName: target.technicianName, status: 'Assigned',
     });
     setReassignFrom(null);
     onManualEdit();
-  }, [setPlans, onManualEdit]);
+  }, [plans, setPlans, onManualEdit, writeTicket]);
 
   const totalStops = plans.reduce((a, p) => a + p.stops.length, 0);
   const deployed = plans.filter(p => p.stops.length > 0).length;
@@ -177,7 +186,9 @@ function RosterView({ plans, setPlans, onManualEdit }: { plans: MutablePlan[]; s
               <div style={{ width: 10, height: 10, borderRadius: '50%', background: techColor, flexShrink: 0 }} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 700, fontSize: 12, color: '#1E293B', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{plan.technicianName}</div>
-                <div style={{ fontSize: 10, color: '#94A3B8' }}>{plan.employeeId} · {plan.tech.zone || plan.tech.city}</div>
+                <div style={{ fontSize: 10, color: '#94A3B8' }}>{plan.employeeId} · {plan.tech.zone || plan.tech.city}
+                  {Number.isNaN(plan.startLat) && <span style={{ color: '#F97316', fontWeight: 700 }}> · no base location</span>}
+                </div>
               </div>
               <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: plan.stops.length ? ACCENT : '#CBD5E1', fontWeight: 700, flexShrink: 0 }}>
                 {plan.stops.length} stop{plan.stops.length !== 1 ? 's' : ''}
@@ -223,7 +234,7 @@ function RosterView({ plans, setPlans, onManualEdit }: { plans: MutablePlan[]; s
                   <div style={{ marginTop: 4, padding: '6px 8px', background: '#ECFDF5', borderRadius: 8, border: `1px dashed ${ACCENT}` }}>
                     <div style={{ fontSize: 10, color: ACCENT, fontWeight: 700, marginBottom: 4 }}>Move stop to:</div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                      {plans.map((p, tIdx) => tIdx !== reassignFrom.planIdx && (
+                      {plans.map((p, tIdx) => tIdx !== reassignFrom.planIdx && !Number.isNaN(p.startLat) && (
                         <button
                           key={p.technicianId}
                           onClick={() => handleReassign(reassignFrom.planIdx, reassignFrom.stopIdx, tIdx)}
@@ -359,20 +370,32 @@ function TicketsView({ plans }: { plans: MutablePlan[] }) {
 }
 
 // ── Tracker Sub-tab ───────────────────────────────────────────────────
-type TrackerState = Record<string, { status: TrackerStatus; notes: string }>;
-const TRACKER_KEY = `fo_planner_tracker_${TODAY}`;
+// Notes are kept in this browser; visit status lives on the ticket in the database.
+type TrackerState = Record<string, { notes: string }>;
+const TRACKER_KEY = `fo_planner_tracker_notes_${TODAY}`;
+
+function trackerStatusOf(t: Ticket | undefined): TrackerStatus {
+  if (!t) return 'Assigned';
+  if (t.status === 'Resolved' || t.status === 'Closed') return 'Closed';
+  if (t.status === 'In Progress' || t.status === 'Pending Spares') return 'Visited';
+  return 'Assigned';
+}
+const TICKET_STATUS_FOR: Record<TrackerStatus, TicketStatus> = { Assigned: 'Assigned', Visited: 'In Progress', Closed: 'Resolved' };
 function loadTracker(): TrackerState {
   try { const raw = localStorage.getItem(TRACKER_KEY); return raw ? JSON.parse(raw) : {}; } catch { return {}; }
 }
 
-function TrackerView({ plans, tracker, setTracker }: {
+function TrackerView({ plans, tracker, setTracker, ticketsById, writeTicket }: {
   plans: MutablePlan[];
+  writeTicket: WriteTicket;
+  ticketsById: Map<string, Ticket>;
   tracker: TrackerState;
   setTracker: React.Dispatch<React.SetStateAction<TrackerState>>;
 }) {
   const [techFilter, setTechFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
+  const statusOf = (ticketId: string) => trackerStatusOf(ticketsById.get(ticketId));
   const allStops = useMemo(() => {
     const rows: Array<RouteStop & { techName: string; empId: string }> = [];
     plans.forEach(p => p.stops.forEach(s => rows.push({ ...s, techName: p.technicianName, empId: p.employeeId })));
@@ -381,31 +404,32 @@ function TrackerView({ plans, tracker, setTracker }: {
 
   const counts = useMemo(() => ({
     all: allStops.length,
-    Assigned: allStops.filter(s => (tracker[s.ticketId]?.status || 'Assigned') === 'Assigned').length,
-    Visited: allStops.filter(s => tracker[s.ticketId]?.status === 'Visited').length,
-    Closed: allStops.filter(s => tracker[s.ticketId]?.status === 'Closed').length,
-  }), [allStops, tracker]);
+    Assigned: allStops.filter(s => statusOf(s.ticketId) === 'Assigned').length,
+    Visited: allStops.filter(s => statusOf(s.ticketId) === 'Visited').length,
+    Closed: allStops.filter(s => statusOf(s.ticketId) === 'Closed').length,
+  }), [allStops, ticketsById]);
 
   const progress = allStops.length > 0 ? Math.round((counts.Closed / allStops.length) * 100) : 0;
 
   const visible = useMemo(() => allStops.filter(s => {
-    const st = tracker[s.ticketId]?.status || 'Assigned';
+    const st = statusOf(s.ticketId);
     if (techFilter !== 'all' && s.techName !== techFilter) return false;
     if (statusFilter !== 'all' && st !== statusFilter) return false;
     return true;
-  }), [allStops, tracker, techFilter, statusFilter]);
+  }), [allStops, ticketsById, techFilter, statusFilter]);
 
-  const setStatus = (ticketId: string, status: TrackerStatus) => {
-    setTracker(prev => ({ ...prev, [ticketId]: { ...prev[ticketId], status, notes: prev[ticketId]?.notes || '' } }));
+  const setStatus = (stop: RouteStop, status: TrackerStatus) => {
+    // Writes the ticket (→ Supabase) so Tickets, Active Cases and other devices see it
+    writeTicket({ ticketId: stop.ticketId, vehicleNumber: stop.vehicleNumber, centerName: stop.centerName, status: TICKET_STATUS_FOR[status] });
   };
   const setNotes = (ticketId: string, notes: string) => {
-    setTracker(prev => ({ ...prev, [ticketId]: { ...prev[ticketId], notes, status: prev[ticketId]?.status || 'Assigned' } }));
+    setTracker(prev => ({ ...prev, [ticketId]: { notes } }));
   };
 
   const exportTracker = () => {
     const rows = [['TicketID','Vehicle','Center','Tech','Priority','Status','Notes']];
     allStops.forEach(s => {
-      const st = tracker[s.ticketId]?.status || 'Assigned';
+      const st = statusOf(s.ticketId);
       const notes = tracker[s.ticketId]?.notes || '';
       rows.push([s.ticketId, s.vehicleNumber, s.centerName, s.techName, s.priority, st, notes]);
     });
@@ -424,7 +448,7 @@ function TrackerView({ plans, tracker, setTracker }: {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
         <div>
           <div style={{ fontWeight: 700, fontSize: 12, color: '#1E293B' }}>📊 Ticket Tracker</div>
-          <div style={{ fontSize: 10, color: '#94A3B8' }}>Update status as technicians work</div>
+          <div style={{ fontSize: 10, color: '#94A3B8' }}>Status saves to the ticket · Visited = In Progress, Closed = Resolved</div>
         </div>
         <button onClick={exportTracker} style={{ fontSize: 10, fontWeight: 700, padding: '4px 10px', borderRadius: 8, border: '1.5px solid #E2E8F0', color: '#64748B', background: '#F8FAFC', cursor: 'pointer' }}>⬇ Export</button>
       </div>
@@ -464,7 +488,7 @@ function TrackerView({ plans, tracker, setTracker }: {
       {/* Ticket rows */}
       {visible.length === 0 && <div style={{ textAlign: 'center', color: '#CBD5E1', fontSize: 12, padding: '20px 0' }}>No tickets</div>}
       {visible.map(stop => {
-        const st = tracker[stop.ticketId]?.status || 'Assigned';
+        const st = statusOf(stop.ticketId);
         const notes = tracker[stop.ticketId]?.notes || '';
         const pri = PRI_META[stop.priority];
         return (
@@ -481,7 +505,7 @@ function TrackerView({ plans, tracker, setTracker }: {
               {(['Assigned','Visited','Closed'] as TrackerStatus[]).map(s => (
                 <button
                   key={s}
-                  onClick={() => setStatus(stop.ticketId, s)}
+                  onClick={() => setStatus(stop, s)}
                   style={{
                     fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 20, cursor: 'pointer',
                     border: `1.5px solid ${st === s ? (STATUS_META[s]?.color || ACCENT) : '#E2E8F0'}`,
@@ -525,6 +549,21 @@ function AttendView({ plans }: { plans: MutablePlan[] }) {
     });
     return init;
   });
+
+  const attendanceSig = getAttendance().filter(a => a.date === today).map(a => `${a.employeeId}|${a.status}|${a.checkInTime}|${a.checkOutTime}|${a.notes}`).join(';');
+  useEffect(() => {
+    const existing = getAttendance();
+    setRows(prev => {
+      const next = { ...prev };
+      plans.forEach(p => {
+        if (touched.has(p.employeeId)) return; // don't clobber unsaved edits
+        const rec = existing.find(a => a.employeeId.toUpperCase() === p.employeeId.toUpperCase() && a.date === today);
+        next[p.employeeId] = { status: rec?.status ?? null, checkIn: rec?.checkInTime ?? '', checkOut: rec?.checkOutTime ?? '', notes: rec?.notes ?? '' };
+      });
+      return next;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attendanceSig, plans]);
 
   const setField = (empId: string, field: string, val: string) => {
     setRows(prev => ({ ...prev, [empId]: { ...prev[empId], [field]: val } }));
@@ -651,7 +690,7 @@ function MapPanel({ plans }: { plans: MutablePlan[] }) {
 
     plans.forEach((plan, pIdx) => {
       const color = TECH_COLORS[pIdx % TECH_COLORS.length];
-      if (!plan.startLat || !plan.startLng) return;
+      if (Number.isNaN(plan.startLat) || Number.isNaN(plan.startLng)) return;
 
       bounds.push([plan.startLat, plan.startLng]);
 
@@ -725,6 +764,28 @@ export function PlannerPage() {
   const [subTab, setSubTab] = useState<SubTab>('roster');
   const [plans, setPlans] = useState<MutablePlan[]>(buildPlans);
   const [hasManualEdits, setHasManualEdits] = useState(false);
+  // Re-render whenever local data changes (DB pulls, writes from any page)
+  const [, setDataTick] = useState(0);
+  useEffect(() => subscribeToDataChanges(() => setDataTick(n => n + 1)), []);
+  const sync = getSyncState();
+  const [planSig, setPlanSig] = useState(planInputsSignature);
+  const currentSig = planInputsSignature();
+  const dataChanged = currentSig !== planSig;
+  const ticketsById = new Map(getTickets().map(t => [t.ticketId, t]));
+  // The Planner's own writes are already reflected in the plan — don't flag them as "changed"
+  const writeTicket: WriteTicket = useCallback((input) => {
+    const before = planInputsSignature();
+    upsertTicket(input);
+    setPlanSig(sig => (sig === before ? planInputsSignature() : sig));
+  }, []);
+  // First successful DB load: rebuild automatically from real data (unless the user already edited)
+  const autoBuiltRef = useRef(false);
+  useEffect(() => {
+    if (sync.status === 'synced' && !autoBuiltRef.current) {
+      autoBuiltRef.current = true;
+      if (!hasManualEdits && dataChanged) { setPlans(buildPlans()); setPlanSig(planInputsSignature()); }
+    }
+  }, [sync.status, hasManualEdits, dataChanged]);
   const [tracker, setTracker] = useState<TrackerState>(loadTracker);
   const markManualEdit = useCallback(() => setHasManualEdits(true), []);
 
@@ -742,6 +803,7 @@ export function PlannerPage() {
   const regenerate = () => {
     if (hasManualEdits && !window.confirm('Recalculating will discard your manual reassignments on the map. Continue?')) return;
     setPlans(buildPlans());
+    setPlanSig(planInputsSignature());
     setHasManualEdits(false);
   };
 
@@ -796,6 +858,26 @@ export function PlannerPage() {
           </button>
         </div>
 
+        {/* Database status */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 14px', background: '#0B1220', fontSize: 10, color: '#94A3B8', borderTop: '1px solid #1E293B' }}>
+          <span style={{ width: 7, height: 7, borderRadius: '50%', background: { synced: '#10B981', loading: '#F59E0B', error: '#EF4444', disabled: '#64748B' }[sync.status] }} />
+          <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={sync.error ?? ''}>
+            {sync.status === 'synced' && `Live from database · updated ${new Date(sync.lastSyncedAt!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
+            {sync.status === 'loading' && 'Loading from database…'}
+            {sync.status === 'error' && `Database unreachable — showing cached data (${sync.error})`}
+            {sync.status === 'disabled' && 'No database configured — browser data only'}
+          </span>
+          {sync.status !== 'disabled' && (
+            <button onClick={() => refreshFromDb()} style={{ all: 'unset', cursor: 'pointer', color: '#CBD5E1', fontWeight: 700 }}>Refresh</button>
+          )}
+        </div>
+        {dataChanged && sync.status !== 'loading' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 14px', background: '#FFFBEB', borderBottom: '1px solid #FDE68A', fontSize: 11, color: '#92400E' }}>
+            <span style={{ flex: 1 }}>Tickets, technicians or attendance changed since this plan was built.</span>
+            <button onClick={regenerate} style={{ fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 6, border: '1px solid #F59E0B', background: '#fff', color: '#92400E', cursor: 'pointer' }}>Recalculate</button>
+          </div>
+        )}
+
         {/* Sub-tab bar */}
         <div style={{ display: 'flex', borderBottom: '1px solid #F1F5F9', background: '#FAFAFA', padding: '0 8px' }}>
           {SUB_TABS.map(t => (
@@ -816,7 +898,7 @@ export function PlannerPage() {
 
         {/* Panel content */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '12px 12px' }}>
-          {totalStops === 0 && (subTab === 'roster' || subTab === 'tickets' || subTab === 'tracker') && (
+          {totalStops === 0 && sync.status !== 'loading' && (subTab === 'roster' || subTab === 'tickets' || subTab === 'tracker') && (
             <div style={{ background: '#F0F9F9', border: `1px dashed ${ACCENT}`, borderRadius: 10, padding: '12px 14px', marginBottom: 12, fontSize: 11, color: '#334155', lineHeight: 1.5 }}>
               <div style={{ fontWeight: 700, color: ACCENT, marginBottom: 2 }}>
                 {openTickets === 0 ? 'No open tickets to plan' : `${openTickets} open tickets, but none could be routed`}
@@ -826,9 +908,9 @@ export function PlannerPage() {
                 : <>Their centers are missing coordinates, or no technicians are available. Check <b>People → Centers</b> and today's attendance.</>}
             </div>
           )}
-          {subTab === 'roster' && <RosterView plans={plans} setPlans={setPlans} onManualEdit={markManualEdit} />}
+          {subTab === 'roster' && <RosterView plans={plans} setPlans={setPlans} onManualEdit={markManualEdit} writeTicket={writeTicket} />}
           {subTab === 'tickets' && <TicketsView plans={plans} />}
-          {subTab === 'tracker' && <TrackerView plans={plans} tracker={tracker} setTracker={setTracker} />}
+          {subTab === 'tracker' && <TrackerView plans={plans} tracker={tracker} setTracker={setTracker} ticketsById={ticketsById} writeTicket={writeTicket} />}
           {subTab === 'attend' && <AttendView plans={plans} />}
         </div>
 
