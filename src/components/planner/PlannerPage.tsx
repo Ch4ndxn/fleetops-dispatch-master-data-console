@@ -23,7 +23,7 @@ import {
   TicketPriority, TicketStatus, AttendanceStatus, Ticket, AttendanceRecord,
 } from '../../types';
 import {
-  RefreshCw, Download, ChevronDown, ChevronUp, Settings2,
+  RefreshCw, Download, ChevronDown, ChevronUp,
   MapPin, Clock, User, AlertTriangle, CheckCircle2, Circle,
   ArrowRightLeft, Info, FileText,
 } from 'lucide-react';
@@ -509,13 +509,14 @@ function TrackerView({ plans, tracker, setTracker }: {
 // ── Attendance Sub-tab ────────────────────────────────────────────────
 function AttendView({ plans }: { plans: MutablePlan[] }) {
   const today = TODAY;
-  const [rows, setRows] = useState<Record<string, { status: AttendanceStatus; checkIn: string; checkOut: string; notes: string }>>(() => {
+  type Row = { status: AttendanceStatus | null; checkIn: string; checkOut: string; notes: string };
+  const [rows, setRows] = useState<Record<string, Row>>(() => {
     const existing = getAttendance();
-    const init: Record<string, { status: AttendanceStatus; checkIn: string; checkOut: string; notes: string }> = {};
+    const init: Record<string, Row> = {};
     plans.forEach(p => {
-      const rec = existing.find(a => a.employeeId === p.employeeId && a.date === today);
+      const rec = existing.find(a => a.employeeId.toUpperCase() === p.employeeId.toUpperCase() && a.date === today);
       init[p.employeeId] = {
-        status: rec?.status ?? 'Absent',
+        status: rec?.status ?? null,
         checkIn: rec?.checkInTime ?? '',
         checkOut: rec?.checkOutTime ?? '',
         notes: rec?.notes ?? '',
@@ -538,7 +539,7 @@ function AttendView({ plans }: { plans: MutablePlan[] }) {
     touched.forEach(empId => {
       const p = plans.find(pl => pl.employeeId === empId);
       const r = rows[empId];
-      if (!p || !r) return;
+      if (!p || !r || !r.status) return;
       upsertAttendanceRecord({
         employeeId: empId,
         technicianName: p.technicianName,
@@ -569,8 +570,8 @@ function AttendView({ plans }: { plans: MutablePlan[] }) {
       </div>
 
       {plans.map(p => {
-        const r = rows[p.employeeId] || { status: 'Present' as AttendanceStatus, checkIn: '09:00', checkOut: '', notes: '' };
-        const col = COLORS[r.status];
+        const r: Row = rows[p.employeeId] || { status: null, checkIn: '', checkOut: '', notes: '' };
+        const col = r.status ? COLORS[r.status] : { border: '#E2E8F0', bg: '#F8FAFC', text: '#94A3B8' };
         return (
           <div key={p.employeeId} style={{ background: '#fff', borderRadius: 10, border: `1.5px solid ${col.border}`, marginBottom: 7, padding: '10px 12px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
@@ -578,7 +579,7 @@ function AttendView({ plans }: { plans: MutablePlan[] }) {
                 <div style={{ fontWeight: 700, fontSize: 12, color: '#1E293B' }}>{p.technicianName}</div>
                 <div style={{ fontSize: 10, color: '#94A3B8' }}>{p.employeeId} · {p.tech.zone || p.tech.city}</div>
               </div>
-              <span style={{ fontSize: 10, fontWeight: 700, color: col.text, background: col.bg, borderRadius: 20, padding: '2px 8px', border: `1px solid ${col.border}` }}>{r.status}</span>
+              <span style={{ fontSize: 10, fontWeight: 700, color: col.text, background: col.bg, borderRadius: 20, padding: '2px 8px', border: `1px solid ${col.border}` }}>{r.status ?? 'Not marked'}</span>
             </div>
 
             {/* Status buttons */}

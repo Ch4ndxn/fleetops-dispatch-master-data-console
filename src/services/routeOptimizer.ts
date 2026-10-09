@@ -84,8 +84,9 @@ export function planTodayRoutes(): TechnicianRoutePlan[] {
     return true;
   });
 
-  // Fall back to all active techs if attendance filter leaves ≤1
-  const availableTechs = attendanceFiltered.length >= 2 ? attendanceFiltered : techsWithCoords;
+  // Technicians explicitly marked Absent / On Leave today are never dispatched.
+  // Unmarked technicians are treated as available.
+  const availableTechs = attendanceFiltered;
 
   if (availableTechs.length === 0) {
     return [];
