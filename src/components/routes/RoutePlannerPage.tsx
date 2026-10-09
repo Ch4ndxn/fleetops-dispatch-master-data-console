@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { TrackerTab } from './TrackerTab';
 import {
   TechnicianRoutePlan,
   RouteStop,
@@ -212,11 +213,6 @@ export const RoutePlannerPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'routes' | 'tracker'>('routes');
 
   // ── Tracker tab state ─────────────────────────────────────────────────────
-  // ticketTrackStatus: per-ticketId override for tracker view
-  const [ticketTrackStatus, setTicketTrackStatus] = useState<Record<string, 'assigned' | 'visited' | 'closed'>>({});
-  const [trackerTechFilter, setTrackerTechFilter] = useState<string>('all');
-  const [trackerPipeFilter, setTrackerPipeFilter] = useState<'all' | 'assigned' | 'visited' | 'closed'>('all');
-  const [trackerNotes, setTrackerNotes] = useState<Record<string, string>>({});
 
   // ── Feature 1: Drag-to-reorder ────────────────────────────────────────────
   const [dragState, setDragState] = useState<{ techId: string; fromIdx: number } | null>(null);
@@ -814,57 +810,7 @@ export const RoutePlannerPage: React.FC = () => {
   };
 
   // ── Tracker helpers ────────────────────────────────────────────────────────
-  const getTrackerStatus = (ticketId: string): 'assigned' | 'visited' | 'closed' => {
-    return ticketTrackStatus[ticketId] ?? 'assigned';
-  };
-
-  const cycleTrackerStatus = (ticketId: string) => {
-    const cur = getTrackerStatus(ticketId);
-    const next: 'assigned' | 'visited' | 'closed' =
-      cur === 'assigned' ? 'visited' : cur === 'visited' ? 'closed' : 'assigned';
-    setTicketTrackStatus(prev => ({ ...prev, [ticketId]: next }));
-    // If closing, also update ticket status in storage
-    if (next === 'closed') {
-      const updatedTickets = allTickets.map(tk =>
-        tk.ticketId === ticketId ? { ...tk, status: 'Resolved' as const, updatedAt: new Date().toISOString() } : tk
-      );
-      saveTickets(updatedTickets);
-      setAllTickets(updatedTickets);
-    }
-  };
-
-  const exportTrackerCSV = () => {
-    const rows = ['Ticket ID,Vehicle,Center,Issue,Priority,Tech,ETA,Tracker Status,Notes'];
-    routePlans.forEach(plan => {
-      plan.stops.forEach(stop => {
-        const st = getTrackerStatus(stop.ticketId);
-        const note = trackerNotes[stop.ticketId] ?? '';
-        rows.push([
-          stop.ticketId, stop.vehicleNumber,
-          `"${stop.centerName}"`, `"${stop.issue || ''}"`,
-          stop.priority, `"${plan.technicianName}"`,
-          stop.estimatedArrival, st, `"${note}"`
-        ].join(','));
-      });
-    });
-    const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = `tracker-${today}.csv`; a.click();
-    URL.revokeObjectURL(url);
-  };
-
   const mapHeight = fullMap ? '600px' : '450px';
-
-  // Derived tracker stats
-  const trackerAllStops = routePlans.flatMap(plan =>
-    plan.stops.map(stop => ({ stop, plan }))
-  );
-  const trackerAssigned = trackerAllStops.filter(({ stop }) => getTrackerStatus(stop.ticketId) === 'assigned').length;
-  const trackerVisited  = trackerAllStops.filter(({ stop }) => getTrackerStatus(stop.ticketId) === 'visited').length;
-  const trackerClosed   = trackerAllStops.filter(({ stop }) => getTrackerStatus(stop.ticketId) === 'closed').length;
-  const trackerTotal    = trackerAllStops.length;
-  const trackerPct      = trackerTotal > 0 ? Math.round((trackerClosed / trackerTotal) * 100) : 0;
 
   // ── render ────────────────────────────────────────────────────────────────
   return (
@@ -885,190 +831,18 @@ export const RoutePlannerPage: React.FC = () => {
           }`}
         >
           {tab.label}
-          {tab.id === 'tracker' && trackerTotal > 0 && (
-            <span className={`ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
-              trackerPct === 100 ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
-            }`}>{trackerPct}%</span>
-          )}
         </button>
       ))}
     </div>
 
     {/* ══════════════════ TRACKER TAB ══════════════════ */}
     {activeTab === 'tracker' && (
-      <div className="space-y-4">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-slate-900 tracking-tight">TICKET TRACKER</h1>
-            <p className="text-xs text-slate-500 mt-0.5">Update status as technicians work through the day</p>
-          </div>
-          <button
-            onClick={exportTrackerCSV}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors shadow-2xs"
-          >
-            <Download className="w-3.5 h-3.5" /> Export CSV
-          </button>
-        </div>
-
-        {/* Progress bar */}
-        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-          <div
-            className="h-full rounded-full transition-all duration-500"
-            style={{
-              width: `${trackerPct}%`,
-              background: 'linear-gradient(90deg, #0E6B6E, #10b981)'
-            }}
-          />
-        </div>
-
-        {/* Pipeline columns */}
-        <div className="grid grid-cols-4 divide-x divide-slate-200 border border-slate-200 rounded-xl overflow-hidden bg-white shadow-2xs">
-          {[
-            { id: 'all' as const,      label: 'All Tickets', num: trackerTotal,   color: 'text-slate-900' },
-            { id: 'assigned' as const, label: '🔵 Assigned', num: trackerAssigned, color: 'text-blue-600' },
-            { id: 'visited' as const,  label: '🟡 Visited',  num: trackerVisited,  color: 'text-amber-600' },
-            { id: 'closed' as const,   label: '✅ Closed',   num: trackerClosed,   color: 'text-emerald-600' },
-          ].map(col => (
-            <button
-              key={col.id}
-              onClick={() => setTrackerPipeFilter(col.id)}
-              className={`py-4 text-center transition-colors ${
-                trackerPipeFilter === col.id
-                  ? 'bg-teal-700 text-white'
-                  : 'hover:bg-slate-50'
-              }`}
-            >
-              <div className={`text-2xl font-bold font-mono leading-none ${trackerPipeFilter === col.id ? 'text-white' : col.color}`}>
-                {col.num}
-              </div>
-              <div className={`text-[11px] font-semibold mt-1 ${trackerPipeFilter === col.id ? 'text-white/80' : 'text-slate-500'}`}>
-                {col.label}
-              </div>
-            </button>
-          ))}
-        </div>
-
-        {/* Tech filter */}
-        <div className="flex gap-2 flex-wrap">
-          <button
-            onClick={() => setTrackerTechFilter('all')}
-            className={`px-3 py-1.5 rounded-full text-[11px] font-bold transition-colors border ${
-              trackerTechFilter === 'all'
-                ? 'bg-teal-700 text-white border-teal-700'
-                : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400'
-            }`}
-          >All Techs</button>
-          {routePlans.map(plan => (
-            <button
-              key={plan.technicianId}
-              onClick={() => setTrackerTechFilter(plan.technicianId)}
-              className={`px-3 py-1.5 rounded-full text-[11px] font-bold transition-colors border ${
-                trackerTechFilter === plan.technicianId
-                  ? 'bg-teal-700 text-white border-teal-700'
-                  : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400'
-              }`}
-            >
-              {plan.technicianName.split(' ')[0]}
-            </button>
-          ))}
-        </div>
-
-        {/* Ticket list */}
-        {routePlans.length === 0 ? (
-          <div className="bg-white rounded-xl border border-slate-200 p-10 text-center text-slate-400 text-sm">
-            No routes generated yet. Go to <strong>Route Planner</strong> and run AUTO-PLAN ROUTES first.
-          </div>
-        ) : (
-          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-2xs divide-y divide-slate-100">
-            {trackerAllStops
-              .filter(({ stop, plan }) => {
-                if (trackerTechFilter !== 'all' && plan.technicianId !== trackerTechFilter) return false;
-                if (trackerPipeFilter !== 'all' && getTrackerStatus(stop.ticketId) !== trackerPipeFilter) return false;
-                return true;
-              })
-              .sort((a, b) => {
-                // Sort by status: assigned → visited → closed, then by stop order
-                const order = { assigned: 0, visited: 1, closed: 2 };
-                const diff = order[getTrackerStatus(a.stop.ticketId)] - order[getTrackerStatus(b.stop.ticketId)];
-                if (diff !== 0) return diff;
-                return a.stop.stopOrder - b.stop.stopOrder;
-              })
-              .map(({ stop, plan }) => {
-                const st = getTrackerStatus(stop.ticketId);
-                return (
-                  <div key={stop.ticketId} className={`px-4 py-3 transition-colors ${
-                    st === 'closed' ? 'bg-emerald-50/40' : st === 'visited' ? 'bg-amber-50/40' : ''
-                  }`}>
-                    <div className="flex items-start gap-3">
-                      {/* Status pill */}
-                      <div className="flex rounded-lg overflow-hidden border border-slate-200 shrink-0 mt-0.5">
-                        {(['assigned', 'visited', 'closed'] as const).map(s => (
-                          <button
-                            key={s}
-                            onClick={() => setTicketTrackStatus(prev => ({ ...prev, [stop.ticketId]: s }))}
-                            className={`px-2 py-1 text-[9px] font-bold transition-all ${
-                              st === s
-                                ? s === 'assigned' ? 'bg-blue-500 text-white'
-                                  : s === 'visited' ? 'bg-amber-500 text-white'
-                                  : 'bg-emerald-500 text-white'
-                                : 'bg-white text-slate-400 hover:bg-slate-50'
-                            }`}
-                          >
-                            {s === 'assigned' ? 'Asgnd' : s === 'visited' ? 'Vstd' : 'Done'}
-                          </button>
-                        ))}
-                      </div>
-
-                      {/* Info */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-mono text-[11px] font-bold text-teal-700">{stop.ticketId}</span>
-                          <PriorityBadge priority={stop.priority} />
-                          {st === 'closed' && (
-                            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded-full">✓ Closed</span>
-                          )}
-                        </div>
-                        <div className="text-[12px] font-semibold text-slate-800 mt-0.5 truncate">
-                          {stop.centerName.replace(/_D$/, '')}
-                        </div>
-                        <div className="text-[11px] text-slate-500 flex gap-2 mt-0.5 flex-wrap">
-                          <span>{stop.vehicleNumber}</span>
-                          <span>·</span>
-                          <span className="text-teal-700 font-semibold">{plan.technicianName}</span>
-                          <span>·</span>
-                          <span className="font-mono text-blue-600">ETA {stop.estimatedArrival}</span>
-                          <span>·</span>
-                          <span>Stop #{stop.stopOrder}</span>
-                        </div>
-                        {stop.issue && (
-                          <div className="text-[10px] text-slate-400 truncate mt-0.5">{stop.issue}</div>
-                        )}
-                        {/* Inline note */}
-                        <input
-                          type="text"
-                          placeholder="Add note..."
-                          value={trackerNotes[stop.ticketId] ?? ''}
-                          onChange={e => setTrackerNotes(prev => ({ ...prev, [stop.ticketId]: e.target.value }))}
-                          className="mt-1.5 w-full text-[11px] px-2.5 py-1 border border-slate-200 rounded-lg focus:outline-none focus:border-teal-500 bg-white/80"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            {trackerAllStops.filter(({ stop, plan }) => {
-              if (trackerTechFilter !== 'all' && plan.technicianId !== trackerTechFilter) return false;
-              if (trackerPipeFilter !== 'all' && getTrackerStatus(stop.ticketId) !== trackerPipeFilter) return false;
-              return true;
-            }).length === 0 && (
-              <div className="py-10 text-center text-slate-400 text-sm">
-                No tickets match the current filter.
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+      <TrackerTab
+        routePlans={routePlans}
+        allTickets={allTickets}
+        setAllTickets={setAllTickets}
+        today={today}
+      />
     )}
 
     {/* ══════════════════ ROUTES TAB ══════════════════ */}
