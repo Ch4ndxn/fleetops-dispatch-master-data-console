@@ -163,7 +163,7 @@ export function PlannerPage() {
     };
   }, []);
 
-  const dot = sync.status === 'synced' ? '#10B981' : sync.status === 'error' ? '#EF4444' : sync.status === 'loading' ? '#F59E0B' : '#94A3B8';
+  const dot = sync.saveError ? '#EF4444' : sync.status === 'synced' ? '#10B981' : sync.status === 'error' ? '#EF4444' : sync.status === 'loading' ? '#F59E0B' : '#94A3B8';
   return (
     <div className="h-full flex flex-col min-h-0">
       <div className="shrink-0 flex items-center gap-2 px-3 py-1 text-[11px] bg-white border-b border-slate-200 text-slate-600">
@@ -174,6 +174,9 @@ export function PlannerPage() {
           {sync.status === 'error' && `Couldn't load from database — showing cached data · ${sync.error}`}
           {sync.status === 'disabled' && 'No database configured — browser data only'}
         </span>
+        {sync.saveError && (
+          <span className="text-rose-700 font-semibold truncate" title={sync.saveError}>· {sync.saveError}</span>
+        )}
         {issues.unroutable > 0 && (
           <span className="text-amber-700 font-semibold whitespace-nowrap" title="Their center is missing from Centers or has no coordinates">
             · {issues.unroutable} ticket{issues.unroutable > 1 ? 's' : ''} not on map (center has no coordinates)

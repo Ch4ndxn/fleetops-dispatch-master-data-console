@@ -16,7 +16,7 @@ import {
   Layers,
 } from 'lucide-react';
 import { supabase, isDbEnabled } from '../../lib/supabase';
-import { getCenters, getTechnicians, getTickets, getAttendance, getImportJobs } from '../../services/storage';
+import { getCenters, getTechnicians, getTickets, getAttendance, getImportJobs, getSyncState, subscribeToDataChanges, refreshFromDb } from '../../services/storage';
 
 type ConnStatus = 'checking' | 'ok' | 'error' | 'disabled';
 
@@ -53,6 +53,41 @@ function StatusBadge({ status }: { status: ConnStatus }) {
       <Icon className="w-3.5 h-3.5" />
       {m.label}
     </span>
+  );
+}
+
+/** What the app's own data sync last did — the same state the NCR Planner shows. */
+function AppSyncPanel() {
+  const [, setTick] = useState(0);
+  useEffect(() => subscribeToDataChanges(() => setTick(n => n + 1)), []);
+  const s = getSyncState();
+  const loadOk = s.status === 'synced';
+  const rows: Array<{ label: string; ok: boolean | null; text: string }> = [
+    { label: 'Reading data', ok: s.status === 'disabled' ? null : loadOk,
+      text: s.status === 'disabled' ? 'No database configured'
+        : s.status === 'loading' ? 'Loading…'
+        : loadOk ? `OK · last refreshed ${new Date(s.lastSyncedAt!).toLocaleTimeString()}` : (s.error ?? 'Failed') },
+    { label: 'Saving changes', ok: s.status === 'disabled' ? null : !s.saveError,
+      text: s.saveError ?? 'OK · no failed saves' },
+    ...s.warnings.map(w => ({ label: 'Table issue', ok: false as boolean | null, text: w })),
+  ];
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-2">
+      <div className="flex items-center justify-between">
+        <div className="text-sm font-bold text-slate-900">App data sync</div>
+        {s.status !== 'disabled' && (
+          <button onClick={() => refreshFromDb()} className="text-xs font-semibold text-blue-600 hover:underline">Sync now</button>
+        )}
+      </div>
+      <p className="text-xs text-slate-500">The ping above only tests that Supabase answers. This shows whether the app's actual reads and saves succeed.</p>
+      {rows.map((r, i) => (
+        <div key={i} className="flex items-start gap-2 text-xs">
+          <span className={`mt-1 w-2 h-2 rounded-full shrink-0 ${r.ok === null ? 'bg-slate-300' : r.ok ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+          <span className="w-28 shrink-0 font-semibold text-slate-700">{r.label}</span>
+          <span className={`break-all ${r.ok === false ? 'text-rose-700' : 'text-slate-600'}`}>{r.text}</span>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -227,6 +262,7 @@ export function ConnectionStatusPage() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
+      <AppSyncPanel />
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

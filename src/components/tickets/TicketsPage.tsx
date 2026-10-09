@@ -5,7 +5,7 @@ import {
   ChevronLeft, ChevronRight, AlertCircle, Clock, CheckCircle2, User, Filter
 } from 'lucide-react';
 import { Ticket, TicketStatus, TicketPriority, Technician, Center } from '../../types';
-import { getTickets, saveTickets, getTechnicians, getCenters } from '../../services/storage';
+import { getTickets, saveTickets, getTechnicians, getCenters, newId } from '../../services/storage';
 import { generateCSV, downloadCSV } from '../../services/csvParser';
 
 interface Props {
@@ -246,7 +246,7 @@ export const TicketsPage: React.FC<Props> = ({ onOpenUploadModal }) => {
     const now = new Date().toISOString();
     if (isNew) {
       const newTicket: Ticket = {
-        id: `ticket-${Date.now()}`,
+        id: newId("ticket"),
         ticketId: editTicket.ticketId ?? `TKT-${Date.now().toString().slice(-6)}`,
         vehicleNumber: editTicket.vehicleNumber ?? '',
         vendor: editTicket.vendor,

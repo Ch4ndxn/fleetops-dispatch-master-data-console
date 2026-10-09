@@ -56,6 +56,14 @@ const INITIAL_TICKETS: Ticket[] = [];
 
 const INITIAL_IMPORT_JOBS: ImportJob[] = [];
 
+/** Unique id — timestamps alone collide when many rows are created in one loop (CSV import, Apply attendance). */
+export function newId(prefix: string): string {
+  const rand = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID().slice(0, 8)
+    : Math.random().toString(36).slice(2, 10);
+  return `${prefix}-${Date.now()}-${rand}`;
+}
+
 // ─────────────────────────────────────────────────────────────────
 // REACTIVITY
 // ─────────────────────────────────────────────────────────────────
@@ -116,14 +124,34 @@ export interface SyncState {
   error: string | null;
   /** Non-fatal problems, e.g. one table missing — data from the other tables is still live. */
   warnings: string[];
+  /** Most recent failed save (reading can still be fine). Cleared by the next successful save. */
+  saveError: string | null;
 }
-let syncState: SyncState = { status: isDbEnabled() ? 'loading' : 'disabled', lastSyncedAt: null, error: null, warnings: [] };
+let syncState: SyncState = { status: isDbEnabled() ? 'loading' : 'disabled', lastSyncedAt: null, error: null, warnings: [], saveError: null };
 export function getSyncState(): SyncState { return syncState; }
 function setSyncState(patch: Partial<SyncState>) { syncState = { ...syncState, ...patch }; notify(); }
 
 // Writes still in flight — a pull must not overwrite local data with an older DB copy.
 let pendingWrites = 0;
-const MIGRATED_KEY = 'fleetops_db_migrated_v1';
+const MIGRATED_KEY = 'fleetops_db_migrated_v2'; // v2: re-run after repairing duplicate ids
+
+/** Older versions gave records created in the same millisecond the same id. Give each its own. */
+function repairDuplicateIds(): void {
+  const keys: Array<[string, string]> = [
+    [STORAGE_KEYS.CENTERS, 'dc'], [STORAGE_KEYS.TECHNICIANS, 'tech'],
+    [STORAGE_KEYS.TICKETS, 'ticket'], [STORAGE_KEYS.ATTENDANCE, 'att'],
+  ];
+  for (const [key, prefix] of keys) {
+    const list = rawLocal<{ id: string }>(key);
+    const seen = new Set<string>();
+    let fixed = 0;
+    list.forEach(r => { if (seen.has(r.id)) { r.id = newId(prefix); fixed++; } seen.add(r.id); });
+    if (fixed) {
+      localStorage.setItem(key, JSON.stringify(list));
+      console.log(`[FleetOps] Repaired ${fixed} duplicate ${prefix} ids`);
+    }
+  }
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rawLocal<T>(key: string): T[] { try { const r = localStorage.getItem(key); return r ? JSON.parse(r) : []; } catch { return []; } }
@@ -135,6 +163,7 @@ function rawLocal<T>(key: string): T[] { try { const r = localStorage.getItem(ke
  */
 async function migrateLocalOnlyRows(): Promise<void> {
   if (localStorage.getItem(MIGRATED_KEY)) return;
+  repairDuplicateIds();
   const db = supabase!;
   // table, local key, row mapper, DB columns forming the unique business key, same key from a local row
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -243,22 +272,28 @@ function syncListToDb<T extends { id: string }>(table: string, prev: T[], next: 
   if (!isDbEnabled()) return;
   const prevById = new Map(prev.map(p => [p.id, JSON.stringify(p)]));
   const nextIds = new Set(next.map(n => n.id));
-  const changed = next.filter(n => prevById.get(n.id) !== JSON.stringify(n));
+  // one row per id (Postgres rejects an upsert that touches the same row twice)
+  const changedById = new Map<string, T>();
+  next.forEach(n => { if (prevById.get(n.id) !== JSON.stringify(n)) changedById.set(n.id, n); });
+  const changed = [...changedById.values()];
   const removed = prev.filter(p => !nextIds.has(p.id)).map(p => p.id);
   const db = supabase!;
+  const done = (what: string) => ({ error }: { error: { message: string } | null }) => {
+    pendingWrites--;
+    if (error) {
+      console.error(`[FleetOps] Supabase ${what} ${table}:`, error.message);
+      setSyncState({ saveError: `Couldn't save ${table}: ${error.message}` });
+    } else if (syncState.saveError) {
+      setSyncState({ saveError: null });
+    }
+  };
   if (changed.length) {
     pendingWrites++;
-    db.from(table).upsert(changed.map(toRow), { onConflict: 'id' }).then(({ error }) => {
-      pendingWrites--;
-      if (error) { console.error(`[FleetOps] Supabase upsert ${table}:`, error.message); setSyncState({ status: 'error', error: `Saving ${table}: ${error.message}` }); }
-    });
+    db.from(table).upsert(changed.map(toRow), { onConflict: 'id' }).then(done('upsert'));
   }
   if (removed.length) {
     pendingWrites++;
-    db.from(table).delete().in('id', removed).then(({ error }) => {
-      pendingWrites--;
-      if (error) { console.error(`[FleetOps] Supabase delete ${table}:`, error.message); setSyncState({ status: 'error', error: `Deleting ${table}: ${error.message}` }); }
-    });
+    db.from(table).delete().in('id', removed).then(done('delete'));
   }
 }
 
@@ -318,7 +353,7 @@ export function upsertCenter(input: Partial<Center> & { name: string; latitude: 
     saveCenters(centers);
     return { center: updated, isNew: false };
   }
-  const newCenter: Center = { id: input.id || `dc-${Date.now()}`, name: input.name.trim(), normalizedName: normalized, city: input.city || 'Delhi', latitude: Number(input.latitude), longitude: Number(input.longitude), defaultDc: input.defaultDc || `${input.name} DC`, active: input.active !== undefined ? Boolean(input.active) : true, notes: input.notes || '', createdAt: now, updatedAt: now };
+  const newCenter: Center = { id: input.id || newId('dc'), name: input.name.trim(), normalizedName: normalized, city: input.city || 'Delhi', latitude: Number(input.latitude), longitude: Number(input.longitude), defaultDc: input.defaultDc || `${input.name} DC`, active: input.active !== undefined ? Boolean(input.active) : true, notes: input.notes || '', createdAt: now, updatedAt: now };
   centers.push(newCenter);
   saveCenters(centers);
   return { center: newCenter, isNew: true };
@@ -355,7 +390,7 @@ export function upsertTechnician(input: Partial<Technician> & { employeeId: stri
     saveTechnicians(techs);
     return { technician: updated, isNew: false };
   }
-  const newTech: Technician = { id: input.id || `tech-${Date.now()}`, employeeId: cleanEmpId, name: input.name.trim(), phone: input.phone || '', alternatePhone: input.alternatePhone || '', role: input.role || 'Field Engineer', vendor: input.vendor || 'In-House Ops', city: input.city || 'Delhi', zone: input.zone || 'Central', specialisation: input.specialisation || 'General Fleet', status: input.status || 'Active', joinedDate: input.joinedDate || now.split('T')[0], assignedStm: input.assignedStm || '', notes: input.notes || '', startingLatitude: input.startingLatitude, startingLongitude: input.startingLongitude, defaultDc: input.defaultDc || '', createdAt: now, updatedAt: now };
+  const newTech: Technician = { id: input.id || newId('tech'), employeeId: cleanEmpId, name: input.name.trim(), phone: input.phone || '', alternatePhone: input.alternatePhone || '', role: input.role || 'Field Engineer', vendor: input.vendor || 'In-House Ops', city: input.city || 'Delhi', zone: input.zone || 'Central', specialisation: input.specialisation || 'General Fleet', status: input.status || 'Active', joinedDate: input.joinedDate || now.split('T')[0], assignedStm: input.assignedStm || '', notes: input.notes || '', startingLatitude: input.startingLatitude, startingLongitude: input.startingLongitude, defaultDc: input.defaultDc || '', createdAt: now, updatedAt: now };
   techs.push(newTech);
   saveTechnicians(techs);
   return { technician: newTech, isNew: true };
@@ -387,7 +422,7 @@ export function upsertTicket(input: Partial<Ticket> & { ticketId: string; vehicl
     saveTickets(tickets);
     return { ticket: updated, isNew: false };
   }
-  const newTicket: Ticket = { id: input.id || `ticket-${Date.now()}`, ticketId: cleanTicketId, vehicleNumber: input.vehicleNumber.trim().toUpperCase(), vendor: input.vendor || 'Zen', location: input.location || '', centerName: input.centerName.trim(), issue: input.issue || 'General Maintenance', category: input.category || 'Mechanical', status: input.status || 'Open', priority: input.priority || 'MEDIUM', affectedSpare: input.affectedSpare || '', issueType: input.issueType || 'Breakdown', assignedTechnicianId: input.assignedTechnicianId, assignedTechnicianName: input.assignedTechnicianName, scheduledSlot: input.scheduledSlot, createdAt: now, updatedAt: now, isNew: true };
+  const newTicket: Ticket = { id: input.id || newId('ticket'), ticketId: cleanTicketId, vehicleNumber: input.vehicleNumber.trim().toUpperCase(), vendor: input.vendor || 'Zen', location: input.location || '', centerName: input.centerName.trim(), issue: input.issue || 'General Maintenance', category: input.category || 'Mechanical', status: input.status || 'Open', priority: input.priority || 'MEDIUM', affectedSpare: input.affectedSpare || '', issueType: input.issueType || 'Breakdown', assignedTechnicianId: input.assignedTechnicianId, assignedTechnicianName: input.assignedTechnicianName, scheduledSlot: input.scheduledSlot, createdAt: now, updatedAt: now, isNew: true };
   tickets.unshift(newTicket);
   saveTickets(tickets);
   return { ticket: newTicket, isNew: true };
@@ -422,7 +457,7 @@ export function upsertAttendanceRecord(record: Partial<AttendanceRecord> & { emp
     saveAttendance(list);
     return { record: updated, isNew: false };
   }
-  const newRecord: AttendanceRecord = { id: record.id || `att-${Date.now()}`, employeeId: cleanEmpId, technicianName: techName, date: targetDate, status: record.status || 'Present', checkInTime: record.checkInTime || '09:00', checkOutTime: record.checkOutTime || '', notes: record.notes || '', verifiedBy: record.verifiedBy || 'System Admin', updatedAt: now };
+  const newRecord: AttendanceRecord = { id: record.id || newId('att'), employeeId: cleanEmpId, technicianName: techName, date: targetDate, status: record.status || 'Present', checkInTime: record.checkInTime || '09:00', checkOutTime: record.checkOutTime || '', notes: record.notes || '', verifiedBy: record.verifiedBy || 'System Admin', updatedAt: now };
   list.unshift(newRecord);
   saveAttendance(list);
   return { record: newRecord, isNew: true };
