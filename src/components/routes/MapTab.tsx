@@ -10,6 +10,9 @@ import {
   X,
   Clock,
   Layers,
+  LocateFixed,
+  Wifi,
+  WifiOff,
 } from 'lucide-react';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -34,6 +37,16 @@ const PRIORITY_COLOR: Record<string, string> = {
 };
 
 const CLOSED_STATUSES = new Set(['Resolved', 'Closed']);
+
+// ─── Distance helper (Haversine, km) ─────────────────────────────────────────
+function distKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
 
 // ─── Pin helpers ───────────────────────────────────────────────────────────────
 function stopPin(num: number, color: string, isClosed: boolean, priority: string): string {
@@ -78,11 +91,17 @@ export const MapTab: React.FC<MapTabProps> = ({
 }) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
+  const myMarkerRef = useRef<L.Marker | null>(null);
+  const myCircleRef = useRef<L.Circle | null>(null);
+  const watchIdRef = useRef<number | null>(null);
 
   const [search, setSearch] = useState('');
   const [selectedTechId, setSelectedTechId] = useState<string | 'all'>('all');
   const [techDropdownOpen, setTechDropdownOpen] = useState(false);
   const [selectedStop, setSelectedStop] = useState<{ stop: RouteStop; plan: TechnicianRoutePlan } | null>(null);
+  const [myLocation, setMyLocation] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [locating, setLocating] = useState(false);
 
   // ticket status map
   const statusMap = useMemo(
@@ -113,6 +132,20 @@ export const MapTab: React.FC<MapTabProps> = ({
       plan.technicianName.toLowerCase().includes(searchLower),
     );
   }, [allStops, searchLower]);
+
+  // nearest DC to my location
+  const nearestDC = useMemo(() => {
+    if (!myLocation) return null;
+    const validCenters = centers.filter(c => c.latitude && c.longitude && !isNaN(c.latitude) && !isNaN(c.longitude));
+    if (validCenters.length === 0) return null;
+    let best = validCenters[0];
+    let bestDist = distKm(myLocation.lat, myLocation.lng, best.latitude, best.longitude);
+    validCenters.forEach(c => {
+      const d = distKm(myLocation.lat, myLocation.lng, c.latitude, c.longitude);
+      if (d < bestDist) { bestDist = d; best = c; }
+    });
+    return { center: best, distKm: bestDist };
+  }, [myLocation, centers]);
 
   // selected tech label
   const selectedTechLabel = useMemo(() => {
@@ -284,6 +317,88 @@ export const MapTab: React.FC<MapTabProps> = ({
     };
   }, [buildMap]);
 
+  // ── Live location marker (separate from map rebuild) ───────────────────────
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || !myLocation) return;
+
+    const latlng: L.LatLngTuple = [myLocation.lat, myLocation.lng];
+
+    // accuracy circle
+    if (myCircleRef.current) myCircleRef.current.remove();
+    myCircleRef.current = L.circle(latlng, {
+      radius: myLocation.accuracy,
+      color: '#3b82f6',
+      fillColor: '#3b82f6',
+      fillOpacity: 0.08,
+      weight: 1.5,
+    }).addTo(map);
+
+    // blue dot
+    const myIcon = L.divIcon({
+      className: '',
+      html: `<div style="width:18px;height:18px;border-radius:50%;background:#3b82f6;
+        border:3px solid #fff;box-shadow:0 0 0 3px rgba(59,130,246,0.35),0 2px 8px rgba(0,0,0,0.3)"></div>`,
+      iconSize: [18, 18],
+      iconAnchor: [9, 9],
+    });
+
+    if (myMarkerRef.current) myMarkerRef.current.remove();
+    myMarkerRef.current = L.marker(latlng, { icon: myIcon, zIndexOffset: 1000 })
+      .addTo(map)
+      .bindPopup(`<div style="font-family:sans-serif;font-size:12px;min-width:160px">
+        <b style="color:#2563eb">📍 You are here</b><br/>
+        <span style="color:#64748b;font-size:10px">±${Math.round(myLocation.accuracy)}m accuracy</span>
+        ${nearestDC ? `<br/><br/><b style="font-size:11px">Nearest DC:</b><br/>
+        <span style="font-weight:600">${nearestDC.center.name.replace(/_D$/, '')}</span>
+        <span style="color:#64748b;font-size:10px"> · ${nearestDC.distKm.toFixed(1)} km away</span>
+        <br/><a href="https://www.google.com/maps/dir/?api=1&origin=${myLocation.lat},${myLocation.lng}&destination=${nearestDC.center.latitude},${nearestDC.center.longitude}&travelmode=driving"
+          target="_blank" style="display:inline-block;margin-top:6px;padding:3px 8px;background:#2563eb;color:#fff;border-radius:5px;font-size:10px;font-weight:700;text-decoration:none;">
+          Navigate to DC ↗</a>` : ''}
+      </div>`, { maxWidth: 220 });
+  }, [myLocation, nearestDC]);
+
+  // ── Geolocation watch ──────────────────────────────────────────────────────
+  const startLocating = useCallback(() => {
+    if (!navigator.geolocation) {
+      setLocationError('Geolocation not supported by this browser');
+      return;
+    }
+    setLocating(true);
+    setLocationError(null);
+
+    watchIdRef.current = navigator.geolocation.watchPosition(
+      pos => {
+        setLocating(false);
+        setLocationError(null);
+        setMyLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy });
+        // fly to my location on first fix
+        if (!myLocation && mapInstanceRef.current) {
+          mapInstanceRef.current.flyTo([pos.coords.latitude, pos.coords.longitude], 14, { duration: 1 });
+        }
+      },
+      err => {
+        setLocating(false);
+        setLocationError(err.code === 1 ? 'Location permission denied' : 'Could not get location');
+      },
+      { enableHighAccuracy: true, maximumAge: 10000, timeout: 15000 },
+    );
+  }, [myLocation]);
+
+  const stopLocating = useCallback(() => {
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
+    if (myMarkerRef.current) { myMarkerRef.current.remove(); myMarkerRef.current = null; }
+    if (myCircleRef.current) { myCircleRef.current.remove(); myCircleRef.current = null; }
+    setMyLocation(null);
+    setLocationError(null);
+  }, []);
+
+  // cleanup on unmount
+  useEffect(() => () => { stopLocating(); }, [stopLocating]);
+
   // Jump map to a stop when clicked in the list
   const flyToStop = (stop: RouteStop, plan: TechnicianRoutePlan) => {
     setSelectedStop({ stop, plan });
@@ -360,6 +475,31 @@ export const MapTab: React.FC<MapTabProps> = ({
           )}
         </div>
 
+        {/* Live location button */}
+        <button
+          onClick={myLocation ? stopLocating : startLocating}
+          disabled={locating}
+          className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-semibold transition-colors shrink-0 ${
+            myLocation
+              ? 'bg-blue-600 border-blue-600 text-white hover:bg-blue-700'
+              : locationError
+              ? 'bg-rose-50 border-rose-300 text-rose-600 hover:bg-rose-100'
+              : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+          }`}
+          title={myLocation ? 'Stop tracking' : 'Show my location'}
+        >
+          {locating ? (
+            <span className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+          ) : myLocation ? (
+            <Wifi className="w-3.5 h-3.5" />
+          ) : locationError ? (
+            <WifiOff className="w-3.5 h-3.5" />
+          ) : (
+            <LocateFixed className="w-3.5 h-3.5" />
+          )}
+          {myLocation ? 'Live' : locating ? 'Locating…' : 'My Location'}
+        </button>
+
         {/* Tech selector */}
         <div className="relative">
           <button
@@ -396,6 +536,35 @@ export const MapTab: React.FC<MapTabProps> = ({
           )}
         </div>
       </div>
+
+      {/* Nearest DC banner */}
+      {myLocation && nearestDC && (
+        <div className="flex items-center gap-3 px-4 py-2.5 bg-blue-50 border border-blue-200 rounded-xl text-xs">
+          <div className="w-7 h-7 bg-slate-900 rounded-[5px] flex items-center justify-center text-white text-[8px] font-bold shrink-0">DC</div>
+          <div className="flex-1 min-w-0">
+            <span className="text-blue-500 font-bold uppercase tracking-wide text-[10px]">Nearest DC · </span>
+            <span className="font-bold text-slate-800">{nearestDC.center.name.replace(/_D$/, '')}</span>
+            <span className="text-slate-500 ml-1">· {nearestDC.center.city} · <b className="text-blue-700">{nearestDC.distKm.toFixed(1)} km away</b></span>
+          </div>
+          <a
+            href={`https://www.google.com/maps/dir/?api=1&origin=${myLocation.lat},${myLocation.lng}&destination=${nearestDC.center.latitude},${nearestDC.center.longitude}&travelmode=driving`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-[11px] transition-colors shrink-0"
+          >
+            <Navigation className="w-3 h-3" />
+            Drive there
+          </a>
+        </div>
+      )}
+
+      {/* Location error */}
+      {locationError && (
+        <div className="flex items-center gap-2 px-4 py-2.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700">
+          <WifiOff className="w-4 h-4 shrink-0" />
+          <span>{locationError}. Please allow location access and try again.</span>
+        </div>
+      )}
 
       {/* Main layout: map + sidebar */}
       <div className="flex flex-col lg:flex-row gap-4" style={{ minHeight: '520px' }}>
