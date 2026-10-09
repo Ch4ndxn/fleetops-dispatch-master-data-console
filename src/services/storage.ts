@@ -110,8 +110,14 @@ const fromJob = (j: ImportJob) => ({ id: j.id, import_type: j.importType, file_n
 // All writes go to localStorage first, then replicate to Supabase silently.
 // ─────────────────────────────────────────────────────────────────
 export type SyncStatus = 'disabled' | 'loading' | 'synced' | 'error';
-export interface SyncState { status: SyncStatus; lastSyncedAt: string | null; error: string | null; }
-let syncState: SyncState = { status: isDbEnabled() ? 'loading' : 'disabled', lastSyncedAt: null, error: null };
+export interface SyncState {
+  status: SyncStatus;
+  lastSyncedAt: string | null;
+  error: string | null;
+  /** Non-fatal problems, e.g. one table missing — data from the other tables is still live. */
+  warnings: string[];
+}
+let syncState: SyncState = { status: isDbEnabled() ? 'loading' : 'disabled', lastSyncedAt: null, error: null, warnings: [] };
 export function getSyncState(): SyncState { return syncState; }
 function setSyncState(patch: Partial<SyncState>) { syncState = { ...syncState, ...patch }; notify(); }
 
@@ -130,25 +136,45 @@ function rawLocal<T>(key: string): T[] { try { const r = localStorage.getItem(ke
 async function migrateLocalOnlyRows(): Promise<void> {
   if (localStorage.getItem(MIGRATED_KEY)) return;
   const db = supabase!;
+  // table, local key, row mapper, DB columns forming the unique business key, same key from a local row
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const specs: Array<[string, string, (x: any) => object]> = [
-    ['centers', STORAGE_KEYS.CENTERS, fromCenter],
-    ['technicians', STORAGE_KEYS.TECHNICIANS, fromTech],
-    ['tickets', STORAGE_KEYS.TICKETS, fromTicket],
-    ['attendance', STORAGE_KEYS.ATTENDANCE, fromAtt],
+  const specs: Array<{ table: string; key: string; toRow: (x: any) => object; cols: string; bizDb: (r: any) => string; bizLocal: (l: any) => string }> = [
+    { table: 'centers', key: STORAGE_KEYS.CENTERS, toRow: fromCenter, cols: 'name',
+      bizDb: r => String(r.name).trim().toLowerCase(), bizLocal: l => String(l.name).trim().toLowerCase() },
+    { table: 'technicians', key: STORAGE_KEYS.TECHNICIANS, toRow: fromTech, cols: 'employee_id',
+      bizDb: r => String(r.employee_id).toUpperCase(), bizLocal: l => String(l.employeeId).toUpperCase() },
+    { table: 'tickets', key: STORAGE_KEYS.TICKETS, toRow: fromTicket, cols: 'ticket_id',
+      bizDb: r => String(r.ticket_id).toUpperCase(), bizLocal: l => String(l.ticketId).toUpperCase() },
+    { table: 'attendance', key: STORAGE_KEYS.ATTENDANCE, toRow: fromAtt, cols: 'employee_id, date',
+      bizDb: r => `${String(r.employee_id).toUpperCase()}|${r.date}`, bizLocal: l => `${String(l.employeeId).toUpperCase()}|${l.date}` },
   ];
-  for (const [table, key, toRow] of specs) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const local = rawLocal<any>(key);
-    if (!local.length) continue;
-    const { data, error } = await db.from(table).select('id, updated_at');
-    if (error) throw error;
-    const remote = new Map((data ?? []).map((r: { id: string; updated_at: string }) => [r.id, r.updated_at]));
-    const toPush = local.filter(l => !remote.has(l.id) || (l.updatedAt && l.updatedAt > (remote.get(l.id) ?? '')));
-    if (toPush.length) {
-      const { error: upErr } = await db.from(table).upsert(toPush.map(toRow), { onConflict: 'id' });
-      if (upErr) throw upErr;
-      console.log(`[FleetOps] Uploaded ${toPush.length} local-only ${table} rows to Supabase`);
+  for (const spec of specs) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const local = rawLocal<any>(spec.key);
+      if (!local.length) continue;
+      const { data, error } = await db.from(spec.table).select(`id, updated_at, ${spec.cols}`);
+      if (error) throw error;
+      const remoteById = new Map((data ?? []).map((r: any) => [r.id, r.updated_at as string]));
+      const remoteBiz = new Map((data ?? []).map((r: any) => [spec.bizDb(r), r.id as string]));
+      const seen = new Set<string>();
+      const toPush = local.filter(l => {
+        const biz = spec.bizLocal(l);
+        if (seen.has(biz)) return false;                 // duplicate within local data
+        seen.add(biz);
+        const dbIdForBiz = remoteBiz.get(biz);
+        if (dbIdForBiz && dbIdForBiz !== l.id) return false; // same record exists in DB under another id → DB wins
+        if (!remoteById.has(l.id)) return true;          // only exists locally
+        return Boolean(l.updatedAt && l.updatedAt > (remoteById.get(l.id) ?? ''));
+      });
+      if (toPush.length) {
+        const { error: upErr } = await db.from(spec.table).upsert(toPush.map(spec.toRow), { onConflict: 'id' });
+        if (upErr) throw upErr;
+        console.log(`[FleetOps] Uploaded ${toPush.length} local-only ${spec.table} rows to Supabase`);
+      }
+    } catch (e) {
+      // Never block syncing on this one-time cleanup — the DB copy is used as-is.
+      console.warn(`[FleetOps] Skipped uploading local ${spec.table} rows:`, (e as { message?: string })?.message ?? e);
     }
   }
   localStorage.setItem(MIGRATED_KEY, new Date().toISOString());
@@ -163,26 +189,36 @@ export async function refreshFromDb(): Promise<void> {
   const db = supabase!;
   try {
     await migrateLocalOnlyRows();
-    const [c, t, tk, a, j, vl] = await Promise.all([
-      db.from('centers').select('*').order('name'),
-      db.from('technicians').select('*').order('name'),
-      db.from('tickets').select('*').order('created_at', { ascending: false }),
-      db.from('attendance').select('*').order('date', { ascending: false }),
-      db.from('import_jobs').select('*').order('uploaded_at', { ascending: false }),
-      db.from('visit_logs').select('*').order('created_at', { ascending: false }),
-    ]);
-    const firstError = [c, t, tk, a, j, vl].find(r => r.error)?.error;
-    if (firstError) throw firstError;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const tables: Array<{ table: string; key: string; map: (r: any) => unknown; order: string; asc: boolean; core: boolean }> = [
+      { table: 'centers',     key: STORAGE_KEYS.CENTERS,     map: toCenter,   order: 'name',        asc: true,  core: true },
+      { table: 'technicians', key: STORAGE_KEYS.TECHNICIANS, map: toTech,     order: 'name',        asc: true,  core: true },
+      { table: 'tickets',     key: STORAGE_KEYS.TICKETS,     map: toTicket,   order: 'created_at',  asc: false, core: true },
+      { table: 'attendance',  key: STORAGE_KEYS.ATTENDANCE,  map: toAtt,      order: 'date',        asc: false, core: true },
+      { table: 'import_jobs', key: STORAGE_KEYS.IMPORT_JOBS, map: toJob,      order: 'uploaded_at', asc: false, core: false },
+      { table: 'visit_logs',  key: STORAGE_KEYS.VISIT_LOGS,  map: toVisitLog, order: 'created_at',  asc: false, core: false },
+    ];
+    const results = await Promise.all(tables.map(t => db.from(t.table).select('*').order(t.order, { ascending: t.asc })));
     if (pendingWrites > 0) { pulling = false; setTimeout(refreshFromDb, 1500); return; } // a write started mid-pull
 
-    writeLocal(STORAGE_KEYS.CENTERS, (c.data ?? []).map(toCenter));
-    writeLocal(STORAGE_KEYS.TECHNICIANS, (t.data ?? []).map(toTech));
-    writeLocal(STORAGE_KEYS.TICKETS, (tk.data ?? []).map(toTicket));
-    writeLocal(STORAGE_KEYS.ATTENDANCE, (a.data ?? []).map(toAtt));
-    writeLocal(STORAGE_KEYS.IMPORT_JOBS, (j.data ?? []).map(toJob));
-    writeLocal(STORAGE_KEYS.VISIT_LOGS, (vl.data ?? []).map(toVisitLog));
+    const coreErrors: string[] = [];
+    const warnings: string[] = [];
+    results.forEach((res, idx) => {
+      const t = tables[idx];
+      if (res.error) {
+        const msg = `${t.table}: ${res.error.message}`;
+        console.error('[FleetOps] Supabase read failed —', msg);
+        (t.core ? coreErrors : warnings).push(msg);
+        return; // keep the cached copy of this table
+      }
+      writeLocal(t.key, (res.data ?? []).map(t.map));
+    });
     localStorage.setItem(STORAGE_KEYS.DB_LOADED, '1');
-    setSyncState({ status: 'synced', lastSyncedAt: new Date().toISOString(), error: null });
+    if (coreErrors.length) {
+      setSyncState({ status: 'error', error: coreErrors.join('; '), warnings });
+    } else {
+      setSyncState({ status: 'synced', lastSyncedAt: new Date().toISOString(), error: null, warnings });
+    }
   } catch (err) {
     const msg = err instanceof Error ? err.message : (err as { message?: string })?.message ?? String(err);
     console.error('[FleetOps] Supabase pull failed, showing cached data:', msg);
@@ -527,5 +563,5 @@ export function resetToDemoData(): void {
 
 // Export initDb for App.tsx to call
 export async function initDb(): Promise<void> {
-  await pullFromSupabase();
+  await refreshFromDb();
 }

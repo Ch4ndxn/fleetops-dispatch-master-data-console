@@ -860,11 +860,11 @@ export function PlannerPage() {
 
         {/* Database status */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 14px', background: '#0B1220', fontSize: 10, color: '#94A3B8', borderTop: '1px solid #1E293B' }}>
-          <span style={{ width: 7, height: 7, borderRadius: '50%', background: { synced: '#10B981', loading: '#F59E0B', error: '#EF4444', disabled: '#64748B' }[sync.status] }} />
-          <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={sync.error ?? ''}>
-            {sync.status === 'synced' && `Live from database · updated ${new Date(sync.lastSyncedAt!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
+          <span style={{ width: 7, height: 7, borderRadius: '50%', background: sync.status === 'synced' && sync.warnings.length ? '#F59E0B' : { synced: '#10B981', loading: '#F59E0B', error: '#EF4444', disabled: '#64748B' }[sync.status] }} />
+          <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={[sync.error, ...sync.warnings].filter(Boolean).join('\n')}>
+            {sync.status === 'synced' && `Live from database · updated ${new Date(sync.lastSyncedAt!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}${sync.warnings.length ? ` · ${sync.warnings.length} table issue (hover)` : ''}`}
             {sync.status === 'loading' && 'Loading from database…'}
-            {sync.status === 'error' && `Database unreachable — showing cached data (${sync.error})`}
+            {sync.status === 'error' && `Couldn't load from database — showing cached data · ${sync.error}`}
             {sync.status === 'disabled' && 'No database configured — browser data only'}
           </span>
           {sync.status !== 'disabled' && (
