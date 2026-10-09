@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Ticket, TicketPriority, TicketStatus } from '../../types';
-import { getTickets, saveTickets, getTechnicians, getCenters } from '../../services/storage';
+import { getTickets, saveTickets, getTechnicians, getCenters, setTicketsIgnored, ignoreSyncedToDb, subscribeToDataChanges } from '../../services/storage';
+import { isDbEnabled } from '../../lib/supabase';
 import { generateCSV, downloadCSV } from '../../services/csvParser';
 import {
   Wrench,
@@ -30,6 +31,17 @@ export const ActiveCasesPage: React.FC<Props> = ({ onOpenUploadModal }) => {
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [priorityFilter, setPriorityFilter] = useState('ALL');
   const [centerFilter, setCenterFilter] = useState('ALL');
+  const [routingFilter, setRoutingFilter] = useState<'ALL' | 'PLANNED' | 'IGNORED'>('ALL');
+  const [sqlCopied, setSqlCopied] = useState(false);
+
+  // Stay current with changes from other pages / the database
+  useEffect(() => subscribeToDataChanges(() => setTickets(getTickets())), []);
+
+  const handleToggleIgnore = (tk: Ticket) => {
+    setTicketsIgnored([tk.id], !tk.ignoreForRouting);
+    setTickets(getTickets());
+  };
+  const IGNORE_SQL = 'alter table tickets add column if not exists exclude_from_routing boolean not null default false;';
 
   const refreshTickets = () => {
     setTickets(getTickets());
@@ -87,10 +99,12 @@ export const ActiveCasesPage: React.FC<Props> = ({ onOpenUploadModal }) => {
       const matchStatus = statusFilter === 'ALL' || t.status === statusFilter;
       const matchPriority = priorityFilter === 'ALL' || t.priority === priorityFilter;
       const matchCenter = centerFilter === 'ALL' || t.centerName === centerFilter;
+      const matchRouting = routingFilter === 'ALL' || (routingFilter === 'IGNORED') === Boolean(t.ignoreForRouting);
 
-      return matchSearch && matchStatus && matchPriority && matchCenter;
+      return matchSearch && matchStatus && matchPriority && matchCenter && matchRouting;
     });
-  }, [tickets, searchTerm, statusFilter, priorityFilter, centerFilter]);
+  }, [tickets, searchTerm, statusFilter, priorityFilter, centerFilter, routingFilter]);
+  const ignoredOpenCount = tickets.filter(t => t.ignoreForRouting && t.status !== 'Resolved' && t.status !== 'Closed').length;
 
   const uniqueCenters = Array.from(new Set(tickets.map(t => t.centerName).filter(Boolean)));
 
@@ -172,8 +186,33 @@ export const ActiveCasesPage: React.FC<Props> = ({ onOpenUploadModal }) => {
               <option key={c} value={c}>{c}</option>
             ))}
           </select>
+
+          <select
+            value={routingFilter}
+            onChange={(e) => setRoutingFilter(e.target.value as typeof routingFilter)}
+            className="px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="ALL">All (routing)</option>
+            <option value="PLANNED">Included in routes</option>
+            <option value="IGNORED">Ignored for routing{ignoredOpenCount ? ` (${ignoredOpenCount})` : ''}</option>
+          </select>
         </div>
       </div>
+
+      {isDbEnabled() && !ignoreSyncedToDb() && ignoredOpenCount > 0 && (
+        <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 flex flex-col sm:flex-row sm:items-center gap-2">
+          <span className="flex-1">
+            Ignored tickets are saved in <b>this browser only</b>. To share them across devices, run this once in Supabase → SQL Editor:
+            <code className="block mt-1 font-mono text-[11px] bg-white border border-amber-200 rounded px-2 py-1 break-all">{IGNORE_SQL}</code>
+          </span>
+          <button
+            onClick={() => { navigator.clipboard?.writeText(IGNORE_SQL); setSqlCopied(true); setTimeout(() => setSqlCopied(false), 2000); }}
+            className="px-3 py-1.5 bg-white border border-amber-300 rounded-lg font-semibold hover:bg-amber-100 shrink-0"
+          >
+            {sqlCopied ? 'Copied' : 'Copy SQL'}
+          </button>
+        </div>
+      )}
 
       {/* Tickets Table */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
@@ -201,10 +240,15 @@ export const ActiveCasesPage: React.FC<Props> = ({ onOpenUploadModal }) => {
               ) : (
                 filteredTickets.map((tk) => {
                   return (
-                    <tr key={tk.id} className="hover:bg-slate-50/70 transition-colors">
+                    <tr key={tk.id} className={`hover:bg-slate-50/70 transition-colors ${tk.ignoreForRouting ? 'bg-slate-50/80 opacity-70' : ''}`}>
                       {/* Ticket */}
                       <td className="py-3 px-4 font-mono font-bold text-blue-600">
                         {tk.ticketId}
+                        {tk.ignoreForRouting && (
+                          <div className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-200 text-slate-700 text-[10px] font-sans font-semibold">
+                            Not routed
+                          </div>
+                        )}
                       </td>
 
                       {/* Vehicle & Vendor */}
@@ -280,6 +324,16 @@ export const ActiveCasesPage: React.FC<Props> = ({ onOpenUploadModal }) => {
 
                       {/* Quick Update */}
                       <td className="py-3 px-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                        {tk.status !== 'Resolved' && tk.status !== 'Closed' && (
+                          <button
+                            onClick={() => handleToggleIgnore(tk)}
+                            title={tk.ignoreForRouting ? 'Include this ticket in route planning again' : 'Leave this ticket out of every route plan'}
+                            className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-colors ${tk.ignoreForRouting ? 'bg-slate-700 text-white hover:bg-slate-800' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`}
+                          >
+                            {tk.ignoreForRouting ? 'Undo ignore' : 'Ignore'}
+                          </button>
+                        )}
                         {tk.status !== 'Resolved' ? (
                           <button
                             onClick={() => handleUpdateStatus(tk.id, 'Resolved')}
@@ -293,6 +347,7 @@ export const ActiveCasesPage: React.FC<Props> = ({ onOpenUploadModal }) => {
                             Completed
                           </span>
                         )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -304,7 +359,10 @@ export const ActiveCasesPage: React.FC<Props> = ({ onOpenUploadModal }) => {
 
         <div className="p-3 bg-slate-50 border-t border-slate-200 text-xs text-slate-500 flex items-center justify-between">
           <span>Showing {filteredTickets.length} cases</span>
-          <span>{tickets.filter(t => !t.assignedTechnicianId && t.status !== 'Resolved').length} unassigned cases</span>
+          <span>
+            {tickets.filter(t => !t.assignedTechnicianId && t.status !== 'Resolved').length} unassigned cases
+            {ignoredOpenCount > 0 && ` · ${ignoredOpenCount} ignored for routing`}
+          </span>
         </div>
       </div>
     </div>

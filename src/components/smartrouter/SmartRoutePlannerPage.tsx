@@ -211,7 +211,7 @@ function applyConstraints(plans: TechnicianRoutePlan[], constraints: Constraints
 
   const unrouted = allTickets.filter(t =>
     !assignedTicketIds.has(t.ticketId) &&
-    t.status !== 'Resolved' && t.status !== 'Closed'
+    t.status !== 'Resolved' && t.status !== 'Closed' && !t.ignoreForRouting
   ).sort((a, b) => (PRIO_ORDER[b.priority] || 0) - (PRIO_ORDER[a.priority] || 0));
 
   return { plans: filteredPlans, unrouted };
@@ -688,7 +688,7 @@ export const SmartRoutePlannerPage: React.FC = () => {
     const excludedIds = new Set(excluded.map(t => t.ticketId));
     const allTickets = getTickets();
     const ur = allTickets
-      .filter(t => !assignedIds.has(t.ticketId) && !excludedIds.has(t.ticketId) && t.status !== 'Resolved' && t.status !== 'Closed')
+      .filter(t => !assignedIds.has(t.ticketId) && !excludedIds.has(t.ticketId) && t.status !== 'Resolved' && t.status !== 'Closed' && !t.ignoreForRouting)
       .sort((a, b) => (PRIO_ORDER[b.priority] || 0) - (PRIO_ORDER[a.priority] || 0));
     setUnrouted(ur);
   }, []);
@@ -745,7 +745,7 @@ export const SmartRoutePlannerPage: React.FC = () => {
     // Rebuild unrouted accounting for avoid-reassignment filter and excluded tickets
     const assignedIds = new Set(finalPlans.flatMap(p => p.stops.map(s => s.ticketId)));
     const ur = [...result.unrouted, ...getTickets().filter(t =>
-      !assignedIds.has(t.ticketId) && t.status !== 'Resolved' && t.status !== 'Closed' &&
+      !assignedIds.has(t.ticketId) && t.status !== 'Resolved' && t.status !== 'Closed' && !t.ignoreForRouting &&
       !excludedIds.has(t.ticketId) &&
       !result.unrouted.find(u => u.ticketId === t.ticketId)
     )].sort((a, b) => (PRIO_ORDER[b.priority] || 0) - (PRIO_ORDER[a.priority] || 0));
@@ -778,7 +778,7 @@ export const SmartRoutePlannerPage: React.FC = () => {
       const att = attendance.find(a => a.employeeId.toUpperCase() === t.employeeId.toUpperCase() && a.date === today);
       return !att || att.status === 'Present' || att.status === 'Half-Day';
     });
-    const openTickets = allTickets.filter(t => t.status !== 'Resolved' && t.status !== 'Closed');
+    const openTickets = allTickets.filter(t => t.status !== 'Resolved' && t.status !== 'Closed' && !t.ignoreForRouting);
 
     const systemPrompt = `You are an expert field operations dispatcher for a Delhi NCR electric vehicle (EV) fleet.
 Given a current route plan and constraints, produce an IMPROVED plan staying within constraints.

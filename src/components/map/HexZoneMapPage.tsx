@@ -17,6 +17,7 @@ import {
   getCenters, getTechnicians, getTickets, saveTickets,
   getRoutePlans, saveRoutePlans,
   subscribeToDataChanges,
+  getIgnoredTicketIds, setTicketsIgnored,
 } from '../../services/storage';
 import { planBalancedRoutes, BalancedPlanConstraints, BalancedPlanResult } from '../../services/routeOptimizer';
 import { Ticket, Technician, Center, TechnicianRoutePlan, RouteStop } from '../../types';
@@ -46,14 +47,14 @@ const PRIORITY_COLOR: Record<string, string> = {
   CRITICAL: '#dc2626', HIGH: '#ea580c', MEDIUM: '#ca8a04', LOW: '#16a34a',
 };
 
-// ─── Ignored-ticket store ───────────────────────────────────────────────────
-const IGNORED_KEY = 'fleetops_ignored_tickets';
-function getIgnored(): Set<string> {
-  try { return new Set(JSON.parse(localStorage.getItem(IGNORED_KEY) || '[]')); }
-  catch { return new Set(); }
-}
-function setIgnored(s: Set<string>) {
-  localStorage.setItem(IGNORED_KEY, JSON.stringify([...s]));
+// ─── Ignored-ticket store (shared with Active Cases; synced to the database) ──
+function getIgnored(): Set<string> { return getIgnoredTicketIds(); }
+function setIgnored(next: Set<string>) {
+  const current = getIgnoredTicketIds();
+  const add = [...next].filter(id => !current.has(id));
+  const remove = [...current].filter(id => !next.has(id));
+  if (add.length) setTicketsIgnored(add, true);
+  if (remove.length) setTicketsIgnored(remove, false);
 }
 
 // ─── Hex geometry ─────────────────────────────────────────────────────────────
@@ -1114,6 +1115,7 @@ export function HexZoneMapPage() {
 
   const [selectedCell, setSelectedCell] = useState<HexCell | null>(null);
   const [ignored, setIgnoredState] = useState<Set<string>>(() => getIgnored());
+  useEffect(() => subscribeToDataChanges(() => setIgnoredState(getIgnored())), []);
   const [activeLayers, setActiveLayers] = useState<Set<MapLayer>>(
     () => new Set(['openTickets', 'techBases', 'clusters', 'spareHubs', 'techRoutes'] as MapLayer[])
   );

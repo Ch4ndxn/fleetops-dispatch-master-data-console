@@ -296,7 +296,7 @@ export const RoutePlannerPage: React.FC = () => {
 
   const routableTicketCount = useMemo(() => {
     return allTickets.filter(tk => {
-      if (tk.status === 'Resolved' || tk.status === 'Closed') return false;
+      if (tk.status === 'Resolved' || tk.status === 'Closed' || tk.ignoreForRouting) return false;
       const c = centerMap.get(tk.centerName.trim().toLowerCase());
       return Boolean(c?.latitude && c?.longitude);
     }).length;
@@ -304,7 +304,7 @@ export const RoutePlannerPage: React.FC = () => {
 
   const unassignedTicketsRaw = useMemo(() => {
     return allTickets.filter(tk => {
-      if (tk.status === 'Resolved' || tk.status === 'Closed') return false;
+      if (tk.status === 'Resolved' || tk.status === 'Closed' || tk.ignoreForRouting) return false;
       if (assignedTicketIds.has(tk.ticketId)) return false;
       const c = centerMap.get(tk.centerName.trim().toLowerCase());
       return Boolean(c?.latitude && c?.longitude);
@@ -479,7 +479,7 @@ export const RoutePlannerPage: React.FC = () => {
     // Also include unassigned tickets
     const assignedIds = new Set(routePlans.flatMap(p => p.stops.map(s => s.ticketId)));
     allTickets.forEach(tk => {
-      if (tk.status === 'Resolved' || tk.status === 'Closed') return;
+      if (tk.status === 'Resolved' || tk.status === 'Closed' || tk.ignoreForRouting) return;
       if (assignedIds.has(tk.ticketId)) return;
       rows.push([
         tk.ticketId,
@@ -576,7 +576,7 @@ export const RoutePlannerPage: React.FC = () => {
   function buildUnassignedSection(allTk: Ticket[], plans: TechnicianRoutePlan[]): string {
     const assignedIds = new Set(plans.flatMap(p => p.stops.map(s => s.ticketId)));
     const unassigned = allTk.filter(tk =>
-      tk.status !== 'Resolved' && tk.status !== 'Closed' && !assignedIds.has(tk.ticketId)
+      tk.status !== 'Resolved' && tk.status !== 'Closed' && !tk.ignoreForRouting && !assignedIds.has(tk.ticketId)
     );
     if (unassigned.length === 0) return '';
     const rows = unassigned.map(tk => `
@@ -1809,7 +1809,7 @@ export const RoutePlannerPage: React.FC = () => {
               {/* Unassigned open tickets */}
               {allTickets
                 .filter(tk => {
-                  if (tk.status === 'Resolved' || tk.status === 'Closed') return false;
+                  if (tk.status === 'Resolved' || tk.status === 'Closed' || tk.ignoreForRouting) return false;
                   return !routePlans.flatMap(p => p.stops).some(s => s.ticketId === tk.ticketId);
                 })
                 .map(tk => (

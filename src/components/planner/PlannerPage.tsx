@@ -50,7 +50,9 @@ function buildPlannerData() {
   const dcByName = new Map(dcs.map(d => [norm(d.c), d]));
 
   // Open tickets, plus tickets closed today so they stay on today's plan as ✓
-  const relevant = getTickets().filter(t =>
+  const allTickets = getTickets();
+  const ignoredCount = allTickets.filter(t => t.ignoreForRouting && t.status !== 'Resolved' && t.status !== 'Closed').length;
+  const relevant = allTickets.filter(t => !t.ignoreForRouting).filter(t =>
     (t.status !== 'Resolved' && t.status !== 'Closed') || (t.updatedAt ? localDate(new Date(t.updatedAt)) === T : false));
   let unroutable = 0;
   const ticketStatus: Record<string, PlannerStatus> = {};
@@ -86,7 +88,7 @@ function buildPlannerData() {
 
   return {
     data: { dcs, tickets, techs, attendance, ticketStatus, assignments },
-    issues: { unroutable, techsWithoutLocation: allTechs.length - located.length, ticketCount: tickets.length },
+    issues: { ignored: ignoredCount, unroutable, techsWithoutLocation: allTechs.length - located.length, ticketCount: tickets.length },
   };
 }
 
@@ -191,6 +193,11 @@ export function PlannerPage() {
         </span>
         {sync.saveError && (
           <span className="text-rose-700 font-semibold truncate" title={sync.saveError}>· {sync.saveError}</span>
+        )}
+        {issues.ignored > 0 && (
+          <span className="text-slate-500 whitespace-nowrap" title="Ignored from Active Cases — not planned">
+            · {issues.ignored} ignored ticket{issues.ignored > 1 ? 's' : ''} not planned
+          </span>
         )}
         {issues.unroutable > 0 && (
           <span className="text-amber-700 font-semibold whitespace-nowrap" title="Their center is missing from Centers or has no coordinates">

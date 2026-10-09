@@ -57,6 +57,8 @@ export interface Ticket {
   assignedTechnicianId?: string;
   assignedTechnicianName?: string;
   scheduledSlot?: string;
+  /** Leave this ticket out of every route plan (set from Active Cases or the Hex Zone Map). */
+  ignoreForRouting?: boolean;
   createdAt: string;
   updatedAt: string;
   isNew?: boolean;

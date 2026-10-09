@@ -151,3 +151,6 @@ create index if not exists visit_logs_date_idx       on visit_logs (visit_date d
 
 -- updated_at trigger
 create trigger visit_logs_updated_at before update on visit_logs for each row execute function update_updated_at();
+
+-- ── Ignore tickets for route planning (Active Cases → Ignore) ─────────────────
+alter table tickets add column if not exists exclude_from_routing boolean not null default false;

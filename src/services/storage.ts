@@ -100,9 +100,18 @@ const fromCenter = (c: Center) => ({ id: c.id, name: c.name, normalized_name: c.
 const toTech = (r: any): Technician => ({ id: r.id, employeeId: r.employee_id, name: r.name, phone: r.phone, alternatePhone: r.alternate_phone, role: r.role, vendor: r.vendor, city: r.city, zone: r.zone, specialisation: r.specialisation, status: r.status, joinedDate: r.joined_date, assignedStm: r.assigned_stm, notes: r.notes, startingLatitude: r.starting_latitude, startingLongitude: r.starting_longitude, defaultDc: r.default_dc, createdAt: r.created_at, updatedAt: r.updated_at });
 const fromTech = (t: Technician) => ({ id: t.id, employee_id: t.employeeId, name: t.name, phone: t.phone, alternate_phone: t.alternatePhone ?? '', role: t.role, vendor: t.vendor ?? '', city: t.city, zone: t.zone ?? '', specialisation: t.specialisation, status: t.status, joined_date: t.joinedDate ?? null, assigned_stm: t.assignedStm ?? '', notes: t.notes ?? '', starting_latitude: t.startingLatitude ?? null, starting_longitude: t.startingLongitude ?? null, default_dc: t.defaultDc ?? '', created_at: t.createdAt, updated_at: t.updatedAt });
 
+// Does the tickets table have the exclude_from_routing column? Only send it if so,
+// otherwise every ticket save would fail. Until confirmed, the flag is kept in this browser.
+let ignoreColumn: 'unknown' | 'yes' | 'no' = 'unknown';
+export function ignoreSyncedToDb(): boolean { return ignoreColumn === 'yes'; }
+const LOCAL_IGNORED_KEY = 'fleetops_ignored_tickets'; // ticket.id list (also used by older Hex Zone Map)
+function localIgnored(): Set<string> {
+  try { return new Set(JSON.parse(localStorage.getItem(LOCAL_IGNORED_KEY) || '[]')); } catch { return new Set(); }
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const toTicket = (r: any): Ticket => ({ id: r.id, ticketId: r.ticket_id, vehicleNumber: r.vehicle_number, vendor: r.vendor, location: r.location, centerName: r.center_name, issue: r.issue, category: r.category, status: r.status, priority: r.priority, affectedSpare: r.affected_spare, issueType: r.issue_type, assignedTechnicianId: r.assigned_technician_id, assignedTechnicianName: r.assigned_technician_name, scheduledSlot: r.scheduled_slot, isNew: r.is_new, createdAt: r.created_at, updatedAt: r.updated_at });
-const fromTicket = (t: Ticket) => ({ id: t.id, ticket_id: t.ticketId, vehicle_number: t.vehicleNumber, vendor: t.vendor ?? '', location: t.location ?? '', center_name: t.centerName, issue: t.issue, category: t.category ?? '', status: t.status, priority: t.priority, affected_spare: t.affectedSpare ?? '', issue_type: t.issueType ?? '', assigned_technician_id: t.assignedTechnicianId ?? null, assigned_technician_name: t.assignedTechnicianName ?? null, scheduled_slot: t.scheduledSlot ?? null, is_new: t.isNew ?? false, created_at: t.createdAt, updated_at: t.updatedAt });
+const toTicket = (r: any): Ticket => ({ id: r.id, ticketId: r.ticket_id, vehicleNumber: r.vehicle_number, vendor: r.vendor, location: r.location, centerName: r.center_name, issue: r.issue, category: r.category, status: r.status, priority: r.priority, affectedSpare: r.affected_spare, issueType: r.issue_type, assignedTechnicianId: r.assigned_technician_id, assignedTechnicianName: r.assigned_technician_name, scheduledSlot: r.scheduled_slot, isNew: r.is_new, ignoreForRouting: r.exclude_from_routing ?? undefined, createdAt: r.created_at, updatedAt: r.updated_at });
+const fromTicket = (t: Ticket) => ({ id: t.id, ticket_id: t.ticketId, vehicle_number: t.vehicleNumber, vendor: t.vendor ?? '', location: t.location ?? '', center_name: t.centerName, issue: t.issue, category: t.category ?? '', status: t.status, priority: t.priority, affected_spare: t.affectedSpare ?? '', issue_type: t.issueType ?? '', assigned_technician_id: t.assignedTechnicianId ?? null, assigned_technician_name: t.assignedTechnicianName ?? null, scheduled_slot: t.scheduledSlot ?? null, is_new: t.isNew ?? false, ...(ignoreColumn === 'yes' ? { exclude_from_routing: Boolean(t.ignoreForRouting) } : {}), created_at: t.createdAt, updated_at: t.updatedAt });
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const toAtt = (r: any): AttendanceRecord => ({ id: r.id, employeeId: r.employee_id, technicianName: r.technician_name, date: r.date, status: r.status, checkInTime: r.check_in_time, checkOutTime: r.check_out_time, notes: r.notes, verifiedBy: r.verified_by, updatedAt: r.updated_at });
@@ -242,6 +251,24 @@ export async function refreshFromDb(): Promise<void> {
       }
       writeLocal(t.key, (res.data ?? []).map(t.map));
     });
+    // Detect the exclude_from_routing column
+    if (ignoreColumn !== 'yes') {
+      const tkRes = results[tables.findIndex(t => t.table === 'tickets')];
+      let has: boolean;
+      if (!tkRes.error && tkRes.data && tkRes.data.length) has = 'exclude_from_routing' in tkRes.data[0];
+      else has = !(await db.from('tickets').select('exclude_from_routing').limit(1)).error;
+      ignoreColumn = has ? 'yes' : 'no';
+      if (has) {
+        // Move ignore flags kept in this browser onto the tickets in the database
+        const local = localIgnored();
+        if (local.size) {
+          const list = lsGet<Ticket[]>(STORAGE_KEYS.TICKETS, []);
+          saveTickets(list.map(t => (local.has(t.id) && !t.ignoreForRouting ? { ...t, ignoreForRouting: true, updatedAt: new Date().toISOString() } : t)));
+          localStorage.removeItem(LOCAL_IGNORED_KEY);
+        }
+      }
+      notify();
+    }
     localStorage.setItem(STORAGE_KEYS.DB_LOADED, '1');
     if (coreErrors.length) {
       setSyncState({ status: 'error', error: coreErrors.join('; '), warnings });
@@ -404,7 +431,31 @@ export function deleteTechnician(id: string): void {
 // TICKETS  (synchronous)
 // ─────────────────────────────────────────────────────────────────
 export function getTickets(): Ticket[] {
-  return lsGet<Ticket[]>(STORAGE_KEYS.TICKETS, INITIAL_TICKETS);
+  const list = lsGet<Ticket[]>(STORAGE_KEYS.TICKETS, INITIAL_TICKETS);
+  if (ignoreColumn === 'yes') return list;
+  const local = localIgnored();
+  return list.map(t => (Boolean(t.ignoreForRouting) === local.has(t.id) ? t : { ...t, ignoreForRouting: local.has(t.id) }));
+}
+
+/** Open tickets that route planners should schedule. */
+export function isRoutable(t: Ticket): boolean {
+  return t.status !== 'Resolved' && t.status !== 'Closed' && !t.ignoreForRouting;
+}
+
+/** Ignore (or stop ignoring) tickets for route planning. Synced to the database when the column exists. */
+export function setTicketsIgnored(ticketIds: string[], ignored: boolean): void {
+  const ids = new Set(ticketIds);
+  if (ignoreColumn === 'yes') {
+    saveTickets(getTickets().map(t => (ids.has(t.id) && Boolean(t.ignoreForRouting) !== ignored ? { ...t, ignoreForRouting: ignored, updatedAt: new Date().toISOString() } : t)));
+    return;
+  }
+  const local = localIgnored();
+  ids.forEach(id => (ignored ? local.add(id) : local.delete(id)));
+  try { localStorage.setItem(LOCAL_IGNORED_KEY, JSON.stringify([...local])); } catch { /* ignore */ }
+  notify();
+}
+export function getIgnoredTicketIds(): Set<string> {
+  return new Set(getTickets().filter(t => t.ignoreForRouting).map(t => t.id));
 }
 export function saveTickets(tickets: Ticket[]): void {
   const prev = lsGet<Ticket[]>(STORAGE_KEYS.TICKETS, []);

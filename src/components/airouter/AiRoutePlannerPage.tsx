@@ -55,7 +55,7 @@ function buildRouteContext(basePlans: TechnicianRoutePlan[]) {
     return !att || att.status === 'Present' || att.status === 'Half-Day';
   });
 
-  const openTickets = tickets.filter(t => t.status !== 'Resolved' && t.status !== 'Closed');
+  const openTickets = tickets.filter(t => t.status !== 'Resolved' && t.status !== 'Closed' && !t.ignoreForRouting);
   const criticals   = openTickets.filter(t => t.priority === 'CRITICAL');
   const unassigned  = openTickets.filter(t =>
     !basePlans.some(p => p.stops.some(s => s.ticketId === t.ticketId))

@@ -95,7 +95,7 @@ export function planTodayRoutes(): TechnicianRoutePlan[] {
 
   // Filter active tickets that need routing (Open or Assigned)
   const routableTickets = tickets.filter(tk => {
-    if (tk.status === 'Resolved' || tk.status === 'Closed') return false;
+    if (tk.status === 'Resolved' || tk.status === 'Closed' || tk.ignoreForRouting) return false;
     const center = centerMap.get(tk.centerName.trim().toLowerCase());
     return Boolean(center && center.latitude && center.longitude);
   });
@@ -272,7 +272,7 @@ export function planBalancedRoutes(constraints: BalancedPlanConstraints): Balanc
   const excludedIds = constraints.excludedTicketIds || new Set<string>();
   const priorityWeights: Record<string, number> = { CRITICAL: 1000, HIGH: 100, MEDIUM: 10, LOW: 1 };
   let routableTickets = tickets.filter(tk => {
-    if (tk.status === 'Resolved' || tk.status === 'Closed') return false;
+    if (tk.status === 'Resolved' || tk.status === 'Closed' || tk.ignoreForRouting) return false;
     if (excludedIds.has(tk.ticketId)) return false;
     const center = centerMap.get(tk.centerName.trim().toLowerCase());
     return Boolean(center?.latitude && center?.longitude);
