@@ -96,7 +96,8 @@ function buildPlans(): MutablePlan[] {
       defaultDc: t.defaultDc,
       stops: [], totalDistanceKm: 0, totalEstimatedMins: 0, status: 'Draft', tech: t,
     }));
-  return extended;
+  return extended.sort((a, b) =>
+    (b.stops.length - a.stops.length) || a.technicianName.localeCompare(b.technicianName));
 }
 
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -624,6 +625,7 @@ function MapPanel({ plans }: { plans: MutablePlan[] }) {
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const layersRef = useRef<L.Layer[]>([]);
+  const [legendOpen, setLegendOpen] = useState(true);
 
   // Init map once
   useEffect(() => {
@@ -691,8 +693,11 @@ function MapPanel({ plans }: { plans: MutablePlan[] }) {
       <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
 
       {/* Map legend */}
-      <div style={{ position: 'absolute', bottom: 12, left: 12, zIndex: 1000, background: 'rgba(255,255,255,.93)', borderRadius: 10, padding: '8px 12px', boxShadow: '0 2px 8px rgba(0,0,0,.12)', fontSize: 10, color: '#475569' }}>
-        <div style={{ fontWeight: 700, marginBottom: 5, fontSize: 11 }}>Map Legend</div>
+      <div style={{ position: 'absolute', bottom: 12, left: 12, zIndex: 1000, background: 'rgba(255,255,255,.95)', borderRadius: 10, padding: '8px 12px', boxShadow: '0 2px 8px rgba(0,0,0,.12)', fontSize: 10, color: '#475569', maxHeight: 'calc(100% - 24px)', overflowY: 'auto', maxWidth: 200 }}>
+        <button onClick={() => setLegendOpen(o => !o)} style={{ all: 'unset', cursor: 'pointer', fontWeight: 700, fontSize: 11, display: 'flex', alignItems: 'center', gap: 4, marginBottom: legendOpen ? 5 : 0 }}>
+          Legend {legendOpen ? <ChevronDown size={12} /> : <ChevronUp size={12} />}
+        </button>
+        {legendOpen && <>
         {[{ label: 'Critical', color: '#EF4444' }, { label: 'High', color: '#F97316' }, { label: 'Medium', color: '#EAB308' }, { label: 'Low', color: '#94A3B8' }].map(l => (
           <div key={l.label} style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 2 }}>
             <div style={{ width: 9, height: 9, borderRadius: 2, background: l.color, border: '1.5px solid white' }} />
@@ -700,14 +705,16 @@ function MapPanel({ plans }: { plans: MutablePlan[] }) {
           </div>
         ))}
         <div style={{ marginTop: 5, borderTop: '1px solid #F1F5F9', paddingTop: 5 }}>
-          {plans.slice(0, 6).map((p, i) => (
+          {plans.map((p, i) => p.stops.length > 0 && (
             <div key={p.technicianId} style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 2 }}>
-              <div style={{ width: 9, height: 9, borderRadius: '50%', background: TECH_COLORS[i % TECH_COLORS.length], border: '1.5px solid white' }} />
-              {p.technicianName.split(' ')[0]}
+              <div style={{ width: 9, height: 9, borderRadius: '50%', background: TECH_COLORS[i % TECH_COLORS.length], border: '1.5px solid white', flexShrink: 0 }} />
+              <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.technicianName}</span>
+              <span style={{ marginLeft: 'auto', color: '#94A3B8', fontFamily: "'JetBrains Mono', monospace" }}>{p.stops.length}</span>
             </div>
           ))}
-          {plans.length > 6 && <div style={{ color: '#94A3B8' }}>+{plans.length - 6} more</div>}
+          <div style={{ color: '#94A3B8', marginTop: 3 }}>Larger dots = technician bases</div>
         </div>
+        </>}
       </div>
     </div>
   );
@@ -729,7 +736,8 @@ export function PlannerPage() {
 
   const totalStops = plans.reduce((a, p) => a + p.stops.length, 0);
   const deployed = plans.filter(p => p.stops.length > 0).length;
-  const openTickets = getTickets().filter(t => ['Open','Assigned','In Progress'].includes(t.status)).length;
+  // Same rule as the route optimizer: anything not Resolved/Closed still needs a visit
+  const openTickets = getTickets().filter(t => t.status !== 'Resolved' && t.status !== 'Closed').length;
 
   const regenerate = () => {
     if (hasManualEdits && !window.confirm('Recalculating will discard your manual reassignments on the map. Continue?')) return;
@@ -808,10 +816,14 @@ export function PlannerPage() {
 
         {/* Panel content */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '12px 12px' }}>
-          {openTickets === 0 && (subTab === 'roster' || subTab === 'tickets' || subTab === 'tracker') && (
+          {totalStops === 0 && (subTab === 'roster' || subTab === 'tickets' || subTab === 'tracker') && (
             <div style={{ background: '#F0F9F9', border: `1px dashed ${ACCENT}`, borderRadius: 10, padding: '12px 14px', marginBottom: 12, fontSize: 11, color: '#334155', lineHeight: 1.5 }}>
-              <div style={{ fontWeight: 700, color: ACCENT, marginBottom: 2 }}>No open tickets to plan</div>
-              Import a ticket CSV from <b>Data → Import Data</b>, then click <b>Recalculate</b> to build today's routes.
+              <div style={{ fontWeight: 700, color: ACCENT, marginBottom: 2 }}>
+                {openTickets === 0 ? 'No open tickets to plan' : `${openTickets} open tickets, but none could be routed`}
+              </div>
+              {openTickets === 0
+                ? <>Import a ticket CSV from <b>Data → Import Data</b>, then click <b>Recalculate</b>.</>
+                : <>Their centers are missing coordinates, or no technicians are available. Check <b>People → Centers</b> and today's attendance.</>}
             </div>
           )}
           {subTab === 'roster' && <RosterView plans={plans} setPlans={setPlans} onManualEdit={markManualEdit} />}
