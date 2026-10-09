@@ -864,92 +864,86 @@ export const RoutePlannerPage: React.FC = () => {
       )}
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight">ROUTE PLANNER & DISPATCH</h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Balanced geospatial optimizer · Assign, reorder, confirm and dispatch routes.
-          </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center shrink-0 shadow-sm">
+            <Compass className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h1 className="text-base font-bold text-slate-900 tracking-tight leading-none">NCR Route Planner</h1>
+            <p className="text-[11px] text-slate-500 mt-0.5">Geospatial optimizer · Delhi NCR Fleet Dispatch</p>
+          </div>
         </div>
 
         {/* Action buttons */}
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={() => setShowConstraints(v => !v)}
-            className={`px-3 py-2 rounded-lg text-xs font-bold tracking-wide shadow-xs transition-colors flex items-center gap-1.5 ${
-              showConstraints
-                ? 'bg-slate-800 text-white'
-                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-            }`}
-          >
-            <Settings2 className="w-3.5 h-3.5" />
-            CONSTRAINTS
-          </button>
-
+          {/* Primary CTA */}
           <button
             onClick={handlePlanRoutes}
             disabled={isOptimizing}
-            className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white rounded-lg text-xs font-bold tracking-wide shadow-xs transition-colors flex items-center gap-1.5"
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white rounded-lg text-xs font-bold tracking-wide shadow-sm transition-colors flex items-center gap-1.5"
           >
             <Compass className="w-3.5 h-3.5" />
-            {isOptimizing ? 'Planning…' : 'AUTO-PLAN ROUTES'}
+            {isOptimizing ? 'Planning…' : 'AUTO-PLAN'}
           </button>
 
           <button
             onClick={handleConfirmAll}
             disabled={routePlans.length === 0}
-            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white rounded-lg text-xs font-bold shadow-xs transition-colors flex items-center gap-1.5"
+            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white rounded-lg text-xs font-bold shadow-sm transition-colors flex items-center gap-1.5"
           >
             <CheckCircle2 className="w-3.5 h-3.5" />
             CONFIRM ALL
           </button>
 
           <button
-            onClick={handleClearRoutes}
-            disabled={routePlans.length === 0}
-            className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 text-slate-700 rounded-lg text-xs font-bold shadow-xs transition-colors flex items-center gap-1.5"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            CLEAR
-          </button>
-
-          {/* Download dropdown */}
-          <div className="relative">
-            <button
-              onClick={() => setDownloadMenuOpen(v => !v)}
-              className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold shadow-xs transition-colors flex items-center gap-1.5"
-            >
-              <Download className="w-3.5 h-3.5" />
-              DOWNLOAD
-              <ChevronDown className="w-3 h-3" />
-            </button>
-            {downloadMenuOpen && (
-              <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-50 w-44 py-1" onClick={() => setDownloadMenuOpen(false)}>
-                <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">All Technicians</div>
-                <button
-                  onClick={handleDownloadCsvAll}
-                  className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                >
-                  📄 CSV — All Routes
-                </button>
-                <button
-                  onClick={handleDownloadPdfAll}
-                  className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                >
-                  🖨 PDF — All Routes
-                </button>
-              </div>
-            )}
-          </div>
-
-          <button
             onClick={handleWhatsAppAll}
             disabled={routePlans.length === 0}
-            className="px-3.5 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-40 text-white rounded-lg text-xs font-bold shadow-xs transition-colors flex items-center gap-1.5"
+            className="px-3.5 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-40 text-white rounded-lg text-xs font-bold shadow-sm transition-colors flex items-center gap-1.5"
           >
             <MessageCircle className="w-3.5 h-3.5" />
             WA ALL
           </button>
+
+          {/* Secondary controls grouped */}
+          <div className="flex items-center gap-1 border border-slate-200 rounded-lg bg-white shadow-xs overflow-hidden">
+            <button
+              onClick={() => setShowConstraints(v => !v)}
+              title="Optimization constraints"
+              className={`px-2.5 py-2 text-xs font-bold transition-colors flex items-center gap-1 ${
+                showConstraints ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              <Settings2 className="w-3.5 h-3.5" />
+            </button>
+            <div className="w-px h-5 bg-slate-200" />
+            <div className="relative">
+              <button
+                onClick={() => setDownloadMenuOpen(v => !v)}
+                title="Download routes"
+                className="px-2.5 py-2 text-slate-600 hover:bg-slate-50 transition-colors flex items-center gap-1"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <ChevronDown className="w-3 h-3" />
+              </button>
+              {downloadMenuOpen && (
+                <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-50 w-44 py-1" onClick={() => setDownloadMenuOpen(false)}>
+                  <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">All Technicians</div>
+                  <button onClick={handleDownloadCsvAll} className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2">📄 CSV — All Routes</button>
+                  <button onClick={handleDownloadPdfAll} className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2">🖨 PDF — All Routes</button>
+                </div>
+              )}
+            </div>
+            <div className="w-px h-5 bg-slate-200" />
+            <button
+              onClick={handleClearRoutes}
+              disabled={routePlans.length === 0}
+              title="Clear all routes"
+              className="px-2.5 py-2 text-slate-500 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-40 transition-colors flex items-center"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1065,10 +1059,21 @@ export const RoutePlannerPage: React.FC = () => {
 
       {/* Plan metadata banner */}
       {planMeta && (
-        <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-2.5 flex flex-wrap gap-4 text-[11px] text-blue-800">
-          <span>⚡ <strong>{planMeta.kmSaved} km saved</strong> vs naive assignment</span>
-          <span>⏱ <strong>{planMeta.timeSavedMins} min saved</strong> in travel</span>
-          <span>⚖️ Balance score: <strong>{planMeta.balanceScore}/100</strong></span>
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl px-4 py-3 flex flex-wrap items-center gap-3">
+          <span className="text-[10px] font-bold text-blue-500 uppercase tracking-wider mr-1">Last Plan</span>
+          <span className="inline-flex items-center gap-1.5 bg-white border border-blue-200 text-blue-700 text-[11px] font-bold px-2.5 py-1 rounded-full shadow-xs">
+            ⚡ {planMeta.kmSaved} km saved
+          </span>
+          <span className="inline-flex items-center gap-1.5 bg-white border border-indigo-200 text-indigo-700 text-[11px] font-bold px-2.5 py-1 rounded-full shadow-xs">
+            ⏱ {planMeta.timeSavedMins} min saved
+          </span>
+          <span className={`inline-flex items-center gap-1.5 bg-white text-[11px] font-bold px-2.5 py-1 rounded-full shadow-xs border ${
+            planMeta.balanceScore >= 80 ? 'border-emerald-200 text-emerald-700' :
+            planMeta.balanceScore >= 50 ? 'border-amber-200 text-amber-700' :
+            'border-rose-200 text-rose-700'
+          }`}>
+            ⚖️ {planMeta.balanceScore}/100 balance
+          </span>
         </div>
       )}
 
@@ -1169,10 +1174,18 @@ export const RoutePlannerPage: React.FC = () => {
                 return (
                   <div
                     key={plan.technicianId}
-                    className={`bg-white rounded-xl border shadow-2xs transition-all ${
-                      isSelected ? 'border-blue-500 ring-2 ring-blue-500/20' : 'border-slate-200'
+                    className={`bg-white rounded-xl border shadow-2xs transition-all overflow-hidden ${
+                      isCardConfirmed
+                        ? 'border-emerald-400 ring-1 ring-emerald-200'
+                        : isSelected
+                        ? 'border-blue-500 ring-2 ring-blue-500/20'
+                        : 'border-slate-200'
                     }`}
                   >
+                    {/* Confirmed top stripe */}
+                    {isCardConfirmed && (
+                      <div className="h-0.5 bg-emerald-500 w-full" />
+                    )}
                     {/* Card header */}
                     <div
                       className="flex items-center justify-between p-4 cursor-pointer"
@@ -1181,6 +1194,12 @@ export const RoutePlannerPage: React.FC = () => {
                         if (!isExpanded) toggleCard(plan.technicianId);
                       }}
                     >
+                      {/* Initials avatar */}
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 mr-3 ${
+                        isCardConfirmed ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'
+                      }`}>
+                        {plan.technicianName.split(' ').map((n: string) => n[0]).slice(0, 2).join('')}
+                      </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-bold text-slate-900 text-sm">{plan.technicianName}</span>
@@ -1193,10 +1212,6 @@ export const RoutePlannerPage: React.FC = () => {
                           <StatusBadge status={plan.status} />
                         </div>
                         <div className="text-[11px] text-slate-500 mt-0.5 flex gap-3 flex-wrap">
-                          <span className="flex items-center gap-1">
-                            <MapPin className="w-3 h-3" />
-                            {plan.startLat.toFixed(4)}, {plan.startLng.toFixed(4)}
-                          </span>
                           <span className="flex items-center gap-1">
                             <Clock className="w-3 h-3" />
                             ~{plan.totalEstimatedMins} min
