@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Technician } from '../../types';
-import { getTechnicians, deleteTechnician, upsertTechnician } from '../../services/storage';
+import { getTechnicians, deleteTechnician, upsertTechnician, subscribeToDataChanges } from '../../services/storage';
 import { AddEditTechnicianModal } from './AddEditTechnicianModal';
 import { EditStartLocationModal } from './EditStartLocationModal';
 import { generateCSV, downloadCSV } from '../../services/csvParser';
@@ -25,6 +25,9 @@ interface Props {
 
 export const TechnicianManagement: React.FC<Props> = ({ onOpenUploadModal }) => {
   const [technicians, setTechnicians] = useState<Technician[]>(() => getTechnicians());
+
+  // Live: re-read whenever data changes anywhere (other tabs, other devices)
+  useEffect(() => subscribeToDataChanges(() => { setTechnicians(getTechnicians()); }), []);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [cityFilter, setCityFilter] = useState('ALL');

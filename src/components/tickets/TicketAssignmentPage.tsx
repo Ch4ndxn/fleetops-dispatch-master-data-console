@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Ticket, Technician } from '../../types';
-import { getTickets, saveTickets, getTechnicians } from '../../services/storage';
+import { getTickets, saveTickets, getTechnicians, subscribeToDataChanges } from '../../services/storage';
 import {
   Users,
   Wrench,
@@ -14,6 +14,9 @@ import {
 
 export const TicketAssignmentPage: React.FC = () => {
   const [tickets, setTickets] = useState<Ticket[]>(() => getTickets());
+
+  // Live: re-read whenever data changes anywhere (other tabs, other devices)
+  useEffect(() => subscribeToDataChanges(() => { setTickets(getTickets()); }), []);
   const technicians = getTechnicians();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTechId, setSelectedTechId] = useState<string>('ALL');

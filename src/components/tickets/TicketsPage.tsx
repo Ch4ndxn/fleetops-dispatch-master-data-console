@@ -5,7 +5,7 @@ import {
   ChevronLeft, ChevronRight, AlertCircle, Clock, CheckCircle2, User, Filter
 } from 'lucide-react';
 import { Ticket, TicketStatus, TicketPriority, Technician, Center } from '../../types';
-import { getTickets, saveTickets, getTechnicians, getCenters, newId } from '../../services/storage';
+import { getTickets, saveTickets, getTechnicians, getCenters, newId, subscribeToDataChanges } from '../../services/storage';
 import { generateCSV, downloadCSV } from '../../services/csvParser';
 
 interface Props {
@@ -89,8 +89,9 @@ export const TicketsPage: React.FC<Props> = ({ onOpenUploadModal }) => {
   const [quickStatusId, setQuickStatusId] = useState<string | null>(null);
 
   useEffect(() => {
-    setTickets(getTickets());
-    setTechnicians(getTechnicians());
+    const load = () => { setTickets(getTickets()); setTechnicians(getTechnicians()); };
+    load();
+    return subscribeToDataChanges(load); // live: changes from any tab or device
   }, []);
 
   const centerOptions = useMemo(() => {

@@ -8,8 +8,8 @@
  * 5. Download CSV: full day roster as spreadsheet
  */
 
-import React, { useState, useMemo, useCallback } from 'react';
-import { getTechnicians, getTickets, saveTickets, getRoutePlans } from '../../services/storage';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import { getTechnicians, getTickets, saveTickets, getRoutePlans, subscribeToDataChanges } from '../../services/storage';
 import { planBalancedRoutes, calculateDistanceKm } from '../../services/routeOptimizer';
 import { Technician, TechnicianRoutePlan, RouteStop, TicketPriority } from '../../types';
 import {
@@ -60,23 +60,11 @@ function buildPlans(date?: string): MutablePlan[] {
   const techMap = new Map(techs.map(t => [t.id, t]));
   const today = date ?? localDate();
 
-  // 1. Check for a saved Smart Route plan for this date (from SmartRoutePlannerPage.handleSave)
-  let base: TechnicianRoutePlan[] = [];
-  try {
-    const saved = localStorage.getItem(`fo_route_plan_${today}`);
-    if (saved) {
-      const parsed: TechnicianRoutePlan[] = JSON.parse(saved);
-      if (Array.isArray(parsed) && parsed.length > 0) base = parsed;
-    }
-  } catch {}
+  void today;
+  // 1. Saved plans, reconciled with tickets (assignee + status come from the ticket)
+  let base: TechnicianRoutePlan[] = getRoutePlans();
 
-  // 2. Also check storage-layer saved plans (saveRoutePlans writes here too)
-  if (base.length === 0) {
-    const storedPlans = getRoutePlans();
-    if (storedPlans && storedPlans.length > 0) base = storedPlans;
-  }
-
-  // 3. Fall back to fresh balanced calculation
+  // 2. Nothing assigned yet → show a suggestion (not saved, nothing assigned) to fresh balanced calculation
   if (base.length === 0) {
     const result = planBalancedRoutes({
       maxStopsPerTech: 8,
@@ -105,11 +93,7 @@ function buildPlans(date?: string): MutablePlan[] {
 }
 
 // ── Component ─────────────────────────────────────────────────────
-function getPlanSource(date: string): 'saved' | 'storage' | 'fresh' {
-  try {
-    const saved = localStorage.getItem(`fo_route_plan_${date}`);
-    if (saved) { const p = JSON.parse(saved); if (Array.isArray(p) && p.length > 0) return 'saved'; }
-  } catch {}
+function getPlanSource(_date: string): 'saved' | 'storage' | 'fresh' {
   const storedPlans = getRoutePlans();
   if (storedPlans && storedPlans.length > 0) return 'storage';
   return 'fresh';
@@ -123,6 +107,13 @@ export function RosterPage() {
   const [reassignFrom, setReassignFrom] = useState<{ planIdx: number; stopIdx: number } | null>(null);
   const [filterCity, setFilterCity] = useState('All');
   const [spinning, setSpinning] = useState(false);
+
+  // Stay in step with tickets changed anywhere (reassigned, resolved, ignored)
+  useEffect(() => subscribeToDataChanges(() => {
+    if (getPlanSource(selectedDate) === 'fresh') return; // a suggestion stays put until regenerated
+    setPlans(buildPlans(selectedDate));
+    setPlanSource('storage');
+  }), [selectedDate]);
 
   // Reload when date changes
   const loadForDate = useCallback((date: string) => {
@@ -138,8 +129,6 @@ export function RosterPage() {
 
   const regenerate = useCallback(() => {
     setSpinning(true);
-    // Clear saved plan so we get a fresh calculation
-    try { localStorage.removeItem(`fo_route_plan_${selectedDate}`); } catch {}
     setTimeout(() => {
       setPlans(buildPlans(selectedDate));
       setPlanSource('fresh');
@@ -241,7 +230,7 @@ export function RosterPage() {
               ? 'bg-blue-50 text-blue-700 border-blue-200'
               : 'bg-slate-100 text-slate-500 border-slate-200'
           }`}>
-            {planSource === 'saved' ? '✓ From Smart Route Plan' : planSource === 'storage' ? '✓ From Saved Plan' : '↻ Auto-calculated'}
+            {planSource === 'fresh' ? '↻ Suggested — not assigned yet' : '✓ Assigned (live from tickets)'}
           </span>
 
           <select value={filterCity} onChange={e => setFilterCity(e.target.value)}
@@ -351,6 +340,11 @@ export function RosterPage() {
                         <div className="flex-1 min-w-0">
                           <div className="flex flex-wrap items-center gap-2 mb-0.5">
                             <span className="font-bold text-slate-800 text-sm">{stop.ticketId}</span>
+                            {stop.ticketStatus && stop.ticketStatus !== 'Open' && stop.ticketStatus !== 'Assigned' && (
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${stop.ticketStatus === 'Resolved' || stop.ticketStatus === 'Closed' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                                {stop.ticketStatus === 'Resolved' || stop.ticketStatus === 'Closed' ? '✓ ' : ''}{stop.ticketStatus}
+                              </span>
+                            )}
                             <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${pri.badge}`}>
                               <span className={`w-1.5 h-1.5 rounded-full ${pri.dot}`} />{pri.label}
                             </span>

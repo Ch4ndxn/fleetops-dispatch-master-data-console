@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Center } from '../../types';
-import { getCenters, deleteCenter, upsertCenter } from '../../services/storage';
+import { getCenters, deleteCenter, upsertCenter, subscribeToDataChanges } from '../../services/storage';
 import { AddEditCenterModal } from './AddEditCenterModal';
 import { LeafletCoordinatePickerModal } from '../map/LeafletCoordinatePickerModal';
 import { generateCSV, downloadCSV } from '../../services/csvParser';
@@ -26,6 +26,9 @@ interface Props {
 
 export const CenterManagement: React.FC<Props> = ({ onOpenUploadModal }) => {
   const [centers, setCenters] = useState<Center[]>(() => getCenters());
+
+  // Live: re-read whenever data changes anywhere (other tabs, other devices)
+  useEffect(() => subscribeToDataChanges(() => { setCenters(getCenters()); }), []);
   const [searchTerm, setSearchTerm] = useState('');
   const [cityFilter, setCityFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');

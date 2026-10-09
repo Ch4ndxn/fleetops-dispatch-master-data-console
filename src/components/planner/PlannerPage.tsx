@@ -17,7 +17,7 @@ import { mountNcrPlanner } from './ncrPlannerEngine.js';
 import RAW_VEHICLES from '../../data/ncrVehicles.json';
 import {
   getCenters, getTickets, getTechnicians, getAttendance,
-  upsertTicket, upsertTechnician, upsertAttendanceRecord,
+  upsertTicket, upsertTechnician, upsertAttendanceRecord, saveTickets,
   subscribeToDataChanges, getSyncState, refreshFromDb,
 } from '../../services/storage';
 import type { Ticket, AttendanceStatus, TicketStatus } from '../../types';
@@ -130,6 +130,16 @@ export function PlannerPage() {
         } else {
           clearAssignment(t);
         }
+      },
+      onAssignMany: (list: Array<{ ticketId: string; tech: { _id: string; name: string } }>) => {
+        const byTicket = new Map(list.map(x => [x.ticketId.toUpperCase(), x.tech]));
+        const now = new Date().toISOString();
+        saveTickets(getTickets().map(t => {
+          const tech = byTicket.get(t.ticketId.toUpperCase());
+          if (!tech || t.assignedTechnicianId === tech._id) return t;
+          return { ...t, assignedTechnicianId: tech._id, assignedTechnicianName: tech.name,
+            status: t.status === 'Open' ? 'Assigned' as TicketStatus : t.status, updatedAt: now };
+        }));
       },
       onClearAssignments: (ticketIds: string[]) => {
         ticketIds.forEach(id => { const t = ticketById(id); if (t) clearAssignment(t); });

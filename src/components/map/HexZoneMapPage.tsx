@@ -1109,8 +1109,11 @@ export function HexZoneMapPage() {
   const layersRef = useRef<L.Layer[]>([]);
 
   const [tickets, setTickets] = useState<Ticket[]>(() => getTickets());
-  const [centers]  = useState<Center[]>(() => getCenters());
-  const [allTechs] = useState<Technician[]>(() => getTechnicians());
+  const [centers, setCenters]  = useState<Center[]>(() => getCenters());
+  const [allTechs, setAllTechs] = useState<Technician[]>(() => getTechnicians());
+
+  // Live: re-read whenever data changes anywhere (other tabs, other devices)
+  useEffect(() => subscribeToDataChanges(() => { setTickets(getTickets()); setCenters(getCenters()); setAllTechs(getTechnicians()); setRoutePlans(getRoutePlans()); }), []);
   const [routePlans, setRoutePlans] = useState<TechnicianRoutePlan[]>(() => getRoutePlans());
 
   const [selectedCell, setSelectedCell] = useState<HexCell | null>(null);

@@ -11,10 +11,11 @@
 
 import {
   Technician, Center, Ticket, AttendanceRecord,
-  ImportJob, DataQualityStats, TechnicianRoutePlan, VisitLog,
+  ImportJob, DataQualityStats, TechnicianRoutePlan, VisitLog, RouteStop,
 } from '../types';
 import { normalizeCenterName, isValidLatitude, isValidLongitude } from './csvParser';
 import { supabase, isDbEnabled } from '../lib/supabase';
+import { localDate } from '../lib/date';
 
 // ─────────────────────────────────────────────────────────────────
 // STORAGE KEYS
@@ -431,7 +432,13 @@ export function deleteTechnician(id: string): void {
 // TICKETS  (synchronous)
 // ─────────────────────────────────────────────────────────────────
 export function getTickets(): Ticket[] {
-  const list = lsGet<Ticket[]>(STORAGE_KEYS.TICKETS, INITIAL_TICKETS);
+  const raw = lsGet<Ticket[]>(STORAGE_KEYS.TICKETS, INITIAL_TICKETS);
+  // Assignee name always comes from the technician record (one source of truth)
+  const techName = new Map(lsGet<Technician[]>(STORAGE_KEYS.TECHNICIANS, []).map(t => [t.id, t.name]));
+  const list = raw.map(t => {
+    const n = t.assignedTechnicianId ? techName.get(t.assignedTechnicianId) : undefined;
+    return n && n !== t.assignedTechnicianName ? { ...t, assignedTechnicianName: n } : t;
+  });
   if (ignoreColumn === 'yes') return list;
   const local = localIgnored();
   return list.map(t => (Boolean(t.ignoreForRouting) === local.has(t.id) ? t : { ...t, ignoreForRouting: local.has(t.id) }));
@@ -545,8 +552,104 @@ export function computeDataQuality(): DataQualityStats {
 // ─────────────────────────────────────────────────────────────────
 // ROUTE PLANS  (localStorage only — ephemeral)
 // ─────────────────────────────────────────────────────────────────
-export function getRoutePlans(): TechnicianRoutePlan[] { return lsGet<TechnicianRoutePlan[]>(STORAGE_KEYS.ROUTES, []); }
-export function saveRoutePlans(plans: TechnicianRoutePlan[]): void { lsSet(STORAGE_KEYS.ROUTES, plans); }
+// Route plans are kept consistent with tickets: the ticket's assignee and status are the truth.
+function roadKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371, t = Math.PI / 180;
+  const a = Math.sin((lat2 - lat1) * t / 2) ** 2 + Math.cos(lat1 * t) * Math.cos(lat2 * t) * Math.sin((lon2 - lon1) * t / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a)) * 1.3;
+}
+function withTotals(plan: TechnicianRoutePlan): TechnicianRoutePlan {
+  let km = 0, lat = plan.startLat, lng = plan.startLng;
+  const stops = plan.stops.map((s, i) => {
+    km += roadKm(lat, lng, s.latitude, s.longitude); lat = s.latitude; lng = s.longitude;
+    return s.stopOrder === i + 1 ? s : { ...s, stopOrder: i + 1 };
+  });
+  return { ...plan, stops, totalDistanceKm: Math.round(km * 10) / 10,
+    totalEstimatedMins: stops.reduce((a, s) => a + (s.estimatedDurationMins || 45), 0) + Math.round(km * 2.5) };
+}
+
+/**
+ * Saved route plans, reconciled with the tickets:
+ *  • a stop whose ticket now belongs to another technician moves to that technician's route
+ *  • a stop whose ticket was unassigned, deleted or ignored is dropped
+ *  • open tickets assigned to a technician but missing from every plan are appended
+ *  • every stop carries the ticket's live status, priority and details
+ */
+export function getRoutePlans(): TechnicianRoutePlan[] {
+  const stored = lsGet<TechnicianRoutePlan[]>(STORAGE_KEYS.ROUTES, []);
+  const tickets = getTickets();
+  const byTicketId = new Map(tickets.map(t => [t.ticketId, t]));
+  const techs = new Map(getTechnicians().map(t => [t.id, t]));
+  const centers = new Map(getCenters().map(c => [c.name.trim().toLowerCase(), c]));
+
+  const plans = new Map<string, TechnicianRoutePlan>();
+  const ensurePlan = (techId: string): TechnicianRoutePlan | null => {
+    if (plans.has(techId)) return plans.get(techId)!;
+    const tech = techs.get(techId);
+    if (!tech || tech.startingLatitude == null || tech.startingLongitude == null) return null;
+    const plan: TechnicianRoutePlan = { technicianId: tech.id, technicianName: tech.name, employeeId: tech.employeeId,
+      startLat: tech.startingLatitude, startLng: tech.startingLongitude, defaultDc: tech.defaultDc ?? '',
+      stops: [], totalDistanceKm: 0, totalEstimatedMins: 0, status: 'Draft' };
+    plans.set(techId, plan);
+    return plan;
+  };
+  stored.forEach(p => { if (techs.has(p.technicianId)) plans.set(p.technicianId, { ...p, technicianName: techs.get(p.technicianId)!.name, stops: [] }); });
+
+  const placed = new Set<string>();
+  const place = (stop: RouteStop, t: Ticket) => {
+    if (!t.assignedTechnicianId || t.ignoreForRouting || placed.has(t.ticketId)) return;
+    const plan = ensurePlan(t.assignedTechnicianId);
+    if (!plan) return;
+    placed.add(t.ticketId);
+    plan.stops.push({ ...stop, ticketId: t.ticketId, vehicleNumber: t.vehicleNumber, centerName: t.centerName,
+      issue: t.issue, priority: t.priority, ticketStatus: t.status });
+  };
+  // 1. existing stops, in their saved order, follow their ticket
+  stored.forEach(p => p.stops.forEach(s => { const t = byTicketId.get(s.ticketId); if (t) place(s, t); }));
+  // 2. assigned tickets that no plan contains yet: open ones, plus ones finished today (shown as done)
+  const today = localDate();
+  const doneToday = (t: Ticket) => (t.status === 'Resolved' || t.status === 'Closed') && Boolean(t.updatedAt) && localDate(new Date(t.updatedAt)) === today;
+  tickets.filter(t => t.assignedTechnicianId && !placed.has(t.ticketId) && ((t.status !== 'Resolved' && t.status !== 'Closed') || doneToday(t)))
+    .forEach(t => {
+      const c = centers.get(t.centerName.trim().toLowerCase());
+      if (!c) return;
+      place({ stopOrder: 0, ticketId: t.ticketId, centerName: t.centerName, vehicleNumber: t.vehicleNumber, issue: t.issue,
+        priority: t.priority, latitude: c.latitude, longitude: c.longitude, estimatedArrival: t.scheduledSlot || '—',
+        estimatedDurationMins: t.priority === 'CRITICAL' ? 60 : 45 }, t);
+    });
+  return [...plans.values()].filter(p => p.stops.length > 0).map(withTotals);
+}
+
+/** Save route plans and make the tickets match them (assign stops; unassign removed stops). */
+export function saveRoutePlans(plans: TechnicianRoutePlan[]): void {
+  const previous = lsGet<TechnicianRoutePlan[]>(STORAGE_KEYS.ROUTES, []);
+  lsSet(STORAGE_KEYS.ROUTES, plans);
+  const techs = new Map(getTechnicians().map(t => [t.id, t]));
+  const want = new Map<string, string>(); // ticketId → techId
+  plans.forEach(p => p.stops.forEach(s => want.set(s.ticketId, p.technicianId)));
+  const was = new Map<string, string>();
+  previous.forEach(p => p.stops.forEach(s => was.set(s.ticketId, p.technicianId)));
+  const now = new Date().toISOString();
+  let changed = false;
+  const tickets = lsGet<Ticket[]>(STORAGE_KEYS.TICKETS, []).map(t => {
+    const target = want.get(t.ticketId);
+    if (target) {
+      if (t.assignedTechnicianId === target) return t;
+      changed = true;
+      return { ...t, assignedTechnicianId: target, assignedTechnicianName: techs.get(target)?.name ?? t.assignedTechnicianName,
+        status: t.status === 'Open' ? 'Assigned' : t.status, updatedAt: now };
+    }
+    // removed from the plan it was in → unassign (only if still assigned to that technician)
+    const prevTech = was.get(t.ticketId);
+    if (prevTech && t.assignedTechnicianId === prevTech && t.status !== 'Resolved' && t.status !== 'Closed') {
+      changed = true;
+      return { ...t, assignedTechnicianId: undefined, assignedTechnicianName: undefined,
+        status: t.status === 'Assigned' ? 'Open' : t.status, updatedAt: now };
+    }
+    return t;
+  });
+  if (changed) saveTickets(tickets);
+}
 
 // ─────────────────────────────────────────────────────────────────
 // VISIT LOGS  (localStorage + Supabase)

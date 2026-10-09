@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { TrackerTab } from './TrackerTab';
 import {
   TechnicianRoutePlan,
@@ -18,8 +18,7 @@ import {
   getTickets,
   saveTickets,
   getVisitLogs,
-  upsertVisitLog,
-} from '../../services/storage';
+  upsertVisitLog, subscribeToDataChanges } from '../../services/storage';
 import {
   planBalancedRoutes,
   BalancedPlanConstraints,
@@ -150,8 +149,8 @@ const DEFAULT_CONSTRAINTS: BalancedPlanConstraints = {
 // ─── Main component ───────────────────────────────────────────────────────────
 export const RoutePlannerPage: React.FC = () => {
   const [routePlans, setRoutePlans] = useState<TechnicianRoutePlan[]>(() => getRoutePlans());
-  const [technicians] = useState<Technician[]>(() => getTechnicians());
-  const [centers] = useState<Center[]>(() => getCenters());
+  const [technicians, setTechnicians] = useState<Technician[]>(() => getTechnicians());
+  const [centers, setCenters] = useState<Center[]>(() => getCenters());
   const [allTickets, setAllTickets] = useState<Ticket[]>(() => getTickets());
 
   const [selectedTechId, setSelectedTechId] = useState<string | undefined>(undefined);
@@ -196,6 +195,9 @@ export const RoutePlannerPage: React.FC = () => {
 
   // ── Visit Log state ────────────────────────────────────────────────────────
   const [visitLogs, setVisitLogs] = useState<VisitLog[]>(() => getVisitLogs());
+
+  // Live: re-read whenever data changes anywhere (other tabs, other devices)
+  useEffect(() => subscribeToDataChanges(() => { setRoutePlans(getRoutePlans()); setTechnicians(getTechnicians()); setCenters(getCenters()); setAllTickets(getTickets()); }), []);
   // Modal: which stop is being logged
   const [visitModal, setVisitModal] = useState<{
     plan: TechnicianRoutePlan;

@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Technician, AttendanceRecord, AttendanceStatus } from '../../types';
-import { getTechnicians, getAttendance, upsertAttendanceRecord } from '../../services/storage';
+import { getTechnicians, getAttendance, upsertAttendanceRecord, subscribeToDataChanges } from '../../services/storage';
 import { generateCSV, downloadCSV } from '../../services/csvParser';
 import {
   CalendarCheck, Clock, Upload, Download, Search,
@@ -224,7 +224,10 @@ function TechHistoryRow({ stats }: { stats: TechHistoryStats }) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export const AttendancePage: React.FC<Props> = ({ onOpenUploadModal }) => {
-  const [technicians] = useState<Technician[]>(() => getTechnicians());
+  const [technicians, setTechnicians] = useState<Technician[]>(() => getTechnicians());
+
+  // Live: re-read whenever data changes anywhere (other tabs, other devices)
+  useEffect(() => subscribeToDataChanges(() => { setTechnicians(getTechnicians()); setAttendanceList(getAttendance()); }), []);
   const [attendanceList, setAttendanceList] = useState<AttendanceRecord[]>(() => getAttendance());
   const [selectedDate, setSelectedDate] = useState<string>(localDate());
   const [searchTerm, setSearchTerm] = useState('');

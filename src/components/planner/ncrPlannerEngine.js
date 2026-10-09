@@ -878,6 +878,7 @@ function rebuild() {
   buildRoster(assignment);
   
   document.getElementById('roster-sub').textContent = `${numTechs} technician${numTechs>1?'s':''} · ${totalTickets} tickets to close today`;
+  __updateAssignButton();
   updateTicketTabLabel();
 }
 
@@ -929,8 +930,32 @@ function reassignDropdownHTML(ticketId, currentTechIdx, allTechs) {
       onclick="event.stopPropagation()">
       ${options}
     </select>
-    ${isOverridden ? `<span class="override-badge">✎ Manual</span>` : ''}
+    ${isOverridden ? `<span class="override-badge assigned">✓ Assigned</span>` : `<span class="override-badge suggested">Suggested</span>`}
   </div>`;
+}
+
+/** Save every suggested assignment in today's plan onto the tickets, in one go. */
+function assignSuggestedPlan() {
+  if(!lastAssignment) return;
+  const list = [];
+  lastAssignment.techs.forEach(tech => tech.tickets.forEach(tk => {
+    if(!(tk.ticket in manualOverrides) && !excludedTickets.has(tk.ticket)) list.push({ ticketId: tk.ticket, tech: { _id: tech._id, name: tech.name } });
+  }));
+  if(!list.length) { showToast('Every ticket in the plan is already assigned'); return; }
+  list.forEach(x => { manualOverrides[x.ticketId] = x.tech._id; });
+  __hooks.onAssignMany && __hooks.onAssignMany(list);
+  rebuild();
+  if(currentView === 'tickets') buildTicketDashboard(tktFilter);
+  showToast(`✓ ${list.length} ticket${list.length>1?'s':''} assigned — visible on every tab`);
+}
+
+function __updateAssignButton() {
+  const btn = __root.querySelector('#assign-plan-btn');
+  if(!btn || !lastAssignment) return;
+  let n = 0;
+  lastAssignment.techs.forEach(t => t.tickets.forEach(tk => { if(!(tk.ticket in manualOverrides) && !excludedTickets.has(tk.ticket)) n++; }));
+  btn.style.display = n ? '' : 'none';
+  btn.textContent = `✓ Assign today's plan (${n} suggested)`;
 }
 
 function clearAllOverrides() {
@@ -1028,7 +1053,7 @@ function buildTicketDashboard(filter) {
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
           ${!isExcluded ? `<span class="age-chip" style="color:${ageColor};background:${ageBg};">${days}d old</span>` : ''}
-          ${!isExcluded && tech ? `<span class="assignee-chip" style="background:${tech.color}20;color:${tech.color};">${tech.name}${tk.ticket in manualOverrides ? ' ✎' : ''}</span>` : ''}
+          ${!isExcluded && tech ? `<span class="assignee-chip" style="background:${tech.color}20;color:${tech.color};">${tech.name}${tk.ticket in manualOverrides ? ' ✓' : ' · suggested'}</span>` : ''}
           <button class="toggle-tkt-btn ${isExcluded?'restore':'remove'}" onclick="toggleTicket('${tk.ticket}')">
             ${isExcluded ? '↩ Restore' : '🚫 Remove'}
           </button>
@@ -1629,7 +1654,7 @@ function update(data) {
 }
 
 // expose handlers used by inline onclick= attributes
-const exposed = { applyAttendance, assignTechnicians, atClearErr, buildHexClusters, buildRoster, buildTicketDashboard, buildTrackerCardHTML, calcRouteTime, clearAllOverrides, closeAddTech, closeManageTechs, confirmAddTech, currentParams, drawDCMarkers, drawHexClusters, drawHomeMarkers, drawRoutes, drawSpare, editTechZone, exportAttendance, exportTracker, filterTickets, findOptimalSpareHubs, flyToDC, focusTech, getStatusColor, getStatusIcon, haversineKm, hexCenter, hexVertices, initAttendance, initMap, initTicketTracker, latLonToHex, markAllPresent, nearestNeighbor, onTechChange, openAddTech, openManageTechs, reassignDropdownHTML, reassignTicket, rebuild, recomputeTicketData, removeTech, renderAttendList, renderAttendRow, renderManageTechList, renderTrackerCard, renderTrackerList, renderTrackerTechFilters, restoreAllTickets, routeDistance, setAttendStatus, setTicketNote, setTicketStatus, setTrackerFilter, setTrackerTechFilter, showToast, switchView, toXY, toggleCard, toggleTicket, twoOpt, updateAttendSummary, updateTicketTabLabel, updateTrackerSummary, ticketStatus, attendance };
+const exposed = { assignSuggestedPlan, applyAttendance, assignTechnicians, atClearErr, buildHexClusters, buildRoster, buildTicketDashboard, buildTrackerCardHTML, calcRouteTime, clearAllOverrides, closeAddTech, closeManageTechs, confirmAddTech, currentParams, drawDCMarkers, drawHexClusters, drawHomeMarkers, drawRoutes, drawSpare, editTechZone, exportAttendance, exportTracker, filterTickets, findOptimalSpareHubs, flyToDC, focusTech, getStatusColor, getStatusIcon, haversineKm, hexCenter, hexVertices, initAttendance, initMap, initTicketTracker, latLonToHex, markAllPresent, nearestNeighbor, onTechChange, openAddTech, openManageTechs, reassignDropdownHTML, reassignTicket, rebuild, recomputeTicketData, removeTech, renderAttendList, renderAttendRow, renderManageTechList, renderTrackerCard, renderTrackerList, renderTrackerTechFilters, restoreAllTickets, routeDistance, setAttendStatus, setTicketNote, setTicketStatus, setTrackerFilter, setTrackerTechFilter, showToast, switchView, toXY, toggleCard, toggleTicket, twoOpt, updateAttendSummary, updateTicketTabLabel, updateTrackerSummary, ticketStatus, attendance };
 Object.assign(window, exposed);
 
 // ── BOOT ──

@@ -320,3 +320,10 @@
 .ncrp .tracker-filter-bar{flex-wrap:nowrap;overflow-x:auto;align-items:center;scrollbar-width:thin;}
 .ncrp #tracker-tech-filters{display:flex;gap:6px;flex-wrap:nowrap;}
 .ncrp .tracker-filter-bar .tf-btn{white-space:nowrap;flex-shrink:0;}
+
+/* Assigned vs suggested */
+.ncrp .override-badge.assigned{background:var(--grn2);color:var(--green);}
+.ncrp .override-badge.suggested{background:var(--bg);color:var(--text3);border:1px dashed var(--border);}
+.ncrp .assign-plan-btn{margin-top:8px;width:100%;padding:8px 10px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:12px;font-weight:700;cursor:pointer;}
+.ncrp .assign-plan-btn:hover{filter:brightness(1.1);}
+.ncrp .assign-hint{margin-top:5px;font-size:10px;color:var(--text3);line-height:1.4;}

@@ -46,7 +46,10 @@ export const LiveTrackingPage: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {technicians.filter(t => t.status === 'Active').map((tech) => {
           const techPlan = routePlans.find(p => p.technicianId === tech.id);
-          const activeStop = techPlan?.stops[0];
+          const isDone = (st?: string) => st === 'Resolved' || st === 'Closed';
+          const activeStop = techPlan?.stops.find(st => !isDone(st.ticketStatus));
+          const doneCount = techPlan ? techPlan.stops.filter(st => isDone(st.ticketStatus)).length : 0;
+          const totalCount = techPlan?.stops.length ?? 0;
           return (
             <div
               key={tech.id}
@@ -68,7 +71,10 @@ export const LiveTrackingPage: React.FC = () => {
               <div className="mt-3 pt-2.5 border-t border-slate-100 text-xs space-y-1">
                 <div className="text-slate-600">
                   <span className="text-slate-400">Current Task:</span>{' '}
-                  {activeStop ? `${activeStop.centerName} (${activeStop.vehicleNumber})` : 'Standby at Base Depot'}
+                  {activeStop
+                    ? `${activeStop.centerName} (${activeStop.vehicleNumber})${activeStop.ticketStatus === 'In Progress' ? ' · in progress' : ''}`
+                    : totalCount ? 'All visits resolved' : 'Standby at Base Depot'}
+                  {totalCount > 0 && <span className="ml-1 text-slate-400">· {doneCount}/{totalCount} done</span>}
                 </div>
                 <div className="text-slate-500 text-[11px]">
                   <span className="text-slate-400">Base DC:</span> {tech.defaultDc || 'Central Delhi'}

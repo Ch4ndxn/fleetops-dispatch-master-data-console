@@ -147,6 +147,8 @@ export interface RouteStop {
   longitude: number;
   estimatedArrival: string;
   estimatedDurationMins: number;
+  /** Live status of the ticket behind this stop (filled in when plans are read). */
+  ticketStatus?: TicketStatus;
 }
 
 export interface TechnicianRoutePlan {

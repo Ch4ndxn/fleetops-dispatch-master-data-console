@@ -1001,7 +1001,7 @@ Optimize within constraints.`;
     const confirmed = plans.map(p => ({ ...p, status: 'Confirmed' as const }));
     saveRoutePlans(confirmed);
     const dateStr = localDate();
-    try { localStorage.setItem(`fo_route_plan_${dateStr}`, JSON.stringify(confirmed)); } catch {}
+    // (assignments are written to the tickets by saveRoutePlans)
 
     const allTickets = getTickets();
     const updated = allTickets.map(tk => {
@@ -1013,7 +1013,7 @@ Optimize within constraints.`;
     });
     saveTickets(updated);
     setSaved(true);
-    showToast(`Plan saved as fo_route_plan_${dateStr}`);
+    showToast('Plan saved — tickets assigned');
   }
 
   // ── Export CSV ───────────────────────────────────────────────
