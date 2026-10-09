@@ -17,7 +17,7 @@ import {
 import { Ticket, Technician, Center } from '../../types';
 import {
   Users, Zap, CheckCircle2, X, MapPin, AlertTriangle,
-  EyeOff, RefreshCw, Filter, Layers, Diamond, UserCheck,
+  EyeOff, RefreshCw, Filter, Layers, Diamond, UserCheck, Edit2,
 } from 'lucide-react';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -244,21 +244,35 @@ interface PanelProps {
   cell: HexCell;
   cluster: Cluster | null;
   allTechs: Technician[];
+  allTickets: Ticket[];
   ignored: Set<string>;
   onIgnore: (id: string) => void;
   onUnignore: (id: string) => void;
   onReassign: (ticketId: string, techId: string) => void;
   onBulkAssign: (techId: string) => void;
+  onEditTicket: (ticketId: string, priority: string, issue: string) => void;
   onClose: () => void;
 }
 
-function ZonePanel({ cell, cluster, allTechs, ignored, onIgnore, onUnignore, onReassign, onBulkAssign, onClose }: PanelProps) {
+function ZonePanel({ cell, cluster, allTechs, allTickets, ignored, onIgnore, onUnignore, onReassign, onBulkAssign, onEditTicket, onClose }: PanelProps) {
   const [bulkTech, setBulkTech] = useState('');
   const [reassignTarget, setReassignTarget] = useState<string | null>(null);
   const [reassignTech, setReassignTech] = useState('');
   const [tab, setTab] = useState<'open' | 'ignored'>('open');
+  const [editingTicket, setEditingTicket] = useState<{ id: string; priority: string; issue: string } | null>(null);
 
   const activeTechs = allTechs.filter(t => t.status === 'Active');
+
+  // Compute open ticket count per tech across all tickets
+  const openTicketCountByTech = useMemo(() => {
+    const counts: Record<string, number> = {};
+    allTickets.forEach(t => {
+      if (t.assignedTechnicianId && t.status !== 'Resolved' && t.status !== 'Closed') {
+        counts[t.assignedTechnicianId] = (counts[t.assignedTechnicianId] || 0) + 1;
+      }
+    });
+    return counts;
+  }, [allTickets]);
   const openTickets = cell.tickets.filter(t => !ignored.has(t.id) && t.status !== 'Resolved' && t.status !== 'Closed');
   const ignoredInCell = cell.tickets.filter(t => ignored.has(t.id));
 
@@ -338,9 +352,14 @@ function ZonePanel({ cell, cluster, allTechs, ignored, onIgnore, onUnignore, onR
                     <EyeOff className="w-3 h-3" /> Ignore
                   </button>
                   <div className="w-px bg-slate-100" />
-                  <button onClick={() => { setReassignTarget(t.id); setReassignTech(t.assignedTechnicianId || ''); }}
+                  <button onClick={() => { setReassignTarget(t.id); setReassignTech(t.assignedTechnicianId || ''); setEditingTicket(null); }}
                     className="flex-1 flex items-center justify-center gap-1 py-1.5 text-[11px] text-blue-600 hover:bg-blue-50 transition-colors font-medium">
                     <RefreshCw className="w-3 h-3" /> Reassign
+                  </button>
+                  <div className="w-px bg-slate-100" />
+                  <button onClick={() => { setEditingTicket(editingTicket?.id === t.id ? null : { id: t.id, priority: t.priority, issue: t.issue }); setReassignTarget(null); }}
+                    className="flex-1 flex items-center justify-center gap-1 py-1.5 text-[11px] text-amber-600 hover:bg-amber-50 transition-colors font-medium">
+                    <Edit2 className="w-3 h-3" /> Edit
                   </button>
                 </div>
                 {reassignTarget === t.id && (
@@ -348,17 +367,46 @@ function ZonePanel({ cell, cluster, allTechs, ignored, onIgnore, onUnignore, onR
                     <select value={reassignTech} onChange={e => setReassignTech(e.target.value)}
                       className="w-full text-xs border border-blue-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
                       <option value="">— Pick technician —</option>
-                      {activeTechs.map(tech => (
-                        <option key={tech.id} value={tech.id}>
-                          {tech.name} · {tech.zone || tech.city}{tech.id === t.assignedTechnicianId ? ' (current)' : ''}
-                        </option>
-                      ))}
+                      {activeTechs.map(tech => {
+                        const openCount = openTicketCountByTech[tech.id] || 0;
+                        return (
+                          <option key={tech.id} value={tech.id}>
+                            {tech.name} · {tech.zone || tech.city} ({openCount} assigned){tech.id === t.assignedTechnicianId ? ' ✓ current' : ''}
+                          </option>
+                        );
+                      })}
                     </select>
                     <div className="flex gap-1.5">
                       <button disabled={!reassignTech}
                         onClick={() => { onReassign(t.id, reassignTech); setReassignTarget(null); setReassignTech(''); }}
                         className="flex-1 py-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-xs rounded-lg font-semibold">Confirm</button>
                       <button onClick={() => setReassignTarget(null)} className="px-3 py-1 bg-white border border-slate-200 text-xs rounded-lg text-slate-600 hover:bg-slate-50">Cancel</button>
+                    </div>
+                  </div>
+                )}
+                {editingTicket?.id === t.id && (
+                  <div className="px-2.5 pb-2.5 pt-1 space-y-1.5 bg-amber-50 border-t border-amber-100">
+                    <div className="text-[10px] font-semibold text-amber-700 uppercase tracking-wide">Edit Ticket</div>
+                    <select
+                      value={editingTicket.priority}
+                      onChange={e => setEditingTicket({ ...editingTicket, priority: e.target.value })}
+                      className="w-full text-xs border border-amber-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-amber-400">
+                      {['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].map(p => (
+                        <option key={p} value={p}>{p}</option>
+                      ))}
+                    </select>
+                    <input
+                      type="text"
+                      value={editingTicket.issue}
+                      onChange={e => setEditingTicket({ ...editingTicket, issue: e.target.value })}
+                      placeholder="Issue description"
+                      className="w-full text-xs border border-amber-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
+                    />
+                    <div className="flex gap-1.5">
+                      <button
+                        onClick={() => { onEditTicket(t.id, editingTicket.priority, editingTicket.issue); setEditingTicket(null); }}
+                        className="flex-1 py-1 bg-amber-500 hover:bg-amber-600 text-white text-xs rounded-lg font-semibold">Save</button>
+                      <button onClick={() => setEditingTicket(null)} className="px-3 py-1 bg-white border border-slate-200 text-xs rounded-lg text-slate-600 hover:bg-slate-50">Cancel</button>
                     </div>
                   </div>
                 )}
@@ -455,6 +503,16 @@ export function HexZoneMapPage() {
     saveTickets(updated); setTickets(updated);
     toast(`Reassigned to ${tech.name}`);
   }, [tickets, allTechs]);
+
+  const handleEditTicket = useCallback((ticketId: string, priority: string, issue: string) => {
+    const updated = tickets.map(t =>
+      t.id === ticketId
+        ? { ...t, priority: priority as Ticket['priority'], issue, updatedAt: new Date().toISOString() }
+        : t
+    );
+    saveTickets(updated); setTickets(updated);
+    toast('Ticket updated');
+  }, [tickets]);
 
   const handleBulkAssign = useCallback((techId: string) => {
     if (!selectedCell) return;
@@ -777,11 +835,13 @@ export function HexZoneMapPage() {
             cell={selectedCell}
             cluster={selectedCluster}
             allTechs={allTechs}
+            allTickets={tickets}
             ignored={ignored}
             onIgnore={handleIgnore}
             onUnignore={handleUnignore}
             onReassign={handleReassign}
             onBulkAssign={handleBulkAssign}
+            onEditTicket={handleEditTicket}
             onClose={() => setSelectedCell(null)}
           />
         )}
