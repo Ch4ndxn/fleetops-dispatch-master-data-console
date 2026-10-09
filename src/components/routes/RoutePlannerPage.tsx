@@ -381,6 +381,51 @@ export const RoutePlannerPage: React.FC = () => {
     showToast('Routes cleared.');
   };
 
+  const handleDownloadRoster = () => {
+    const rows = ['Ticket ID,Vehicle,Center,Issue,Priority,Assigned Tech,Employee ID,Stop #,ETA,Status'];
+    routePlans.forEach(plan => {
+      plan.stops.sort((a, b) => a.stopOrder - b.stopOrder).forEach(stop => {
+        rows.push([
+          stop.ticketId,
+          stop.vehicleNumber,
+          `"${stop.centerName.replace(/_D$/, '')}"`,
+          `"${stop.issue || ''}"`,
+          stop.priority,
+          `"${plan.technicianName}"`,
+          plan.employeeId,
+          stop.stopOrder,
+          stop.estimatedArrival,
+          'Assigned'
+        ].join(','));
+      });
+    });
+    // Also include unassigned tickets
+    const assignedIds = new Set(routePlans.flatMap(p => p.stops.map(s => s.ticketId)));
+    allTickets.forEach(tk => {
+      if (tk.status === 'Resolved' || tk.status === 'Closed') return;
+      if (assignedIds.has(tk.ticketId)) return;
+      rows.push([
+        tk.ticketId,
+        tk.vehicleNumber,
+        `"${tk.centerName.replace(/_D$/, '')}"`,
+        `"${tk.issue || ''}"`,
+        tk.priority,
+        tk.assignedTechnicianName ? `"${tk.assignedTechnicianName}"` : 'UNASSIGNED',
+        '',
+        '',
+        '',
+        'Unassigned'
+      ].join(','));
+    });
+    const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `roster-${today}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const handleExportCSV = () => {
     const rows = ['Tech Name,Employee ID,Stop #,Center,Vehicle,Ticket ID,Priority,ETA'];
     routePlans.forEach(plan => {
@@ -624,6 +669,14 @@ export const RoutePlannerPage: React.FC = () => {
           >
             <RotateCcw className="w-3.5 h-3.5" />
             CLEAR
+          </button>
+
+          <button
+            onClick={handleDownloadRoster}
+            className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold shadow-xs transition-colors flex items-center gap-1.5"
+          >
+            <Download className="w-3.5 h-3.5" />
+            DOWNLOAD ROSTER
           </button>
 
           <button
@@ -1263,6 +1316,116 @@ export const RoutePlannerPage: React.FC = () => {
               )}
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* ── Assignment Table ─────────────────────────────────────────────────── */}
+      <div className="border border-slate-200 rounded-xl overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 bg-slate-900 text-white">
+          <div className="flex items-center gap-2">
+            <Layers className="w-4 h-4 text-slate-300" />
+            <span className="text-sm font-bold tracking-tight">ASSIGNMENT ROSTER</span>
+            <span className="text-[11px] bg-slate-700 text-slate-300 rounded px-1.5 py-0.5 ml-1">
+              {routePlans.reduce((s, p) => s + p.stops.length, 0)} assigned
+              {allTickets.filter(t => t.status !== 'Resolved' && t.status !== 'Closed' && !routePlans.flatMap(p => p.stops).some(s => s.ticketId === t.ticketId)).length > 0 &&
+                ` · ${allTickets.filter(t => t.status !== 'Resolved' && t.status !== 'Closed' && !routePlans.flatMap(p => p.stops).some(s => s.ticketId === t.ticketId)).length} unassigned`
+              }
+            </span>
+          </div>
+          <button
+            onClick={handleDownloadRoster}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-[11px] font-bold transition-colors"
+          >
+            <Download className="w-3 h-3" /> Download Roster
+          </button>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-200">
+                {['Ticket ID', 'Vehicle', 'Center', 'Issue', 'Priority', 'Assigned Tech', 'Stop #', 'ETA', 'Status'].map(h => (
+                  <th key={h} className="px-3 py-2.5 text-left font-semibold text-slate-500 whitespace-nowrap uppercase tracking-wide text-[10px]">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {/* Assigned stops sorted by tech then stop order */}
+              {routePlans.flatMap(plan =>
+                plan.stops
+                  .slice()
+                  .sort((a, b) => a.stopOrder - b.stopOrder)
+                  .map(stop => (
+                    <tr key={`${plan.technicianId}-${stop.ticketId}`} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-3 py-2 font-mono font-semibold text-slate-800 whitespace-nowrap">{stop.ticketId}</td>
+                      <td className="px-3 py-2 text-slate-600 whitespace-nowrap">{stop.vehicleNumber}</td>
+                      <td className="px-3 py-2 text-slate-600 truncate max-w-[140px]">{stop.centerName.replace(/_D$/, '')}</td>
+                      <td className="px-3 py-2 text-slate-500 truncate max-w-[160px]">{stop.issue}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-bold text-white ${
+                          stop.priority === 'CRITICAL' ? 'bg-red-600' :
+                          stop.priority === 'HIGH' ? 'bg-orange-500' :
+                          stop.priority === 'MEDIUM' ? 'bg-yellow-500' : 'bg-green-600'
+                        }`}>{stop.priority}</span>
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        <div className="font-semibold text-slate-800">{plan.technicianName}</div>
+                        <div className="text-[10px] text-slate-400">{plan.employeeId}</div>
+                      </td>
+                      <td className="px-3 py-2 text-center font-bold text-slate-700">{stop.stopOrder}</td>
+                      <td className="px-3 py-2 font-mono text-blue-700 font-semibold whitespace-nowrap">{stop.estimatedArrival}</td>
+                      <td className="px-3 py-2">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded text-[10px] font-semibold">
+                          <CheckCircle2 className="w-3 h-3" /> Assigned
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+              )}
+              {/* Unassigned open tickets */}
+              {allTickets
+                .filter(tk => {
+                  if (tk.status === 'Resolved' || tk.status === 'Closed') return false;
+                  return !routePlans.flatMap(p => p.stops).some(s => s.ticketId === tk.ticketId);
+                })
+                .map(tk => (
+                  <tr key={tk.id} className="hover:bg-rose-50 transition-colors bg-rose-50/30">
+                    <td className="px-3 py-2 font-mono font-semibold text-slate-800 whitespace-nowrap">{tk.ticketId}</td>
+                    <td className="px-3 py-2 text-slate-600 whitespace-nowrap">{tk.vehicleNumber}</td>
+                    <td className="px-3 py-2 text-slate-600 truncate max-w-[140px]">{tk.centerName.replace(/_D$/, '')}</td>
+                    <td className="px-3 py-2 text-slate-500 truncate max-w-[160px]">{tk.issue}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">
+                      <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-bold text-white ${
+                        tk.priority === 'CRITICAL' ? 'bg-red-600' :
+                        tk.priority === 'HIGH' ? 'bg-orange-500' :
+                        tk.priority === 'MEDIUM' ? 'bg-yellow-500' : 'bg-green-600'
+                      }`}>{tk.priority}</span>
+                    </td>
+                    <td className="px-3 py-2 whitespace-nowrap">
+                      {tk.assignedTechnicianName
+                        ? <span className="text-slate-600">{tk.assignedTechnicianName}</span>
+                        : <span className="text-rose-500 font-semibold">— Unassigned</span>
+                      }
+                    </td>
+                    <td className="px-3 py-2 text-center text-slate-400">—</td>
+                    <td className="px-3 py-2 text-slate-400">—</td>
+                    <td className="px-3 py-2">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-rose-100 text-rose-700 rounded text-[10px] font-semibold">
+                        <AlertCircle className="w-3 h-3" /> Not Routed
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              }
+              {routePlans.length === 0 && allTickets.filter(t => t.status !== 'Resolved' && t.status !== 'Closed').length === 0 && (
+                <tr>
+                  <td colSpan={9} className="px-4 py-8 text-center text-slate-400 text-xs">
+                    No tickets to show. Run AUTO-PLAN ROUTES to generate assignments.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
