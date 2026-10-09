@@ -11,6 +11,7 @@ import {
   Loader2, ChevronDown, ChevronUp, RotateCcw, Download,
   Navigation, Sparkles, User, AlertTriangle, Info, Send,
 } from 'lucide-react';
+import { localDate } from '../../lib/date';
 
 // ── resolve Groq key (localStorage > env var) ─────────────────────
 function getGroqClient(): Groq {
@@ -40,7 +41,7 @@ function buildRouteContext(basePlans: TechnicianRoutePlan[]) {
   const centers     = getCenters();
   const tickets     = getTickets();
   const attendance  = getAttendance();
-  const today       = new Date().toISOString().split('T')[0];
+  const today       = localDate();
 
   const centerMap = new Map(centers.map(c => [c.name.trim().toLowerCase(), c]));
 
@@ -367,7 +368,7 @@ Now produce the optimised plan.`;
     ));
     const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-    a.download = `ai_routes_${new Date().toISOString().split('T')[0]}.csv`; a.click();
+    a.download = `ai_routes_${localDate()}.csv`; a.click();
   }
 
   // ── Stats ─────────────────────────────────────────────────────────

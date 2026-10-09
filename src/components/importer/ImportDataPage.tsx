@@ -12,6 +12,7 @@ import {
   CheckSquare,
   Wrench
 } from 'lucide-react';
+import { localDate } from '../../lib/date';
 
 interface Props {
   onOpenUploadModal: (type: ImportType) => void;
@@ -41,7 +42,7 @@ TECH-1006,Suresh Raina,9871112233,9871112234,Senior Technician,Zen Fleet Ops,Del
 TECH-1007,Manoj Tiwari,9812223344,,Field Engineer,Switch Mobility,Noida,Sector 83,Motor,Active,2024-05-10,Amit Verma,Hub motor certified,28.5200,77.3900,Noida Main DC`;
       downloadCSV('sample_technicians_template.csv', csv);
     } else if (type === 'ATTENDANCE_CSV') {
-      const today = new Date().toISOString().split('T')[0];
+      const today = localDate();
       const csv = `Technician / Emp ID,Date,Status,Check-In,Check-Out,Note
 TECH-1001,${today},Present,08:45,,Central DC morning briefing
 TECH-1002,${today},Present,09:00,,Noida DC deployment

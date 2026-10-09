@@ -1,4 +1,5 @@
 import { getTechnicians, getTickets, getCenters, getAttendance } from './storage';
+import { localDate } from '../lib/date';
 
 function resolveApiKey(): string {
   try {
@@ -15,7 +16,7 @@ function buildFleetContext(): string {
   const tickets = getTickets();
   const centers = getCenters();
   const attendance = getAttendance();
-  const today = new Date().toISOString().split('T')[0];
+  const today = localDate();
 
   const activeTechs = technicians.filter(t => t.status === 'Active');
   const openTickets = tickets.filter(t => ['Open', 'In Progress', 'Assigned'].includes(t.status));

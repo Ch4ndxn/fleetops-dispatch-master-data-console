@@ -30,6 +30,7 @@ import {
   Activity,
   Layers
 } from 'lucide-react';
+import { localDate } from '../../lib/date';
 
 interface Props {
   onNavigate: (tabId: string) => void;
@@ -54,7 +55,7 @@ export const OverviewPage: React.FC<Props> = ({
   const tickets = getTickets();
   const attendance = getAttendance();
   const routePlans = getRoutePlans();
-  const today = new Date().toISOString().split('T')[0];
+  const today = localDate();
 
   // Data Quality Audit — recomputes whenever storage changes (tick)
   const qualityStats: DataQualityStats = useMemo(() => computeDataQuality(), [tick]);

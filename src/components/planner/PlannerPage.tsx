@@ -21,8 +21,9 @@ import {
   subscribeToDataChanges, getSyncState, refreshFromDb,
 } from '../../services/storage';
 import type { Ticket, AttendanceStatus, TicketStatus } from '../../types';
+import { localDate } from '../../lib/date';
 
-const today = () => new Date().toISOString().split('T')[0]; // same date convention as the rest of the app
+const today = () => localDate(); // same date convention as the rest of the app
 const LOCAL_KEY = () => `fo_ncr_planner_${today()}`;
 const norm = (s: string) => (s || '').trim().toLowerCase();
 
@@ -50,15 +51,17 @@ function buildPlannerData() {
 
   // Open tickets, plus tickets closed today so they stay on today's plan as ✓
   const relevant = getTickets().filter(t =>
-    (t.status !== 'Resolved' && t.status !== 'Closed') || (t.updatedAt || '').startsWith(T));
+    (t.status !== 'Resolved' && t.status !== 'Closed') || (t.updatedAt ? localDate(new Date(t.updatedAt)) === T : false));
   let unroutable = 0;
   const ticketStatus: Record<string, PlannerStatus> = {};
+  const assignments: Record<string, string> = {}; // ticketId → technician id, from the ticket itself
   const tickets = relevant.map((t: Ticket) => {
     const dc = dcByName.get(norm(t.centerName));
     if (!dc) unroutable++;
     const opened = (t.createdAt || '').slice(0, 10);
     const ageDays = opened ? Math.max(0, Math.floor((Date.now() - new Date(opened).getTime()) / 86400000)) : 0;
     ticketStatus[t.ticketId] = toPlannerStatus(t.status);
+    if (t.assignedTechnicianId) assignments[t.ticketId] = t.assignedTechnicianId;
     return {
       ticket: t.ticketId, vehicle: t.vehicleNumber, month_rep: 1,
       center: dc ? dc.c : t.centerName, city: dc?.city ?? '',
@@ -82,7 +85,7 @@ function buildPlannerData() {
   });
 
   return {
-    data: { dcs, tickets, techs, attendance, ticketStatus },
+    data: { dcs, tickets, techs, attendance, ticketStatus, assignments },
     issues: { unroutable, techsWithoutLocation: allTechs.length - located.length, ticketCount: tickets.length },
   };
 }
@@ -102,6 +105,11 @@ export function PlannerPage() {
     let saved: unknown = null;
     try { saved = JSON.parse(localStorage.getItem(LOCAL_KEY()) || 'null'); } catch { /* ignore */ }
 
+    const clearAssignment = (t: Ticket) => upsertTicket({
+      ticketId: t.ticketId, vehicleNumber: t.vehicleNumber, centerName: t.centerName,
+      assignedTechnicianId: undefined, assignedTechnicianName: undefined,
+      ...(t.status === 'Assigned' ? { status: 'Open' as TicketStatus } : {}),
+    });
     const ticketById = (id: string) => getTickets().find(t => t.ticketId.toUpperCase() === id.toUpperCase());
     const hooks = {
       saveLocal: (state: unknown) => { try { localStorage.setItem(LOCAL_KEY(), JSON.stringify(state)); } catch { /* ignore */ } },
@@ -110,12 +118,19 @@ export function PlannerPage() {
         upsertTicket({ ticketId: t.ticketId, vehicleNumber: t.vehicleNumber, centerName: t.centerName, status: fromPlannerStatus[st] });
       },
       onReassign: (ticketId: string, tech: { _id: string; name: string } | null) => {
-        const t = ticketById(ticketId); if (!t || !tech) return;
-        upsertTicket({
-          ticketId: t.ticketId, vehicleNumber: t.vehicleNumber, centerName: t.centerName,
-          assignedTechnicianId: tech._id, assignedTechnicianName: tech.name,
-          ...(t.status === 'Open' ? { status: 'Assigned' as TicketStatus } : {}),
-        });
+        const t = ticketById(ticketId); if (!t) return;
+        if (tech) {
+          upsertTicket({
+            ticketId: t.ticketId, vehicleNumber: t.vehicleNumber, centerName: t.centerName,
+            assignedTechnicianId: tech._id, assignedTechnicianName: tech.name,
+            ...(t.status === 'Open' ? { status: 'Assigned' as TicketStatus } : {}),
+          });
+        } else {
+          clearAssignment(t);
+        }
+      },
+      onClearAssignments: (ticketIds: string[]) => {
+        ticketIds.forEach(id => { const t = ticketById(id); if (t) clearAssignment(t); });
       },
       onApplyAttendance: (rows: Array<{ tech: { employeeId: string; name: string }; status: string; timeIn: string; note: string }>) => {
         rows.forEach(r => upsertAttendanceRecord({

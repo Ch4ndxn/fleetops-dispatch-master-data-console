@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   AlertCircle
 } from 'lucide-react';
+import { localDate } from '../../lib/date';
 
 interface Props {
   onOpenUploadModal: (type: 'CENTER_CSV') => void;
@@ -90,7 +91,7 @@ export const CenterManagement: React.FC<Props> = ({ onOpenUploadModal }) => {
       { key: 'active', header: 'Active' },
       { key: 'notes', header: 'Notes' }
     ]);
-    downloadCSV(`center_dc_master_${new Date().toISOString().split('T')[0]}.csv`, csv);
+    downloadCSV(`center_dc_master_${localDate()}.csv`, csv);
   };
 
   const handleMapCoordinatesSaved = (lat: number, lng: number) => {

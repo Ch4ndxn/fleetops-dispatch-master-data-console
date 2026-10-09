@@ -20,6 +20,7 @@ import {
   X, Plus, GripVertical, Navigation, AlertTriangle, Home,
   Copy, FileJson, MessageSquare, Save, Sparkles, RotateCcw,
 } from 'lucide-react';
+import { localDate } from '../../lib/date';
 
 // ─── Constants ────────────────────────────────────────────────────
 const TECH_COLORS = [
@@ -770,7 +771,7 @@ export const SmartRoutePlannerPage: React.FC = () => {
     const centers = getCenters();
     const allTickets = getTickets();
     const attendance = getAttendance();
-    const today = new Date().toISOString().split('T')[0];
+    const today = localDate();
     const centerMap = new Map(centers.map(c => [c.name.trim().toLowerCase(), c]));
     const presentTechs = technicians.filter(t => {
       if (t.status !== 'Active') return false;
@@ -999,7 +1000,7 @@ Optimize within constraints.`;
   function handleSave() {
     const confirmed = plans.map(p => ({ ...p, status: 'Confirmed' as const }));
     saveRoutePlans(confirmed);
-    const dateStr = new Date().toISOString().split('T')[0];
+    const dateStr = localDate();
     try { localStorage.setItem(`fo_route_plan_${dateStr}`, JSON.stringify(confirmed)); } catch {}
 
     const allTickets = getTickets();
@@ -1023,7 +1024,7 @@ Optimize within constraints.`;
     ));
     const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-    a.download = `smart_routes_${new Date().toISOString().split('T')[0]}.csv`; a.click();
+    a.download = `smart_routes_${localDate()}.csv`; a.click();
   }
 
   // ── Export WhatsApp ──────────────────────────────────────────
@@ -1044,7 +1045,7 @@ Optimize within constraints.`;
   function handleExportJson() {
     const blob = new Blob([JSON.stringify(plans, null, 2)], { type: 'application/json' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-    a.download = `smart_routes_${new Date().toISOString().split('T')[0]}.json`; a.click();
+    a.download = `smart_routes_${localDate()}.json`; a.click();
   }
 
   // ── Constraint updater helpers ───────────────────────────────

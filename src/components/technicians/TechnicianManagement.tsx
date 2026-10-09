@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   AlertCircle
 } from 'lucide-react';
+import { localDate } from '../../lib/date';
 
 interface Props {
   onOpenUploadModal: (type: 'TECHNICIAN_CSV') => void;
@@ -115,7 +116,7 @@ export const TechnicianManagement: React.FC<Props> = ({ onOpenUploadModal }) => 
       { key: 'startingLongitude', header: 'Longitude' },
       { key: 'defaultDc', header: 'Default DC' }
     ]);
-    downloadCSV(`technician_master_${new Date().toISOString().split('T')[0]}.csv`, csv);
+    downloadCSV(`technician_master_${localDate()}.csv`, csv);
   };
 
   // Filtered list

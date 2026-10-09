@@ -4,6 +4,7 @@ import { findTechnicianByEmployeeId, upsertTechnician } from '../../services/sto
 import { isValidPhone, isValidLatitude, isValidLongitude } from '../../services/csvParser';
 import { LeafletCoordinatePickerModal } from '../map/LeafletCoordinatePickerModal';
 import { UserPlus, UserCheck, X, Check, Globe } from 'lucide-react';
+import { localDate } from '../../lib/date';
 
 interface Props {
   isOpen: boolean;
@@ -52,7 +53,7 @@ export const AddEditTechnicianModal: React.FC<Props> = ({
   const [zone, setZone] = useState(technicianToEdit?.zone || 'West Delhi');
   const [specialisation, setSpecialisation] = useState<Specialisation>(technicianToEdit?.specialisation || 'General Fleet');
   const [status, setStatus] = useState<TechnicianStatus>(technicianToEdit?.status || 'Active');
-  const [joinedDate, setJoinedDate] = useState(technicianToEdit?.joinedDate || new Date().toISOString().split('T')[0]);
+  const [joinedDate, setJoinedDate] = useState(technicianToEdit?.joinedDate || localDate());
   const [assignedStm, setAssignedStm] = useState(technicianToEdit?.assignedStm || 'Amit Verma (STM)');
   const [notes, setNotes] = useState(technicianToEdit?.notes || '');
   const [defaultDc, setDefaultDc] = useState(technicianToEdit?.defaultDc || 'Central Delhi DC');

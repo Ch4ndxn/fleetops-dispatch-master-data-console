@@ -25,6 +25,7 @@ import {
   Route,
   Info,
 } from 'lucide-react';
+import { localDate } from '../../lib/date';
 
 // ── Priority meta ─────────────────────────────────────────────────
 const PRI: Record<TicketPriority, { dot: string; badge: string; label: string }> = {
@@ -35,7 +36,7 @@ const PRI: Record<TicketPriority, { dot: string; badge: string; label: string }>
 };
 
 // ── Helpers ───────────────────────────────────────────────────────
-function toIso(d: Date) { return d.toISOString().split('T')[0]; }
+function toIso(d: Date) { return localDate(d); }
 
 function recalcEtas(stops: RouteStop[], startLat: number, startLng: number): RouteStop[] {
   let elapsed = 30;
@@ -57,7 +58,7 @@ type MutablePlan = TechnicianRoutePlan & { tech: Technician };
 function buildPlans(date?: string): MutablePlan[] {
   const techs = getTechnicians();
   const techMap = new Map(techs.map(t => [t.id, t]));
-  const today = date ?? new Date().toISOString().split('T')[0];
+  const today = date ?? localDate();
 
   // 1. Check for a saved Smart Route plan for this date (from SmartRoutePlannerPage.handleSave)
   let base: TechnicianRoutePlan[] = [];

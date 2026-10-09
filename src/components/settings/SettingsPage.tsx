@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { resetToDemoData, getCenters, getTechnicians, getTickets, getImportJobs } from '../../services/storage';
 import { RotateCcw, Database, ShieldCheck, Download, CheckCircle2 } from 'lucide-react';
+import { localDate } from '../../lib/date';
 
 export const SettingsPage: React.FC = () => {
   const [toast, setToast] = useState<string | null>(null);
@@ -26,7 +27,7 @@ export const SettingsPage: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `fleetops_master_backup_${new Date().toISOString().split('T')[0]}.json`;
+    link.download = `fleetops_master_backup_${localDate()}.json`;
     link.click();
     URL.revokeObjectURL(url);
   };

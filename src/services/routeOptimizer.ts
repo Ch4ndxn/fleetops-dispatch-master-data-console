@@ -1,5 +1,6 @@
 import { Technician, Center, Ticket, TechnicianRoutePlan, RouteStop } from '../types';
 import { getCenters, getTechnicians, getTickets, getAttendance } from './storage';
+import { localDate } from '../lib/date';
 
 // ─── Delhi NCR traffic corridor congestion multipliers ────────────
 function getCongestionFactor(fromLat: number, fromLng: number, toLat: number, toLng: number, hourOfDay: number): number {
@@ -64,7 +65,7 @@ export function planTodayRoutes(): TechnicianRoutePlan[] {
   const centers = getCenters();
   const tickets = getTickets();
   const attendance = getAttendance();
-  const today = new Date().toISOString().split('T')[0];
+  const today = localDate();
 
   // Map centers for quick lookup
   const centerMap = new Map<string, Center>();
@@ -234,7 +235,7 @@ export function planBalancedRoutes(constraints: BalancedPlanConstraints): Balanc
   const centers = getCenters();
   const tickets = getTickets();
   const attendance = getAttendance();
-  const today = new Date().toISOString().split('T')[0];
+  const today = localDate();
 
   // Build center lookup
   const centerMap = new Map<string, Center>();

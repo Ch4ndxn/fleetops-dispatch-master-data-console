@@ -14,6 +14,7 @@ import {
   User,
   Building2
 } from 'lucide-react';
+import { localDate } from '../../lib/date';
 
 interface Props {
   onOpenUploadModal: (type: 'TICKET_CSV') => void;
@@ -71,7 +72,7 @@ export const ActiveCasesPage: React.FC<Props> = ({ onOpenUploadModal }) => {
       { key: 'priority', header: 'Priority' },
       { key: 'assignedTechnicianName', header: 'Assigned Technician' }
     ]);
-    downloadCSV(`active_cases_${new Date().toISOString().split('T')[0]}.csv`, csv);
+    downloadCSV(`active_cases_${localDate()}.csv`, csv);
   };
 
   const filteredTickets = useMemo(() => {

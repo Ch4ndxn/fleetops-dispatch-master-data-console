@@ -7,6 +7,7 @@ import {
   CheckCircle2, XCircle, AlertCircle, ChevronDown, ChevronUp,
   BarChart2, Calendar, TrendingUp, User
 } from 'lucide-react';
+import { localDate } from '../../lib/date';
 
 interface Props {
   onOpenUploadModal: (type: 'ATTENDANCE_CSV') => void;
@@ -57,7 +58,7 @@ function CalendarStrip({ records, days = 30 }: { records: AttendanceRecord[]; da
   for (let i = days - 1; i >= 0; i--) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
-    const dateStr = d.toISOString().split('T')[0];
+    const dateStr = localDate(d);
     const r = records.find(r => r.date === dateStr);
     cells.push({ date: dateStr, label: d.getDate().toString(), status: r?.status ?? null });
   }
@@ -225,13 +226,13 @@ function TechHistoryRow({ stats }: { stats: TechHistoryStats }) {
 export const AttendancePage: React.FC<Props> = ({ onOpenUploadModal }) => {
   const [technicians] = useState<Technician[]>(() => getTechnicians());
   const [attendanceList, setAttendanceList] = useState<AttendanceRecord[]>(() => getAttendance());
-  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState<string>(localDate());
   const [searchTerm, setSearchTerm] = useState('');
   const [pageTab, setPageTab] = useState<PageTab>('today');
 
   // History filters
-  const today = new Date().toISOString().split('T')[0];
-  const thirtyAgo = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString().split('T')[0];
+  const today = localDate();
+  const thirtyAgo = localDate(new Date(Date.now() - 30 * 24 * 3600 * 1000));
   const [histFrom, setHistFrom] = useState(thirtyAgo);
   const [histTo, setHistTo]   = useState(today);
   const [histSearch, setHistSearch] = useState('');
@@ -244,15 +245,26 @@ export const AttendancePage: React.FC<Props> = ({ onOpenUploadModal }) => {
     const existing = attendanceList.find(
       a => a.employeeId.toUpperCase() === tech.employeeId.toUpperCase() && a.date === selectedDate
     );
-    const nowTime = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
+    // Default to shift start; record a later time only for genuine late arrivals (edit the Check-In field).
+    // The NCR Planner shortens a technician's shift by however late they checked in.
+    const SHIFT_START = '09:00';
     upsertAttendanceRecord({
       employeeId: tech.employeeId,
       technicianName: tech.name,
       date: selectedDate,
       status: newStatus,
-      checkInTime: newStatus === 'Present' || newStatus === 'Half-Day' ? (existing?.checkInTime || nowTime) : '',
+      checkInTime: newStatus === 'Present' || newStatus === 'Half-Day' ? (existing?.checkInTime || SHIFT_START) : '',
       notes: existing?.notes || `Status marked as ${newStatus}`,
     });
+    refreshAttendance();
+  };
+
+  const handleCheckInChange = (tech: Technician, time: string) => {
+    const existing = attendanceList.find(
+      a => a.employeeId.toUpperCase() === tech.employeeId.toUpperCase() && a.date === selectedDate
+    );
+    if (!existing || (existing.status !== 'Present' && existing.status !== 'Half-Day')) return;
+    upsertAttendanceRecord({ employeeId: tech.employeeId, technicianName: tech.name, date: selectedDate, status: existing.status, checkInTime: time });
     refreshAttendance();
   };
 
@@ -424,8 +436,16 @@ export const AttendancePage: React.FC<Props> = ({ onOpenUploadModal }) => {
                         </td>
                         <td className="py-3 px-4 font-mono text-slate-600">{selectedDate}</td>
                         <td className="py-3 px-4 font-mono text-slate-800">
-                          {record?.checkInTime
-                            ? <span className="flex items-center gap-1 text-emerald-700 font-medium"><Clock className="w-3 h-3" />{record.checkInTime}</span>
+                          {record && (record.status === 'Present' || record.status === 'Half-Day')
+                            ? (
+                              <input
+                                type="time"
+                                value={record.checkInTime || '09:00'}
+                                onChange={e => e.target.value && handleCheckInChange(tech, e.target.value)}
+                                title="Change only if the technician arrived late — the NCR Planner shortens their shift accordingly"
+                                className={`px-1.5 py-0.5 border rounded text-xs font-mono ${record.checkInTime && record.checkInTime > '09:00' ? 'border-amber-300 text-amber-700 bg-amber-50' : 'border-slate-200 text-emerald-700'}`}
+                              />
+                            )
                             : <span className="text-slate-400">—</span>}
                         </td>
                         <td className="py-3 px-4">

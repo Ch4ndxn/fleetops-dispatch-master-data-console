@@ -1,5 +1,6 @@
 import Groq from 'groq-sdk';
 import { getTechnicians, getTickets, getCenters, getAttendance, getRoutePlans } from './storage';
+import { localDate } from '../lib/date';
 
 // Groq client — API key injected from env var VITE_GROQ_API_KEY
 // Set in .env as VITE_GROQ_API_KEY=gsk_...
@@ -35,7 +36,7 @@ function buildFleetContext(): string {
   const tickets = getTickets();
   const centers = getCenters();
   const attendance = getAttendance();
-  const today = new Date().toISOString().split('T')[0];
+  const today = localDate();
 
   const activeTechs = technicians.filter(t => t.status === 'Active');
   const openTickets = tickets.filter(t => t.status === 'Open' || t.status === 'In Progress' || t.status === 'Assigned');

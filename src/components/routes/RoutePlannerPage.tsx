@@ -50,6 +50,7 @@ import {
   ClipboardList,
   History,
 } from 'lucide-react';
+import { localDate } from '../../lib/date';
 
 // ─── Recalc helper ────────────────────────────────────────────────────────────
 function recalcPlan(plan: TechnicianRoutePlan, centers: Center[]): TechnicianRoutePlan {
@@ -224,7 +225,7 @@ export const RoutePlannerPage: React.FC = () => {
   // ── Feature 3: Inline stop editing ───────────────────────────────────────
   const [editingStop, setEditingStop] = useState<{ techId: string; ticketId: string; priority: string; issue: string } | null>(null);
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = localDate();
 
   // ── Visit log handlers ─────────────────────────────────────────────────────
   const openVisitModal = (plan: TechnicianRoutePlan, stop: RouteStop) => {

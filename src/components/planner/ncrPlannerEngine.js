@@ -27,16 +27,18 @@ ALL_DCS.forEach(dc => { DC_MAP[dc.c] = dc; });
 const excludedTickets = new Set();
 
 // Manual reassignment overrides: ticketId → techIndex (0-based)
+// Manual assignments: ticketId → technician _id. Mirrors ticket.assignedTechnicianId in the database.
 const manualOverrides = {};
 
 function reassignTicket(ticketId, techIdx) {
-  if(techIdx === '' || techIdx === null) {
+  // techIdx is a position in TODAY's working list (the dropdown), not in the full team
+  const tech = (techIdx === '' || techIdx === null || !lastAssignment) ? null : lastAssignment.techs[parseInt(techIdx)];
+  if(!tech) {
     delete manualOverrides[ticketId];
   } else {
-    manualOverrides[ticketId] = parseInt(techIdx);
+    manualOverrides[ticketId] = tech._id;
   }
-  __saveLocal();
-  __hooks.onReassign && __hooks.onReassign(ticketId, techIdx === '' || techIdx === null ? null : REAL_TECHS[parseInt(techIdx)]);
+  __hooks.onReassign && __hooks.onReassign(ticketId, tech ? { _id: tech._id, name: tech.name } : null);
   rebuild();
   if(currentView === 'tickets') buildTicketDashboard(tktFilter);
 }
@@ -285,6 +287,7 @@ function assignTechnicians(numTechs, params) {
 
     return {
       id: i+1,
+      _id: rt._id,
       color: TECH_COLORS[i % TECH_COLORS.length],
       name: rt.name,
       zone: rt.zone,
@@ -358,12 +361,11 @@ function assignTechnicians(numTechs, params) {
   // ── Apply manual overrides ──
   // For each overridden ticket, move it (and its DC if no other tickets remain there) 
   // from its auto-assigned tech to the chosen tech.
-  Object.entries(manualOverrides).forEach(([ticketId, toIdx]) => {
-    if(toIdx < 0 || toIdx >= techs.length) return;
+  Object.entries(manualOverrides).forEach(([ticketId, techId]) => {
+    const targetTech = techs.find(t => t._id === techId);
+    if(!targetTech) return; // assigned tech isn't working today → plan it automatically
     const ticket = OPEN_TICKETS.find(t => t.ticket === ticketId);
     if(!ticket || excludedTickets.has(ticketId)) return;
-
-    const targetTech = techs[toIdx];
 
     // Remove from current owner
     techs.forEach(tech => {
@@ -932,8 +934,11 @@ function reassignDropdownHTML(ticketId, currentTechIdx, allTechs) {
 }
 
 function clearAllOverrides() {
-  setTimeout(__saveLocal, 0);
-  Object.keys(manualOverrides).forEach(k => delete manualOverrides[k]);
+  const ids = Object.keys(manualOverrides);
+  if(!ids.length) return;
+  if(!confirm(`Clear ${ids.length} assignment${ids.length>1?'s':''}? The tickets become unassigned and are planned automatically.`)) return;
+  ids.forEach(k => delete manualOverrides[k]);
+  __hooks.onClearAssignments && __hooks.onClearAssignments(ids);
   rebuild();
   if(currentView === 'tickets') buildTicketDashboard(tktFilter);
 }
@@ -1280,7 +1285,7 @@ function exportTracker() {
   });
   const blob = new Blob([rows.join('\n')], {type:'text/csv'});
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-  a.download = `ticket_tracker_${new Date().toISOString().slice(0,10)}.csv`;
+  a.download = `ticket_tracker_${new Date().toLocaleDateString('en-CA')}.csv`;
   a.click();
 }
 
@@ -1406,7 +1411,7 @@ function exportAttendance() {
   const blob = new Blob([`Attendance Report - ${today}\n\n`+rows.join('\n')], {type:'text/csv'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = `attendance_${new Date().toISOString().slice(0,10)}.csv`;
+  a.href = url; a.download = `attendance_${new Date().toLocaleDateString('en-CA')}.csv`;
   a.click(); URL.revokeObjectURL(url);
 }
 
@@ -1493,13 +1498,12 @@ function removeTech(idx) {
   const name = REAL_TECHS[idx].name;
   if(!confirm(`Remove ${name} from the team? They will be marked Inactive in the database.`)) return;
   __hooks.onRemoveTech && __hooks.onRemoveTech(REAL_TECHS[idx]);
+  const __removedId = REAL_TECHS[idx]._id;
   REAL_TECHS.splice(idx, 1);
 
   // Clean overrides for removed tech
-  Object.keys(manualOverrides).forEach(tk => {
-    if(manualOverrides[tk] >= REAL_TECHS.length) delete manualOverrides[tk];
-    else if(manualOverrides[tk] > idx) manualOverrides[tk]--;
-  });
+  const removedId = __removedId;
+  Object.keys(manualOverrides).forEach(tk => { if(manualOverrides[tk] === removedId) delete manualOverrides[tk]; });
 
   const slider = document.getElementById('tech-slider');
   slider.max = REAL_TECHS.length;
@@ -1554,25 +1558,22 @@ function showToast(msg) {
 
 // ── persistence of planner-only state (per day, this browser) ──
 function __saveLocal() {
-  const techIdOf = i => (REAL_TECHS[i] || {})._id;
-  const overrides = {};
-  Object.entries(manualOverrides).forEach(([tk, i]) => { const id = techIdOf(i); if (id) overrides[tk] = id; });
   const tracker = {};
   Object.entries(ticketStatus).forEach(([tk, v]) => { tracker[tk] = { ts: v.ts, note: v.note }; });
-  __hooks.saveLocal && __hooks.saveLocal({ excluded: [...excludedTickets], overrides, tracker });
+  __hooks.saveLocal && __hooks.saveLocal({ excluded: [...excludedTickets], tracker });
 }
 function __restoreLocal(saved) {
   if (!saved) return;
   (saved.excluded || []).forEach(id => excludedTickets.add(id));
-  Object.entries(saved.overrides || {}).forEach(([tk, techId]) => {
-    const i = REAL_TECHS.findIndex(t => t._id === techId);
-    if (i >= 0) manualOverrides[tk] = i;
-  });
   Object.entries(saved.tracker || {}).forEach(([tk, v]) => {
     ticketStatus[tk] = { status: (ticketStatus[tk] || {}).status || 'assigned', ts: v.ts || {}, note: v.note || '' };
   });
 }
 function __applyDbState(data) {
+  Object.keys(manualOverrides).forEach(k => delete manualOverrides[k]);
+  Object.entries(data.assignments || {}).forEach(([tk, techId]) => {
+    if (REAL_TECHS.some(t => t._id === techId)) manualOverrides[tk] = techId;
+  });
   // Tracker status comes from the ticket in the database
   Object.entries(data.ticketStatus || {}).forEach(([tk, st]) => {
     if (!ticketStatus[tk]) ticketStatus[tk] = { status: st, ts: {}, note: '' };
@@ -1609,7 +1610,6 @@ function __syncHeaderStatics() {
 function update(data) {
   const prevIds = REAL_TECHS.map(t => t._id);
   const prevAtt = {}; prevIds.forEach((id, i) => { if (attendance[i]) prevAtt[id] = attendance[i]; });
-  const prevOv = {}; Object.entries(manualOverrides).forEach(([tk, i]) => { if (prevIds[i]) prevOv[tk] = prevIds[i]; });
 
   ALL_DCS = data.dcs; OPEN_TICKETS = data.tickets; REAL_TECHS = data.techs.map(t => ({ ...t, zones2: t.zones2 || [t.zone] }));
   DC_MAP = {}; ALL_DCS.forEach(dc => { DC_MAP[dc.c] = dc; });
@@ -1617,8 +1617,6 @@ function update(data) {
 
   Object.keys(attendance).forEach(k => delete attendance[k]);
   REAL_TECHS.forEach((t, i) => { if (prevAtt[t._id]) attendance[i] = prevAtt[t._id]; });
-  Object.keys(manualOverrides).forEach(k => delete manualOverrides[k]);
-  Object.entries(prevOv).forEach(([tk, id]) => { const i = REAL_TECHS.findIndex(t => t._id === id); if (i >= 0) manualOverrides[tk] = i; });
 
   initAttendance(); initTicketTracker();
   __applyDbState(data);
