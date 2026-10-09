@@ -15,7 +15,7 @@ import * as L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import {
   getTechnicians, getTickets, saveTickets,
-  getAttendance, saveAttendance, getCenters,
+  getAttendance, getCenters, upsertAttendanceRecord,
 } from '../../services/storage';
 import { planTodayRoutes, calculateDistanceKm } from '../../services/routeOptimizer';
 import {
@@ -109,7 +109,7 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
 const TECH_COLORS = ['#0E6B6E','#3B82F6','#8B5CF6','#F97316','#10B981','#EF4444','#EC4899','#EAB308','#14B8A6','#6366F1','#F59E0B','#64748B','#0EA5E9','#A855F7'];
 
 // ── Roster Sub-tab ────────────────────────────────────────────────────
-function RosterView({ plans, setPlans }: { plans: MutablePlan[]; setPlans: React.Dispatch<React.SetStateAction<MutablePlan[]>> }) {
+function RosterView({ plans, setPlans, onManualEdit }: { plans: MutablePlan[]; setPlans: React.Dispatch<React.SetStateAction<MutablePlan[]>>; onManualEdit: () => void }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [reassignFrom, setReassignFrom] = useState<{ planIdx: number; stopIdx: number } | null>(null);
 
@@ -140,7 +140,8 @@ function RosterView({ plans, setPlans }: { plans: MutablePlan[]; setPlans: React
       return next;
     });
     setReassignFrom(null);
-  }, [setPlans]);
+    onManualEdit();
+  }, [setPlans, onManualEdit]);
 
   const totalStops = plans.reduce((a, p) => a + p.stops.length, 0);
   const deployed = plans.filter(p => p.stops.length > 0).length;
@@ -357,8 +358,17 @@ function TicketsView({ plans }: { plans: MutablePlan[] }) {
 }
 
 // ── Tracker Sub-tab ───────────────────────────────────────────────────
-function TrackerView({ plans }: { plans: MutablePlan[] }) {
-  const [tracker, setTracker] = useState<Record<string, { status: TrackerStatus; notes: string }>>({});
+type TrackerState = Record<string, { status: TrackerStatus; notes: string }>;
+const TRACKER_KEY = `fo_planner_tracker_${TODAY}`;
+function loadTracker(): TrackerState {
+  try { const raw = localStorage.getItem(TRACKER_KEY); return raw ? JSON.parse(raw) : {}; } catch { return {}; }
+}
+
+function TrackerView({ plans, tracker, setTracker }: {
+  plans: MutablePlan[];
+  tracker: TrackerState;
+  setTracker: React.Dispatch<React.SetStateAction<TrackerState>>;
+}) {
   const [techFilter, setTechFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
@@ -505,8 +515,8 @@ function AttendView({ plans }: { plans: MutablePlan[] }) {
     plans.forEach(p => {
       const rec = existing.find(a => a.employeeId === p.employeeId && a.date === today);
       init[p.employeeId] = {
-        status: rec?.status ?? 'Present',
-        checkIn: rec?.checkInTime ?? '09:00',
+        status: rec?.status ?? 'Absent',
+        checkIn: rec?.checkInTime ?? '',
         checkOut: rec?.checkOutTime ?? '',
         notes: rec?.notes ?? '',
       };
@@ -516,22 +526,32 @@ function AttendView({ plans }: { plans: MutablePlan[] }) {
 
   const setField = (empId: string, field: string, val: string) => {
     setRows(prev => ({ ...prev, [empId]: { ...prev[empId], [field]: val } }));
+    setTouched(prev => new Set(prev).add(empId));
   };
 
+  const [saved, setSaved] = useState(false);
+  // Only write technicians whose row was actually touched here — never
+  // overwrite attendance marked elsewhere with the panel's defaults.
+  const [touched, setTouched] = useState<Set<string>>(new Set());
+
   const saveAll = () => {
-    const existing = getAttendance().filter(a => a.date !== today);
-    const newRecs: AttendanceRecord[] = plans.map(p => ({
-      id: `att-${p.employeeId}-${today}`,
-      employeeId: p.employeeId,
-      technicianName: p.technicianName,
-      date: today,
-      status: rows[p.employeeId]?.status ?? 'Present',
-      checkInTime: rows[p.employeeId]?.checkIn,
-      checkOutTime: rows[p.employeeId]?.checkOut,
-      notes: rows[p.employeeId]?.notes,
-      updatedAt: new Date().toISOString(),
-    }));
-    saveAttendance([...existing, ...newRecs]);
+    touched.forEach(empId => {
+      const p = plans.find(pl => pl.employeeId === empId);
+      const r = rows[empId];
+      if (!p || !r) return;
+      upsertAttendanceRecord({
+        employeeId: empId,
+        technicianName: p.technicianName,
+        date: today,
+        status: r.status,
+        checkInTime: r.checkIn,
+        checkOutTime: r.checkOut,
+        notes: r.notes,
+      });
+    });
+    setTouched(new Set());
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
   };
 
   const COLORS: Record<AttendanceStatus, { border: string; bg: string; text: string }> = {
@@ -545,7 +565,7 @@ function AttendView({ plans }: { plans: MutablePlan[] }) {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: '#1E293B' }}>👤 Attendance · {today}</div>
-        <button onClick={saveAll} style={{ fontSize: 10, fontWeight: 700, padding: '4px 12px', borderRadius: 8, border: `1.5px solid ${ACCENT}`, color: ACCENT, background: '#ECFDF5', cursor: 'pointer' }}>Save All</button>
+        <button onClick={saveAll} style={{ fontSize: 10, fontWeight: 700, padding: '4px 12px', borderRadius: 8, border: `1.5px solid ${ACCENT}`, color: ACCENT, background: '#ECFDF5', cursor: touched.size ? 'pointer' : 'default', opacity: touched.size || saved ? 1 : 0.5 }} disabled={!touched.size}>{saved ? 'Saved ✓' : touched.size ? `Save (${touched.size})` : 'Save'}</button>
       </div>
 
       {plans.map(p => {
@@ -658,8 +678,10 @@ function MapPanel({ plans }: { plans: MutablePlan[] }) {
       });
     });
 
-    if (bounds.length > 0) {
-      try { map.fitBounds(bounds as L.LatLngBoundsExpression, { padding: [30, 30], maxZoom: 13 }); } catch {}
+    if (bounds.length >= 2) {
+      map.fitBounds(L.latLngBounds(bounds), { padding: [30, 30], maxZoom: 13 });
+    } else if (bounds.length === 1) {
+      map.setView(bounds[0], 12);
     }
   }, [plans]);
 
@@ -694,8 +716,14 @@ function MapPanel({ plans }: { plans: MutablePlan[] }) {
 export function PlannerPage() {
   const [subTab, setSubTab] = useState<SubTab>('roster');
   const [plans, setPlans] = useState<MutablePlan[]>(buildPlans);
-  const [spinning, setSpinning] = useState(false);
-  const [showParams, setShowParams] = useState(false);
+  const [hasManualEdits, setHasManualEdits] = useState(false);
+  const [tracker, setTracker] = useState<TrackerState>(loadTracker);
+  const markManualEdit = useCallback(() => setHasManualEdits(true), []);
+
+  // Persist tracker so it survives sub-tab switches and leaving the page
+  useEffect(() => {
+    try { localStorage.setItem(TRACKER_KEY, JSON.stringify(tracker)); } catch {}
+  }, [tracker]);
   const [showMap, setShowMap] = useState(true);
 
   const totalStops = plans.reduce((a, p) => a + p.stops.length, 0);
@@ -703,11 +731,9 @@ export function PlannerPage() {
   const openTickets = getTickets().filter(t => ['Open','Assigned','In Progress'].includes(t.status)).length;
 
   const regenerate = () => {
-    setSpinning(true);
-    setTimeout(() => {
-      setPlans(buildPlans());
-      setSpinning(false);
-    }, 600);
+    if (hasManualEdits && !window.confirm('Recalculating will discard your manual reassignments on the map. Continue?')) return;
+    setPlans(buildPlans());
+    setHasManualEdits(false);
   };
 
   const downloadCSV = () => {
@@ -754,10 +780,10 @@ export function PlannerPage() {
           </div>
           <button
             onClick={regenerate}
-            title="Regenerate routes"
-            style={{ marginLeft: 'auto', background: 'transparent', border: 'none', cursor: 'pointer', padding: 4 }}
+            title="Recalculate routes from current tickets"
+            style={{ marginLeft: 'auto', background: 'transparent', border: '1px solid #1E293B', borderRadius: 6, cursor: 'pointer', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 4, color: '#94A3B8', fontSize: 10, fontWeight: 700 }}
           >
-            <RefreshCw size={14} color="#64748B" style={{ transform: spinning ? 'rotate(360deg)' : 'none', transition: 'transform .6s' }} />
+            <RefreshCw size={12} /> Recalculate
           </button>
         </div>
 
@@ -781,9 +807,15 @@ export function PlannerPage() {
 
         {/* Panel content */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '12px 12px' }}>
-          {subTab === 'roster' && <RosterView plans={plans} setPlans={setPlans} />}
+          {openTickets === 0 && (subTab === 'roster' || subTab === 'tickets' || subTab === 'tracker') && (
+            <div style={{ background: '#F0F9F9', border: `1px dashed ${ACCENT}`, borderRadius: 10, padding: '12px 14px', marginBottom: 12, fontSize: 11, color: '#334155', lineHeight: 1.5 }}>
+              <div style={{ fontWeight: 700, color: ACCENT, marginBottom: 2 }}>No open tickets to plan</div>
+              Import a ticket CSV from <b>Data → Import Data</b>, then click <b>Recalculate</b> to build today's routes.
+            </div>
+          )}
+          {subTab === 'roster' && <RosterView plans={plans} setPlans={setPlans} onManualEdit={markManualEdit} />}
           {subTab === 'tickets' && <TicketsView plans={plans} />}
-          {subTab === 'tracker' && <TrackerView plans={plans} />}
+          {subTab === 'tracker' && <TrackerView plans={plans} tracker={tracker} setTracker={setTracker} />}
           {subTab === 'attend' && <AttendView plans={plans} />}
         </div>
 
