@@ -89,28 +89,53 @@ interface NavItem {
   badge?: string;
 }
 
-const NAV_ITEMS: NavItem[] = [
-  { id: 'OVERVIEW', label: 'OVERVIEW', icon: LayoutDashboard },
-  { id: 'PLANNER', label: 'NCR PLANNER', icon: Map },
-  { id: 'AI ASSISTANT', label: 'AI ASSISTANT', icon: Sparkles },
-  { id: 'TICKETS', label: 'TICKETS', icon: Ticket },
-  { id: 'VEHICLES', label: 'VEHICLES', icon: Truck },
-  { id: 'HEX ZONE MAP', label: 'HEX ZONE MAP', icon: Hexagon },
-  { id: 'ROSTER', label: 'ROSTER', icon: ClipboardList },
-  { id: 'ATTENDANCE', label: 'ATTENDANCE', icon: CalendarCheck },
-  { id: 'ACTIVE CASES', label: 'ACTIVE CASES', icon: AlertCircle },
-  { id: 'ROUTE PLANNER', label: 'ROUTE PLANNER', icon: Compass },
-  { id: 'AI ROUTE', label: 'AI ROUTE', icon: BrainCircuit },
-  { id: 'SMART ROUTE', label: 'SMART ROUTE', icon: Compass },
-  { id: 'TICKET ASSIGNMENT', label: 'TICKET ASSIGNMENT', icon: CheckSquare },
-  { id: 'LIVE TRACKING', label: 'LIVE TRACKING', icon: Radio },
-  { id: 'TECHNICIAN PERFORMANCE', label: 'TECHNICIAN PERFORMANCE', icon: Award },
-  { id: 'TECHNICIAN MANAGEMENT', label: 'TECHNICIAN MANAGEMENT', icon: Users },
-  { id: 'CENTER MANAGEMENT', label: 'CENTER MANAGEMENT', icon: Building2 },
-  { id: 'IMPORT DATA', label: 'IMPORT DATA', icon: UploadCloud },
-  { id: 'HISTORY', label: 'HISTORY', icon: History },
-  { id: 'SETTINGS', label: 'SETTINGS', icon: Settings },
-  { id: 'CONNECTIONS', label: 'CONNECTIONS', icon: Activity },
+interface NavGroup {
+  label: string;
+  items: NavItem[];
+}
+
+const NAV_GROUPS: NavGroup[] = [
+  {
+    label: 'Operations',
+    items: [
+      { id: 'OVERVIEW',      label: 'Overview',      icon: LayoutDashboard },
+      { id: 'PLANNER',       label: 'NCR Planner',   icon: Map },
+      { id: 'AI ASSISTANT',  label: 'AI Assistant',  icon: Sparkles },
+    ],
+  },
+  {
+    label: 'Field',
+    items: [
+      { id: 'TICKETS',            label: 'Tickets',           icon: Ticket },
+      { id: 'ACTIVE CASES',       label: 'Active Cases',      icon: AlertCircle },
+      { id: 'TICKET ASSIGNMENT',  label: 'Ticket Assignment', icon: CheckSquare },
+      { id: 'VEHICLES',           label: 'Vehicles',          icon: Truck },
+      { id: 'ROUTE PLANNER',      label: 'Route Planner',     icon: Compass },
+      { id: 'AI ROUTE',           label: 'AI Route',          icon: BrainCircuit },
+      { id: 'SMART ROUTE',        label: 'Smart Route',       icon: Sparkles },
+      { id: 'LIVE TRACKING',      label: 'Live Tracking',     icon: Radio },
+      { id: 'HEX ZONE MAP',       label: 'Hex Zone Map',      icon: Hexagon },
+    ],
+  },
+  {
+    label: 'People',
+    items: [
+      { id: 'ROSTER',                  label: 'Roster',               icon: ClipboardList },
+      { id: 'ATTENDANCE',              label: 'Attendance',           icon: CalendarCheck },
+      { id: 'TECHNICIAN MANAGEMENT',   label: 'Technicians',          icon: Users },
+      { id: 'CENTER MANAGEMENT',       label: 'Centers',              icon: Building2 },
+      { id: 'TECHNICIAN PERFORMANCE',  label: 'Performance',          icon: Award },
+    ],
+  },
+  {
+    label: 'Data',
+    items: [
+      { id: 'IMPORT DATA',  label: 'Import Data',  icon: UploadCloud },
+      { id: 'HISTORY',      label: 'History',      icon: History },
+      { id: 'CONNECTIONS',  label: 'Connections',  icon: Activity },
+      { id: 'SETTINGS',     label: 'Settings',     icon: Settings },
+    ],
+  },
 ];
 
 export default function App() {
@@ -175,28 +200,37 @@ export default function App() {
         </div>
 
         {/* Navigation list */}
-        <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-0.5">
-          {NAV_ITEMS.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => {
-                  setActiveTab(item.id);
-                  setSidebarOpen(false);
-                }}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold tracking-wide transition-colors ${
-                  isActive
-                    ? 'bg-blue-600 text-white shadow-xs'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-                }`}
-              >
-                <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-slate-400'}`} />
-                <span className="truncate">{item.label}</span>
-              </button>
-            );
-          })}
+        <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-4">
+          {NAV_GROUPS.map((group) => (
+            <div key={group.label}>
+              <div className="px-3 mb-1 text-[9px] font-bold tracking-widest text-slate-600 uppercase">
+                {group.label}
+              </div>
+              <div className="space-y-0.5">
+                {group.items.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = activeTab === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        setActiveTab(item.id);
+                        setSidebarOpen(false);
+                      }}
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold tracking-wide transition-colors ${
+                        isActive
+                          ? 'bg-blue-600 text-white shadow-xs'
+                          : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                      }`}
+                    >
+                      <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                      <span className="truncate">{item.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
 
         {/* User / Org badge */}
