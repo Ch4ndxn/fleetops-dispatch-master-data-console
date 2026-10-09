@@ -6,22 +6,25 @@
  *   • One technician auto-assigned per cluster (zone/specialisation match)
  *   • Spare vehicle hub placed for every 20 vehicles in cluster (diamond marker ◆)
  *   • All original layers: open-ticket hexes, DC markers, tech base dots
- *   • Click hex/DC → side panel with bulk assign, per-ticket ignore/reassign
+ *   • Tech route overlay: colored polylines + numbered stop markers per technician
+ *   • Click hex/DC → side panel with bulk assign, per-ticket ignore/reassign, route tab
+ *   • Hide clear DCs toggle: filter DC markers with 0 open tickets
  */
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import * as L from 'leaflet';
 import {
   getCenters, getTechnicians, getTickets, saveTickets,
+  getRoutePlans, saveRoutePlans,
   subscribeToDataChanges,
 } from '../../services/storage';
-import { Ticket, Technician, Center } from '../../types';
+import { Ticket, Technician, Center, TechnicianRoutePlan, RouteStop } from '../../types';
 import {
   Users, Zap, CheckCircle2, X, MapPin, AlertTriangle,
-  EyeOff, RefreshCw, Filter, Layers, Diamond, UserCheck, Edit2,
+  EyeOff, RefreshCw, Filter, Layers, Diamond, UserCheck, Edit2, Navigation,
 } from 'lucide-react';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
-type MapLayer = 'openTickets' | 'ignoredTickets' | 'techBases' | 'clusters' | 'spareHubs';
+type MapLayer = 'openTickets' | 'ignoredTickets' | 'techBases' | 'clusters' | 'spareHubs' | 'techRoutes';
 
 // ─── Hex grid parameters ─────────────────────────────────────────────────────
 const BBOX = { minLat: 28.28, maxLat: 28.85, minLng: 76.80, maxLng: 77.58 };
@@ -246,20 +249,25 @@ interface PanelProps {
   allTechs: Technician[];
   allTickets: Ticket[];
   ignored: Set<string>;
+  routePlans: TechnicianRoutePlan[];
   onIgnore: (id: string) => void;
   onUnignore: (id: string) => void;
   onReassign: (ticketId: string, techId: string) => void;
   onBulkAssign: (techId: string) => void;
   onEditTicket: (ticketId: string, priority: string, issue: string) => void;
+  onRemoveRouteStop: (techId: string, ticketId: string) => void;
+  onMoveRouteStop: (fromTechId: string, ticketId: string, toTechId: string) => void;
   onClose: () => void;
 }
 
-function ZonePanel({ cell, cluster, allTechs, allTickets, ignored, onIgnore, onUnignore, onReassign, onBulkAssign, onEditTicket, onClose }: PanelProps) {
+function ZonePanel({ cell, cluster, allTechs, allTickets, ignored, routePlans, onIgnore, onUnignore, onReassign, onBulkAssign, onEditTicket, onRemoveRouteStop, onMoveRouteStop, onClose }: PanelProps) {
   const [bulkTech, setBulkTech] = useState('');
   const [reassignTarget, setReassignTarget] = useState<string | null>(null);
   const [reassignTech, setReassignTech] = useState('');
-  const [tab, setTab] = useState<'open' | 'ignored'>('open');
+  const [tab, setTab] = useState<'open' | 'ignored' | 'route'>('open');
   const [editingTicket, setEditingTicket] = useState<{ id: string; priority: string; issue: string } | null>(null);
+  const [moveTarget, setMoveTarget] = useState<{ techId: string; ticketId: string } | null>(null);
+  const [moveTechId, setMoveTechId] = useState('');
 
   const activeTechs = allTechs.filter(t => t.status === 'Active');
 
@@ -275,6 +283,19 @@ function ZonePanel({ cell, cluster, allTechs, allTickets, ignored, onIgnore, onU
   }, [allTickets]);
   const openTickets = cell.tickets.filter(t => !ignored.has(t.id) && t.status !== 'Resolved' && t.status !== 'Closed');
   const ignoredInCell = cell.tickets.filter(t => ignored.has(t.id));
+
+  // Route stops in this cell
+  const routeStopsInCell = useMemo(() => {
+    const result: { plan: TechnicianRoutePlan; stop: RouteStop }[] = [];
+    routePlans.forEach(plan => {
+      plan.stops.forEach(stop => {
+        if (isInsideHex(stop.latitude, stop.longitude, cell.cLat, cell.cLng)) {
+          result.push({ plan, stop });
+        }
+      });
+    });
+    return result;
+  }, [routePlans, cell]);
 
   return (
     <div className="absolute top-3 right-3 z-[1000] w-84 bg-white border border-slate-200 rounded-xl shadow-2xl overflow-hidden flex flex-col" style={{ maxHeight: 'calc(100% - 24px)', width: '22rem' }}>
@@ -321,12 +342,18 @@ function ZonePanel({ cell, cluster, allTechs, allTickets, ignored, onIgnore, onU
 
       {/* Tabs */}
       <div className="flex border-b border-slate-100 shrink-0">
-        {(['open', 'ignored'] as const).map(t => (
-          <button key={t} onClick={() => setTab(t)}
-            className={`flex-1 py-2 text-xs font-semibold transition-colors capitalize ${tab === t ? 'border-b-2 border-blue-600 text-blue-700 bg-blue-50' : 'text-slate-500 hover:text-slate-700'}`}>
-            {t === 'open' ? `Open (${openTickets.length})` : `Ignored (${ignoredInCell.length})`}
-          </button>
-        ))}
+        <button onClick={() => setTab('open')}
+          className={`flex-1 py-2 text-xs font-semibold transition-colors ${tab === 'open' ? 'border-b-2 border-blue-600 text-blue-700 bg-blue-50' : 'text-slate-500 hover:text-slate-700'}`}>
+          Open ({openTickets.length})
+        </button>
+        <button onClick={() => setTab('ignored')}
+          className={`flex-1 py-2 text-xs font-semibold transition-colors ${tab === 'ignored' ? 'border-b-2 border-blue-600 text-blue-700 bg-blue-50' : 'text-slate-500 hover:text-slate-700'}`}>
+          Ignored ({ignoredInCell.length})
+        </button>
+        <button onClick={() => setTab('route')}
+          className={`flex-1 py-2 text-xs font-semibold transition-colors flex items-center justify-center gap-1 ${tab === 'route' ? 'border-b-2 border-indigo-600 text-indigo-700 bg-indigo-50' : 'text-slate-500 hover:text-slate-700'}`}>
+          <Navigation className="w-3 h-3" /> Route ({routeStopsInCell.length})
+        </button>
       </div>
 
       {/* Ticket list */}
@@ -432,10 +459,90 @@ function ZonePanel({ cell, cluster, allTechs, allTickets, ignored, onIgnore, onU
               </div>
             ))
         )}
+        {tab === 'route' && (
+          routeStopsInCell.length === 0
+            ? <div className="text-xs text-slate-400 text-center py-4 flex flex-col items-center gap-2">
+                <Navigation className="w-5 h-5 text-slate-300" />
+                No route stops pass through this zone
+              </div>
+            : (() => {
+                // Group by tech
+                const byTech = new Map<string, { plan: TechnicianRoutePlan; stops: RouteStop[] }>();
+                routeStopsInCell.forEach(({ plan, stop }) => {
+                  if (!byTech.has(plan.technicianId)) {
+                    byTech.set(plan.technicianId, { plan, stops: [] });
+                  }
+                  byTech.get(plan.technicianId)!.stops.push(stop);
+                });
+                return [...byTech.entries()].map(([techId, { plan, stops }], ti) => {
+                  const color = CLUSTER_COLORS[ti % CLUSTER_COLORS.length];
+                  return (
+                    <div key={techId} className="border border-slate-200 rounded-lg overflow-hidden">
+                      <div className="flex items-center gap-2 px-2.5 py-2 bg-slate-50 border-b border-slate-100">
+                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: color }} />
+                        <span className="text-xs font-semibold text-slate-700">{plan.technicianName}</span>
+                        <span className="text-[10px] text-slate-400 ml-auto">{plan.employeeId}</span>
+                      </div>
+                      <div className="divide-y divide-slate-100">
+                        {stops.sort((a, b) => a.stopOrder - b.stopOrder).map(stop => (
+                          <div key={stop.ticketId} className="px-2.5 py-2">
+                            <div className="flex items-center gap-2">
+                              <span className="w-5 h-5 rounded-full text-[10px] font-bold text-white flex items-center justify-center shrink-0" style={{ background: color }}>
+                                {stop.stopOrder}
+                              </span>
+                              <span className="text-xs font-mono text-slate-700 font-semibold">{stop.ticketId}</span>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold text-white shrink-0" style={{ background: PRIORITY_COLOR[stop.priority] ?? '#94a3b8' }}>{stop.priority}</span>
+                            </div>
+                            <div className="mt-1 text-[11px] text-slate-500 truncate pl-7">{stop.centerName.replace(/_D$/, '')}</div>
+                            <div className="text-[10px] text-slate-400 pl-7">ETA: {stop.estimatedArrival}</div>
+                            <div className="flex gap-1.5 mt-2 pl-7">
+                              <button
+                                onClick={() => onRemoveRouteStop(techId, stop.ticketId)}
+                                className="flex items-center gap-1 px-2 py-1 text-[10px] text-red-600 bg-red-50 hover:bg-red-100 rounded font-semibold transition-colors">
+                                <X className="w-3 h-3" /> Remove
+                              </button>
+                              <button
+                                onClick={() => { setMoveTarget({ techId, ticketId: stop.ticketId }); setMoveTechId(''); }}
+                                className="flex items-center gap-1 px-2 py-1 text-[10px] text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded font-semibold transition-colors">
+                                <RefreshCw className="w-3 h-3" /> Reassign
+                              </button>
+                            </div>
+                            {moveTarget?.techId === techId && moveTarget?.ticketId === stop.ticketId && (
+                              <div className="mt-2 pl-7 space-y-1.5">
+                                <select
+                                  value={moveTechId}
+                                  onChange={e => setMoveTechId(e.target.value)}
+                                  className="w-full text-xs border border-indigo-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                                  <option value="">— Move to tech —</option>
+                                  {routePlans.filter(p => p.technicianId !== techId).map(p => (
+                                    <option key={p.technicianId} value={p.technicianId}>
+                                      {p.technicianName} ({p.stops.length} stops)
+                                    </option>
+                                  ))}
+                                </select>
+                                <div className="flex gap-1.5">
+                                  <button
+                                    disabled={!moveTechId}
+                                    onClick={() => { onMoveRouteStop(techId, stop.ticketId, moveTechId); setMoveTarget(null); setMoveTechId(''); }}
+                                    className="flex-1 py-1 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white text-xs rounded-lg font-semibold">
+                                    Confirm
+                                  </button>
+                                  <button onClick={() => setMoveTarget(null)} className="px-3 py-1 bg-white border border-slate-200 text-xs rounded-lg text-slate-600 hover:bg-slate-50">Cancel</button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                });
+              })()
+        )}
       </div>
 
       {/* Bulk assign footer */}
-      {openTickets.length > 0 && (
+      {openTickets.length > 0 && tab !== 'route' && (
         <div className="border-t border-slate-200 p-3 space-y-2 bg-slate-50 shrink-0">
           <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
             Bulk assign all {openTickets.length} open tickets
@@ -466,13 +573,15 @@ export function HexZoneMapPage() {
   const [tickets, setTickets] = useState<Ticket[]>(() => getTickets());
   const [centers]  = useState<Center[]>(() => getCenters());
   const [allTechs] = useState<Technician[]>(() => getTechnicians());
+  const [routePlans, setRoutePlans] = useState<TechnicianRoutePlan[]>(() => getRoutePlans());
 
   const [selectedCell, setSelectedCell] = useState<HexCell | null>(null);
   const [ignored, setIgnoredState] = useState<Set<string>>(() => getIgnored());
   const [activeLayers, setActiveLayers] = useState<Set<MapLayer>>(
-    () => new Set(['openTickets', 'techBases', 'clusters', 'spareHubs'] as MapLayer[])
+    () => new Set(['openTickets', 'techBases', 'clusters', 'spareHubs', 'techRoutes'] as MapLayer[])
   );
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [hideClearDCs, setHideClearDCs] = useState(false);
 
   type HexFilter = 'all' | 'open' | 'unassigned';
   const [hexFilter, setHexFilter] = useState<HexFilter>('open');
@@ -532,6 +641,42 @@ export function HexZoneMapPage() {
     toast(`${ids.size} ticket${ids.size > 1 ? 's' : ''} assigned to ${tech.name}`);
     setSelectedCell(null);
   }, [selectedCell, allTechs, tickets, ignored]);
+
+  const handleRemoveRouteStop = useCallback((techId: string, ticketId: string) => {
+    const updated = routePlans.map(plan => {
+      if (plan.technicianId !== techId) return plan;
+      const newStops = plan.stops
+        .filter(s => s.ticketId !== ticketId)
+        .map((s, idx) => ({ ...s, stopOrder: idx + 1 }));
+      return { ...plan, stops: newStops };
+    });
+    saveRoutePlans(updated);
+    setRoutePlans(updated);
+    toast('Stop removed from route');
+  }, [routePlans]);
+
+  const handleMoveRouteStop = useCallback((fromTechId: string, ticketId: string, toTechId: string) => {
+    let movedStop: RouteStop | undefined;
+    const updated = routePlans.map(plan => {
+      if (plan.technicianId === fromTechId) {
+        movedStop = plan.stops.find(s => s.ticketId === ticketId);
+        const newStops = plan.stops
+          .filter(s => s.ticketId !== ticketId)
+          .map((s, idx) => ({ ...s, stopOrder: idx + 1 }));
+        return { ...plan, stops: newStops };
+      }
+      return plan;
+    }).map(plan => {
+      if (plan.technicianId === toTechId && movedStop) {
+        const newStop = { ...movedStop, stopOrder: plan.stops.length + 1 };
+        return { ...plan, stops: [...plan.stops, newStop] };
+      }
+      return plan;
+    });
+    saveRoutePlans(updated);
+    setRoutePlans(updated);
+    toast('Stop moved to new technician');
+  }, [routePlans]);
 
   function toast(msg: string) { setSuccessMsg(msg); setTimeout(() => setSuccessMsg(null), 4000); }
   function toggleLayer(l: MapLayer) {
@@ -612,6 +757,7 @@ export function HexZoneMapPage() {
 
       const fill    = hasOpen ? hexFill(cell.tickets, ignored) : '#94a3b8';
       const opacity = hasOpen ? hexOpacity(cell.tickets, ignored) : 0.12;
+      // Count only non-ignored open tickets for the label bubble
       const count   = hasOpen ? open.length : ign.length;
 
       const poly = L.polygon(hexCorners(cell.cLat, cell.cLng), {
@@ -639,8 +785,13 @@ export function HexZoneMapPage() {
       const cTickets = filteredTickets.filter(t =>
         t.centerName.toLowerCase().trim() === c.name.toLowerCase().trim() || t.centerName.toLowerCase() === c.normalizedName
       );
-      const hasOpen = cTickets.some(t => !ignored.has(t.id) && t.status !== 'Resolved' && t.status !== 'Closed');
+      const openCount = cTickets.filter(t => !ignored.has(t.id) && t.status !== 'Resolved' && t.status !== 'Closed').length;
+      const hasOpen = openCount > 0;
       const hasIgn  = cTickets.some(t => ignored.has(t.id));
+
+      // Skip DCs with no open tickets when filter is active
+      if (hideClearDCs && openCount === 0) return;
+
       const ringColor = hasOpen && activeLayers.has('openTickets') ? '#f97316'
                       : hasIgn && activeLayers.has('ignoredTickets') ? '#94a3b8'
                       : '#0f172a';
@@ -651,7 +802,7 @@ export function HexZoneMapPage() {
         iconSize: [26, 26], iconAnchor: [13, 13],
       });
       const m = L.marker([c.latitude, c.longitude], { icon }).addTo(map);
-      m.bindTooltip(`${c.name.replace(/_D$/, '')} — ${cTickets.filter(t => !ignored.has(t.id) && t.status !== 'Resolved' && t.status !== 'Closed').length} open`, { permanent: false, direction: 'top' });
+      m.bindTooltip(`${c.name.replace(/_D$/, '')} — ${openCount} open`, { permanent: false, direction: 'top' });
       m.on('click', () => {
         const cell = grid.find(cell => isInsideHex(c.latitude, c.longitude, cell.cLat, cell.cLng));
         if (cell) setSelectedCell(cell);
@@ -695,19 +846,71 @@ export function HexZoneMapPage() {
       });
     }
 
+    // Technician route lines + stop markers
+    if (activeLayers.has('techRoutes')) {
+      routePlans.forEach((plan, planIdx) => {
+        const color = CLUSTER_COLORS[planIdx % CLUSTER_COLORS.length];
+        // Build coordinate list: start point → stops in order
+        const coords: [number, number][] = [];
+        if (plan.startLat && plan.startLng) {
+          coords.push([plan.startLat, plan.startLng]);
+        }
+        const sortedStops = [...plan.stops].sort((a, b) => a.stopOrder - b.stopOrder);
+        sortedStops.forEach(stop => {
+          if (stop.latitude && stop.longitude) {
+            coords.push([stop.latitude, stop.longitude]);
+          }
+        });
+        if (coords.length >= 2) {
+          const line = L.polyline(coords, {
+            color,
+            weight: 2.5,
+            opacity: 0.85,
+            dashArray: '6 4',
+          }).addTo(map);
+          line.bindTooltip(`${plan.technicianName} · ${plan.stops.length} stops`, { permanent: false, direction: 'top' });
+          line.on('click', () => {
+            // Find hex cell for first stop
+            if (sortedStops.length > 0) {
+              const firstStop = sortedStops[0];
+              const cell = grid.find(cell => isInsideHex(firstStop.latitude, firstStop.longitude, cell.cLat, cell.cLng));
+              if (cell) setSelectedCell(cell);
+            }
+          });
+          layersRef.current.push(line);
+        }
+        // Numbered stop circle markers
+        sortedStops.forEach(stop => {
+          if (!stop.latitude || !stop.longitude) return;
+          const stopIcon = L.divIcon({
+            className: '',
+            html: `<div style="background:${color};color:white;font-weight:700;font-size:10px;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.4);border:2px solid white;">${stop.stopOrder}</div>`,
+            iconSize: [20, 20], iconAnchor: [10, 10],
+          });
+          const sm = L.marker([stop.latitude, stop.longitude], { icon: stopIcon }).addTo(map);
+          sm.bindTooltip(`${plan.technicianName} · Stop ${stop.stopOrder}\n${stop.ticketId} · ${stop.centerName.replace(/_D$/, '')}\nETA: ${stop.estimatedArrival}`, { permanent: false, direction: 'top' });
+          sm.on('click', () => {
+            const cell = grid.find(cell => isInsideHex(stop.latitude, stop.longitude, cell.cLat, cell.cLng));
+            if (cell) setSelectedCell(cell);
+          });
+          layersRef.current.push(sm);
+        });
+      });
+    }
+
     return () => {
       layersRef.current.forEach(l => { try { map.removeLayer(l); } catch { /**/ } });
       layersRef.current = [];
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filteredTickets, centers, allTechs, activeLayers, ignored, clusters, activeClusterView]);
+  }, [filteredTickets, centers, allTechs, activeLayers, ignored, clusters, activeClusterView, routePlans, hideClearDCs]);
 
   useEffect(() => () => { if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; } }, []);
 
-  // KPIs
-  const openAll    = tickets.filter(t => t.status !== 'Resolved' && t.status !== 'Closed');
-  const unassigned = openAll.filter(t => !t.assignedTechnicianId && !ignored.has(t.id));
-  const ignoredCount = [...ignored].filter(id => openAll.some(t => t.id === id)).length;
+  // KPIs — exclude ignored from Open Tickets count
+  const openAll    = tickets.filter(t => t.status !== 'Resolved' && t.status !== 'Closed' && !ignored.has(t.id));
+  const unassigned = openAll.filter(t => !t.assignedTechnicianId);
+  const ignoredCount = [...ignored].filter(id => tickets.some(t => t.id === id && t.status !== 'Resolved' && t.status !== 'Closed')).length;
   const criticalZones = grid.filter(c => c.tickets.some(t => !ignored.has(t.id) && t.priority === 'CRITICAL' && t.status !== 'Resolved' && t.status !== 'Closed'));
   const totalVehicles = new Set(tickets.map(t => t.vehicleNumber).filter(Boolean)).size;
   const totalHubs = clusters.reduce((s, c) => s + c.spareHubs.length, 0);
@@ -718,6 +921,7 @@ export function HexZoneMapPage() {
     { id: 'spareHubs',     label: 'Spare Hubs ◆',  color: 'border-slate-200 text-slate-600', activeColor: 'bg-teal-600 border-teal-600 text-white' },
     { id: 'techBases',     label: 'Tech Bases 🔧',  color: 'border-slate-200 text-slate-600', activeColor: 'bg-blue-600 border-blue-600 text-white' },
     { id: 'ignoredTickets',label: 'Ignored',        color: 'border-slate-200 text-slate-600', activeColor: 'bg-slate-500 border-slate-500 text-white' },
+    { id: 'techRoutes',    label: 'Tech Routes',    color: 'border-slate-200 text-slate-600', activeColor: 'bg-indigo-600 border-indigo-600 text-white' },
   ];
 
   return (
@@ -758,6 +962,12 @@ export function HexZoneMapPage() {
             Clear {ignoredCount} ignored
           </button>
         )}
+        {/* Hide clear DCs toggle */}
+        <button
+          onClick={() => setHideClearDCs(v => !v)}
+          className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${hideClearDCs ? 'bg-slate-700 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+          Hide clear DCs
+        </button>
       </div>
 
       {/* KPI row */}
@@ -815,6 +1025,10 @@ export function HexZoneMapPage() {
               <span className="w-3 h-3 bg-blue-600 rounded-full inline-block shrink-0" />
               <span className="text-[11px] text-slate-600">Technician base</span>
             </div>
+            <div className="flex items-center gap-2">
+              <span className="inline-block shrink-0 w-6 border-t-2 border-dashed border-indigo-500" />
+              <span className="text-[11px] text-slate-600">Tech route line</span>
+            </div>
           </div>
           <div className="pt-1 mt-1 border-t border-slate-100">
             <div className="text-[10px] font-semibold text-slate-400 uppercase mb-1">Clusters (C1–C{NUM_CLUSTERS})</div>
@@ -837,11 +1051,14 @@ export function HexZoneMapPage() {
             allTechs={allTechs}
             allTickets={tickets}
             ignored={ignored}
+            routePlans={routePlans}
             onIgnore={handleIgnore}
             onUnignore={handleUnignore}
             onReassign={handleReassign}
             onBulkAssign={handleBulkAssign}
             onEditTicket={handleEditTicket}
+            onRemoveRouteStop={handleRemoveRouteStop}
+            onMoveRouteStop={handleMoveRouteStop}
             onClose={() => setSelectedCell(null)}
           />
         )}
