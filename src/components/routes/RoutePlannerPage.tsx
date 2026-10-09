@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { TrackerTab } from './TrackerTab';
+import { MapTab } from './MapTab';
 import {
   TechnicianRoutePlan,
   RouteStop,
@@ -213,7 +214,7 @@ export const RoutePlannerPage: React.FC = () => {
   const [visitHistoryTicketId, setVisitHistoryTicketId] = useState<string | null>(null);
 
   // ── Tab navigation ────────────────────────────────────────────────────────
-  const [activeTab, setActiveTab] = useState<'routes' | 'tracker'>('routes');
+  const [activeTab, setActiveTab] = useState<'routes' | 'tracker' | 'map'>('routes');
 
   // ── Tracker tab state ─────────────────────────────────────────────────────
 
@@ -823,6 +824,7 @@ export const RoutePlannerPage: React.FC = () => {
       {[
         { id: 'routes' as const, label: '🗺 Route Planner' },
         { id: 'tracker' as const, label: '📊 Tracker' },
+        { id: 'map' as const, label: '🌐 Live Map' },
       ].map(tab => (
         <button
           key={tab.id}
@@ -837,6 +839,16 @@ export const RoutePlannerPage: React.FC = () => {
         </button>
       ))}
     </div>
+
+    {/* ══════════════════ MAP TAB ══════════════════ */}
+    {activeTab === 'map' && (
+      <MapTab
+        routePlans={routePlans}
+        technicians={technicians}
+        centers={centers}
+        allTickets={allTickets}
+      />
+    )}
 
     {/* ══════════════════ TRACKER TAB ══════════════════ */}
     {activeTab === 'tracker' && (
