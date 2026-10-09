@@ -9,6 +9,7 @@
  *   • Tech route overlay: colored polylines + numbered stop markers per technician
  *   • Click hex/DC → side panel with bulk assign, per-ticket ignore/reassign, route tab
  *   • Hide clear DCs toggle: filter DC markers with 0 open tickets
+ *   • Route Planner drawer: inline balanced route planning without leaving the map
  */
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import * as L from 'leaflet';
@@ -17,10 +18,12 @@ import {
   getRoutePlans, saveRoutePlans,
   subscribeToDataChanges,
 } from '../../services/storage';
+import { planBalancedRoutes, BalancedPlanConstraints, BalancedPlanResult } from '../../services/routeOptimizer';
 import { Ticket, Technician, Center, TechnicianRoutePlan, RouteStop } from '../../types';
 import {
   Users, Zap, CheckCircle2, X, MapPin, AlertTriangle,
   EyeOff, RefreshCw, Filter, Layers, Diamond, UserCheck, Edit2, Navigation,
+  Compass, GripVertical, ArrowRight, MessageCircle, Settings2,
 } from 'lucide-react';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -240,6 +243,11 @@ function hexFill(tickets: Ticket[], ignored: Set<string>): string {
 function hexOpacity(tickets: Ticket[], ignored: Set<string>): number {
   const n = tickets.filter(t => !ignored.has(t.id) && t.status !== 'Resolved' && t.status !== 'Closed').length;
   return n === 0 ? 0 : Math.min(0.15 + n * 0.1, 0.75);
+}
+
+// ─── Stop order recalc helper ─────────────────────────────────────────────────
+function recalcStopOrders(stops: RouteStop[]): RouteStop[] {
+  return stops.map((s, i) => ({ ...s, stopOrder: i + 1 }));
 }
 
 // ─── Side panel ───────────────────────────────────────────────────────────────
@@ -564,6 +572,535 @@ function ZonePanel({ cell, cluster, allTechs, allTickets, ignored, routePlans, o
   );
 }
 
+// ─── Route Planner Drawer ─────────────────────────────────────────────────────
+interface RoutePlannerDrawerProps {
+  open: boolean;
+  onClose: () => void;
+  routePlans: TechnicianRoutePlan[];
+  setRoutePlans: (plans: TechnicianRoutePlan[]) => void;
+  tickets: Ticket[];
+  ignored: Set<string>;
+  onToast: (msg: string) => void;
+}
+
+function RoutePlannerDrawer({ open, onClose, routePlans, setRoutePlans, tickets, ignored, onToast }: RoutePlannerDrawerProps) {
+  const [constraints, setConstraints] = useState<BalancedPlanConstraints>({
+    maxStopsPerTech: 8,
+    maxKmPerTech: 60,
+    priorityFilter: 'all',
+    skillMatch: true,
+    shiftStartHour: 9,
+    shiftEndHour: 18,
+  });
+  const [constraintsOpen, setConstraintsOpen] = useState(false);
+  const [plannerResult, setPlannerResult] = useState<{ kmSaved: number; balanceScore: number; timeSavedMins: number; unrouted: number } | null>(null);
+  const [isPlanning, setIsPlanning] = useState(false);
+  const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
+  const [dragState, setDragState] = useState<{ techId: string; fromIdx: number } | null>(null);
+  const [moveStopOpen, setMoveStopOpen] = useState<{ techId: string; ticketId: string } | null>(null);
+  const [addStopOpen, setAddStopOpen] = useState<string | null>(null);
+
+  const assignedTicketIds = useMemo(() => {
+    const s = new Set<string>();
+    routePlans.forEach(p => p.stops.forEach(st => s.add(st.ticketId)));
+    return s;
+  }, [routePlans]);
+
+  const unassignedForPlanner = useMemo(() => tickets.filter(tk => {
+    if (tk.status === 'Resolved' || tk.status === 'Closed') return false;
+    if (ignored.has(tk.id)) return false;
+    if (assignedTicketIds.has(tk.ticketId)) return false;
+    return true;
+  }), [tickets, assignedTicketIds, ignored]);
+
+  function handleAutoPlan() {
+    setIsPlanning(true);
+    try {
+      const result: BalancedPlanResult = planBalancedRoutes(constraints);
+      setRoutePlans(result.plans);
+      saveRoutePlans(result.plans);
+      setPlannerResult({
+        kmSaved: result.kmSaved,
+        balanceScore: result.balanceScore,
+        timeSavedMins: result.timeSavedMins,
+        unrouted: result.unrouted.length,
+      });
+      onToast(`Route plan generated: ${result.plans.length} technicians, ${result.plans.reduce((s, p) => s + p.stops.length, 0)} stops`);
+    } catch (e) {
+      onToast('Planning failed — check console');
+      console.error(e);
+    } finally {
+      setIsPlanning(false);
+    }
+  }
+
+  function handleClear() {
+    setRoutePlans([]);
+    saveRoutePlans([]);
+    setPlannerResult(null);
+    onToast('Route plans cleared');
+  }
+
+  function handleSaveClose() {
+    saveRoutePlans(routePlans);
+    onToast('Routes saved');
+    onClose();
+  }
+
+  function toggleCard(techId: string) {
+    setExpandedCards(prev => {
+      const s = new Set(prev);
+      s.has(techId) ? s.delete(techId) : s.add(techId);
+      return s;
+    });
+  }
+
+  function removeStop(techId: string, ticketId: string) {
+    const updated = routePlans.map(plan => {
+      if (plan.technicianId !== techId) return plan;
+      return { ...plan, stops: recalcStopOrders(plan.stops.filter(s => s.ticketId !== ticketId)) };
+    });
+    setRoutePlans(updated);
+    saveRoutePlans(updated);
+    onToast('Stop removed');
+  }
+
+  function moveStop(fromTechId: string, ticketId: string, toTechId: string) {
+    let movedStop: RouteStop | undefined;
+    const updated = routePlans.map(plan => {
+      if (plan.technicianId === fromTechId) {
+        movedStop = plan.stops.find(s => s.ticketId === ticketId);
+        return { ...plan, stops: recalcStopOrders(plan.stops.filter(s => s.ticketId !== ticketId)) };
+      }
+      return plan;
+    }).map(plan => {
+      if (plan.technicianId === toTechId && movedStop) {
+        return { ...plan, stops: recalcStopOrders([...plan.stops, { ...movedStop, stopOrder: plan.stops.length + 1 }]) };
+      }
+      return plan;
+    });
+    setRoutePlans(updated);
+    saveRoutePlans(updated);
+    setMoveStopOpen(null);
+    onToast('Stop moved');
+  }
+
+  function addStop(techId: string, ticket: Ticket) {
+    const updated = routePlans.map(plan => {
+      if (plan.technicianId !== techId) return plan;
+      const newStop: RouteStop = {
+        stopOrder: plan.stops.length + 1,
+        ticketId: ticket.ticketId,
+        centerName: ticket.centerName,
+        vehicleNumber: ticket.vehicleNumber,
+        issue: ticket.issue,
+        priority: ticket.priority,
+        latitude: 0,
+        longitude: 0,
+        estimatedArrival: '--:--',
+        estimatedDurationMins: ticket.priority === 'CRITICAL' ? 60 : 45,
+      };
+      return { ...plan, stops: [...plan.stops, newStop] };
+    });
+    setRoutePlans(updated);
+    saveRoutePlans(updated);
+    setAddStopOpen(null);
+    onToast(`Added ${ticket.ticketId} to route`);
+  }
+
+  function toggleConfirm(techId: string) {
+    const updated = routePlans.map(plan => {
+      if (plan.technicianId !== techId) return plan;
+      return { ...plan, status: (plan.status === 'Confirmed' ? 'Draft' : 'Confirmed') as TechnicianRoutePlan['status'] };
+    });
+    setRoutePlans(updated);
+    saveRoutePlans(updated);
+  }
+
+  function handleWhatsApp(plan: TechnicianRoutePlan) {
+    const lines = [
+      `Route for ${plan.technicianName} (${plan.employeeId})`,
+      `${plan.stops.length} stops · ${plan.totalDistanceKm}km`,
+      '',
+      ...plan.stops.sort((a, b) => a.stopOrder - b.stopOrder).map(s =>
+        `${s.stopOrder}. ${s.centerName.replace(/_D$/, '')} — ${s.ticketId} [${s.priority}] ETA ${s.estimatedArrival}`
+      ),
+    ];
+    const text = encodeURIComponent(lines.join('\n'));
+    window.open(`https://wa.me/?text=${text}`, '_blank');
+  }
+
+  // Drag-to-reorder
+  function handleDragStart(techId: string, fromIdx: number) {
+    setDragState({ techId, fromIdx });
+  }
+  function handleDragOver(e: React.DragEvent, techId: string, toIdx: number) {
+    e.preventDefault();
+    if (!dragState || dragState.techId !== techId || dragState.fromIdx === toIdx) return;
+    const updated = routePlans.map(plan => {
+      if (plan.technicianId !== techId) return plan;
+      const stops = [...plan.stops];
+      const [moved] = stops.splice(dragState.fromIdx, 1);
+      stops.splice(toIdx, 0, moved);
+      return { ...plan, stops: recalcStopOrders(stops) };
+    });
+    setRoutePlans(updated);
+    setDragState({ techId, fromIdx: toIdx });
+  }
+  function handleDrop() {
+    if (dragState) {
+      saveRoutePlans(routePlans);
+    }
+    setDragState(null);
+  }
+
+  const totalStops = routePlans.reduce((s, p) => s + p.stops.length, 0);
+
+  return (
+    <>
+      {/* Backdrop */}
+      {open && (
+        <div
+          className="fixed inset-0 z-[1999] bg-black/20 backdrop-blur-[1px]"
+          onClick={onClose}
+        />
+      )}
+
+      {/* Drawer */}
+      <div
+        className={`fixed inset-y-0 right-0 z-[2000] w-full sm:w-[480px] bg-white shadow-2xl flex flex-col transition-transform duration-300 ${open ? 'translate-x-0' : 'translate-x-full'}`}
+      >
+        {/* Drawer header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 bg-slate-900 text-white shrink-0">
+          <div className="flex items-center gap-2">
+            <Compass className="w-5 h-5 text-blue-400" />
+            <div>
+              <div className="font-bold text-sm tracking-tight">ROUTE PLANNER</div>
+              <div className="text-[10px] text-slate-400">
+                {routePlans.length} techs · {totalStops} stops planned
+              </div>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Section 1: Constraints */}
+        <div className="border-b border-slate-100 shrink-0">
+          <button
+            onClick={() => setConstraintsOpen(v => !v)}
+            className="w-full flex items-center gap-2 px-5 py-3 hover:bg-slate-50 transition-colors text-left"
+          >
+            <Settings2 className="w-4 h-4 text-slate-500" />
+            <span className="text-xs font-semibold text-slate-700 flex-1">Constraints</span>
+            <span className="text-[10px] text-slate-400">
+              {constraints.maxStopsPerTech} stops · {constraints.maxKmPerTech}km · {constraints.shiftStartHour}–{constraints.shiftEndHour}h
+            </span>
+            <span className="text-slate-400 text-xs">{constraintsOpen ? '▲' : '▼'}</span>
+          </button>
+
+          {constraintsOpen && (
+            <div className="px-5 pb-4 space-y-3 bg-slate-50 border-t border-slate-100">
+              {/* Max stops */}
+              <div className="flex items-center gap-3">
+                <label className="text-[11px] font-semibold text-slate-600 w-28 shrink-0">Max stops/tech</label>
+                <input
+                  type="range" min={1} max={15} value={constraints.maxStopsPerTech}
+                  onChange={e => setConstraints(c => ({ ...c, maxStopsPerTech: Number(e.target.value) }))}
+                  className="flex-1 accent-blue-600"
+                />
+                <span className="text-xs font-bold text-slate-700 w-6 text-right">{constraints.maxStopsPerTech}</span>
+              </div>
+
+              {/* Max km */}
+              <div className="flex items-center gap-3">
+                <label className="text-[11px] font-semibold text-slate-600 w-28 shrink-0">Max km/tech</label>
+                <input
+                  type="range" min={10} max={100} value={constraints.maxKmPerTech}
+                  onChange={e => setConstraints(c => ({ ...c, maxKmPerTech: Number(e.target.value) }))}
+                  className="flex-1 accent-blue-600"
+                />
+                <span className="text-xs font-bold text-slate-700 w-8 text-right">{constraints.maxKmPerTech}km</span>
+              </div>
+
+              {/* Shift hours */}
+              <div className="flex items-center gap-3">
+                <label className="text-[11px] font-semibold text-slate-600 w-28 shrink-0">Shift hours</label>
+                <div className="flex items-center gap-2 flex-1">
+                  <select
+                    value={constraints.shiftStartHour}
+                    onChange={e => setConstraints(c => ({ ...c, shiftStartHour: Number(e.target.value) }))}
+                    className="text-xs border border-slate-200 rounded px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  >
+                    {Array.from({ length: 5 }, (_, i) => i + 7).map(h => (
+                      <option key={h} value={h}>{String(h).padStart(2, '0')}:00</option>
+                    ))}
+                  </select>
+                  <span className="text-xs text-slate-400">to</span>
+                  <select
+                    value={constraints.shiftEndHour}
+                    onChange={e => setConstraints(c => ({ ...c, shiftEndHour: Number(e.target.value) }))}
+                    className="text-xs border border-slate-200 rounded px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  >
+                    {Array.from({ length: 6 }, (_, i) => i + 15).map(h => (
+                      <option key={h} value={h}>{String(h).padStart(2, '0')}:00</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Skill match + priority filter */}
+              <div className="flex items-center gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={constraints.skillMatch}
+                    onChange={e => setConstraints(c => ({ ...c, skillMatch: e.target.checked }))}
+                    className="accent-blue-600"
+                  />
+                  <span className="text-[11px] font-semibold text-slate-600">Skill match</span>
+                </label>
+                <div className="flex items-center gap-1">
+                  <span className="text-[11px] font-semibold text-slate-600 mr-1">Priority:</span>
+                  {(['all', 'critical_high'] as const).map(f => (
+                    <button
+                      key={f}
+                      onClick={() => setConstraints(c => ({ ...c, priorityFilter: f }))}
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold border transition-all ${constraints.priorityFilter === f ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+                    >
+                      {f === 'all' ? 'ALL' : 'CRITICAL+HIGH'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Reset */}
+              <button
+                onClick={() => setConstraints({ maxStopsPerTech: 8, maxKmPerTech: 60, priorityFilter: 'all', skillMatch: true, shiftStartHour: 9, shiftEndHour: 18 })}
+                className="text-[11px] text-blue-600 hover:underline"
+              >
+                Reset to defaults
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Section 2: Action bar */}
+        <div className="px-5 py-3 border-b border-slate-100 shrink-0 space-y-2">
+          <div className="flex gap-2">
+            <button
+              onClick={handleAutoPlan}
+              disabled={isPlanning}
+              className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-bold rounded-lg transition-colors"
+            >
+              <Compass className="w-3.5 h-3.5" />
+              {isPlanning ? 'PLANNING...' : 'AUTO-PLAN'}
+            </button>
+            <button
+              onClick={handleClear}
+              className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg transition-colors"
+            >
+              <X className="w-3.5 h-3.5" /> CLEAR
+            </button>
+            <button
+              onClick={handleSaveClose}
+              className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-colors ml-auto"
+            >
+              <CheckCircle2 className="w-3.5 h-3.5" /> SAVE &amp; CLOSE
+            </button>
+          </div>
+
+          {/* Inline stats */}
+          {plannerResult && (
+            <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-600 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+              <span className="font-bold text-emerald-700">{totalStops} stops</span>
+              <span className="text-slate-400">·</span>
+              <span>{routePlans.length} techs</span>
+              <span className="text-slate-400">·</span>
+              <span>Balance: <strong className="text-blue-700">{plannerResult.balanceScore}</strong></span>
+              <span className="text-slate-400">·</span>
+              <span className="text-emerald-700 font-semibold">{plannerResult.kmSaved}km saved</span>
+              {plannerResult.unrouted > 0 && (
+                <>
+                  <span className="text-slate-400">·</span>
+                  <span className="text-amber-600">{plannerResult.unrouted} unrouted</span>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Section 3: Tech route cards */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          {routePlans.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-16 text-center text-slate-400">
+              <Compass className="w-10 h-10 mb-3 text-slate-200" />
+              <div className="text-sm font-semibold text-slate-500">No routes planned yet</div>
+              <div className="text-xs mt-1">Click AUTO-PLAN to generate balanced routes</div>
+            </div>
+          )}
+
+          {routePlans.map((plan, planIdx) => {
+            const color = CLUSTER_COLORS[planIdx % CLUSTER_COLORS.length];
+            const isExpanded = expandedCards.has(plan.technicianId);
+            const isConfirmed = plan.status === 'Confirmed';
+
+            return (
+              <div key={plan.technicianId} className={`border rounded-xl overflow-hidden ${isConfirmed ? 'border-emerald-300 bg-emerald-50/30' : 'border-slate-200 bg-white'}`}>
+                {/* Card header */}
+                <button
+                  onClick={() => toggleCard(plan.technicianId)}
+                  className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-slate-50 transition-colors text-left"
+                >
+                  <span className="w-3 h-3 rounded-full shrink-0" style={{ background: color }} />
+                  <span className="text-xs font-bold text-slate-800 flex-1 truncate">{plan.technicianName}</span>
+                  <span className="text-[10px] text-slate-400 font-mono">{plan.employeeId}</span>
+                  <span className="text-[10px] text-slate-500 bg-slate-100 rounded px-1.5 py-0.5 shrink-0">
+                    {plan.stops.length} stops · {plan.totalDistanceKm}km
+                  </span>
+                  {isConfirmed && (
+                    <span className="text-[10px] text-white bg-emerald-600 rounded px-1.5 py-0.5 font-bold shrink-0">CONFIRMED</span>
+                  )}
+                  {!isConfirmed && plan.stops.length > 0 && (
+                    <span className="text-[10px] text-slate-500 bg-slate-200 rounded px-1.5 py-0.5 shrink-0">DRAFT</span>
+                  )}
+                  <span className="text-slate-400 text-xs shrink-0">{isExpanded ? '▲' : '▼'}</span>
+                </button>
+
+                {/* Expanded stop list */}
+                {isExpanded && (
+                  <div className="border-t border-slate-100">
+                    <div className="divide-y divide-slate-100">
+                      {plan.stops.sort((a, b) => a.stopOrder - b.stopOrder).map((stop, idx) => (
+                        <div
+                          key={stop.ticketId}
+                          draggable
+                          onDragStart={() => handleDragStart(plan.technicianId, idx)}
+                          onDragOver={e => handleDragOver(e, plan.technicianId, idx)}
+                          onDrop={handleDrop}
+                          className={`flex items-start gap-2 px-3 py-2 transition-colors ${dragState?.techId === plan.technicianId && dragState.fromIdx === idx ? 'bg-blue-50 opacity-60' : 'hover:bg-slate-50'}`}
+                        >
+                          {/* Drag handle */}
+                          <div className="cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-500 pt-0.5 shrink-0">
+                            <GripVertical className="w-3.5 h-3.5" />
+                          </div>
+
+                          {/* Stop number */}
+                          <span className="w-5 h-5 rounded-full text-[10px] font-bold text-white flex items-center justify-center shrink-0 mt-0.5" style={{ background: color }}>
+                            {stop.stopOrder}
+                          </span>
+
+                          {/* Stop info */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-[11px] font-mono font-bold text-slate-700">{stop.ticketId}</span>
+                              <span className="text-[10px] px-1 py-0.5 rounded font-bold text-white shrink-0" style={{ background: PRIORITY_COLOR[stop.priority] ?? '#94a3b8' }}>{stop.priority}</span>
+                              <span className="text-[10px] text-slate-400">ETA {stop.estimatedArrival}</span>
+                            </div>
+                            <div className="text-[11px] text-slate-500 truncate mt-0.5">{stop.centerName.replace(/_D$/, '')}</div>
+
+                            {/* Actions */}
+                            <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                              <button
+                                onClick={() => removeStop(plan.technicianId, stop.ticketId)}
+                                className="flex items-center gap-0.5 px-2 py-0.5 text-[10px] text-red-600 bg-red-50 hover:bg-red-100 rounded font-semibold transition-colors"
+                              >
+                                <X className="w-3 h-3" /> Remove
+                              </button>
+                              <button
+                                onClick={() => setMoveStopOpen(
+                                  moveStopOpen?.techId === plan.technicianId && moveStopOpen.ticketId === stop.ticketId
+                                    ? null
+                                    : { techId: plan.technicianId, ticketId: stop.ticketId }
+                                )}
+                                className="flex items-center gap-0.5 px-2 py-0.5 text-[10px] text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded font-semibold transition-colors"
+                              >
+                                <ArrowRight className="w-3 h-3" /> Move
+                              </button>
+                            </div>
+
+                            {/* Move inline select */}
+                            {moveStopOpen?.techId === plan.technicianId && moveStopOpen.ticketId === stop.ticketId && (
+                              <div className="mt-2 flex gap-1.5">
+                                <select
+                                  defaultValue=""
+                                  onChange={e => { if (e.target.value) moveStop(plan.technicianId, stop.ticketId, e.target.value); }}
+                                  className="flex-1 text-xs border border-indigo-200 rounded px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                                >
+                                  <option value="">— Move to tech —</option>
+                                  {routePlans.filter(p => p.technicianId !== plan.technicianId).map(p => (
+                                    <option key={p.technicianId} value={p.technicianId}>
+                                      {p.technicianName} ({p.stops.length} stops)
+                                    </option>
+                                  ))}
+                                </select>
+                                <button onClick={() => setMoveStopOpen(null)} className="px-2 py-1 bg-white border border-slate-200 rounded text-xs text-slate-500">✕</button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Add stop */}
+                    <div className="border-t border-slate-100 px-3 py-2">
+                      {addStopOpen === plan.technicianId ? (
+                        <div className="flex gap-1.5">
+                          <select
+                            defaultValue=""
+                            onChange={e => {
+                              const ticket = unassignedForPlanner.find(t => t.id === e.target.value);
+                              if (ticket) addStop(plan.technicianId, ticket);
+                            }}
+                            className="flex-1 text-xs border border-slate-200 rounded px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          >
+                            <option value="">— Pick unassigned ticket —</option>
+                            {unassignedForPlanner.map(t => (
+                              <option key={t.id} value={t.id}>
+                                {t.ticketId} · {t.priority} · {t.centerName.replace(/_D$/, '')}
+                              </option>
+                            ))}
+                          </select>
+                          <button onClick={() => setAddStopOpen(null)} className="px-2 py-1 bg-white border border-slate-200 rounded text-xs text-slate-500">✕</button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setAddStopOpen(plan.technicianId)}
+                          className="text-[11px] text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-1"
+                        >
+                          + Add stop {unassignedForPlanner.length > 0 && `(${unassignedForPlanner.length} available)`}
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Card footer */}
+                    <div className="border-t border-slate-100 px-3 py-2 flex items-center gap-2 bg-slate-50">
+                      <button
+                        onClick={() => toggleConfirm(plan.technicianId)}
+                        className={`flex items-center gap-1 px-3 py-1.5 text-[11px] font-bold rounded-lg transition-colors ${isConfirmed ? 'bg-slate-200 text-slate-700 hover:bg-slate-300' : 'bg-emerald-600 text-white hover:bg-emerald-700'}`}
+                      >
+                        <CheckCircle2 className="w-3 h-3" />
+                        {isConfirmed ? 'Unconfirm' : 'Confirm'}
+                      </button>
+                      <button
+                        onClick={() => handleWhatsApp(plan)}
+                        className="flex items-center gap-1 px-3 py-1.5 text-[11px] font-bold rounded-lg bg-green-600 hover:bg-green-700 text-white transition-colors"
+                      >
+                        <MessageCircle className="w-3 h-3" /> WhatsApp
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </>
+  );
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export function HexZoneMapPage() {
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -582,6 +1119,9 @@ export function HexZoneMapPage() {
   );
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [hideClearDCs, setHideClearDCs] = useState(false);
+
+  // Route planner drawer state
+  const [plannerOpen, setPlannerOpen] = useState(false);
 
   type HexFilter = 'all' | 'open' | 'unassigned';
   const [hexFilter, setHexFilter] = useState<HexFilter>('open');
@@ -934,14 +1474,23 @@ export function HexZoneMapPage() {
             Delhi NCR · {NUM_CLUSTERS} vehicle-density clusters · 1 technician/cluster · spare hubs every 20 vehicles
           </p>
         </div>
-        <div className="flex items-center gap-1.5">
-          <Filter className="w-3.5 h-3.5 text-slate-400" />
-          {(['all', 'open', 'unassigned'] as const).map(f => (
-            <button key={f} onClick={() => setHexFilter(f)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${hexFilter === f ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
-              {f === 'all' ? 'All' : f === 'open' ? 'Open' : 'Unassigned'}
-            </button>
-          ))}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* PLAN ROUTES button */}
+          <button
+            onClick={() => setPlannerOpen(true)}
+            className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow-sm transition-colors"
+          >
+            <Compass className="w-3.5 h-3.5" /> PLAN ROUTES
+          </button>
+          <div className="flex items-center gap-1.5">
+            <Filter className="w-3.5 h-3.5 text-slate-400" />
+            {(['all', 'open', 'unassigned'] as const).map(f => (
+              <button key={f} onClick={() => setHexFilter(f)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${hexFilter === f ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+                {f === 'all' ? 'All' : f === 'open' ? 'Open' : 'Unassigned'}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -1070,6 +1619,17 @@ export function HexZoneMapPage() {
           </div>
         )}
       </div>
+
+      {/* Route Planner Drawer */}
+      <RoutePlannerDrawer
+        open={plannerOpen}
+        onClose={() => setPlannerOpen(false)}
+        routePlans={routePlans}
+        setRoutePlans={setRoutePlans}
+        tickets={tickets}
+        ignored={ignored}
+        onToast={toast}
+      />
 
       {/* Cluster assignment table */}
       <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
