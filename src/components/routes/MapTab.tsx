@@ -372,9 +372,9 @@ export const MapTab: React.FC<MapTabProps> = ({
         setLocating(false);
         setLocationError(null);
         setMyLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy });
-        // fly to my location on first fix
-        if (!myLocation && mapInstanceRef.current) {
-          mapInstanceRef.current.flyTo([pos.coords.latitude, pos.coords.longitude], 14, { duration: 1 });
+        // fly to my location on every fix
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.flyTo([pos.coords.latitude, pos.coords.longitude], 15, { duration: 1 });
         }
       },
       err => {
