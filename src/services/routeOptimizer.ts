@@ -73,15 +73,19 @@ export function planTodayRoutes(): TechnicianRoutePlan[] {
     centerMap.set(c.name.trim().toLowerCase(), c);
   });
 
-  // Filter available technicians: Active and Present
-  const availableTechs = technicians.filter(t => {
-    if (t.status !== 'Active') return false;
-    if (t.startingLatitude === undefined || t.startingLongitude === undefined) return false;
+  // Filter available technicians: Active + have coordinates
+  const techsWithCoords = technicians.filter(t =>
+    t.status === 'Active' && t.startingLatitude !== undefined && t.startingLongitude !== undefined
+  );
+
+  const attendanceFiltered = techsWithCoords.filter(t => {
     const att = attendance.find(a => a.employeeId.toUpperCase() === t.employeeId.toUpperCase() && a.date === today);
-    // If attendance marked, must be Present or Half-Day; if not marked yet, allow active techs
     if (att && att.status !== 'Present' && att.status !== 'Half-Day') return false;
     return true;
   });
+
+  // Fall back to all active techs if attendance filter leaves ≤1
+  const availableTechs = attendanceFiltered.length >= 2 ? attendanceFiltered : techsWithCoords;
 
   if (availableTechs.length === 0) {
     return [];
@@ -239,15 +243,24 @@ export function planBalancedRoutes(constraints: BalancedPlanConstraints): Balanc
   });
 
   // Available techs: Active + Present/unmarked + have coordinates
-  const availableTechs = technicians.filter(t => {
-    if (t.status !== 'Active') return false;
-    if (!t.startingLatitude || !t.startingLongitude) return false;
+  const techsWithCoords = technicians.filter(t =>
+    t.status === 'Active' && t.startingLatitude && t.startingLongitude
+  );
+
+  const attendanceFilteredTechs = techsWithCoords.filter(t => {
     const att = attendance.find(
       a => a.employeeId.toUpperCase() === t.employeeId.toUpperCase() && a.date === today
     );
+    // If attendance marked, must be Present or Half-Day; if not marked yet, include
     if (att && att.status !== 'Present' && att.status !== 'Half-Day') return false;
     return true;
   });
+
+  // If attendance filtering leaves ≤1 tech, fall back to all Active techs with coords
+  // (attendance data may not be marked yet for today)
+  const availableTechs = attendanceFilteredTechs.length >= 2
+    ? attendanceFilteredTechs
+    : techsWithCoords;
 
   if (availableTechs.length === 0) {
     return { plans: [], unrouted: [], kmSaved: 0, balanceScore: 0, timeSavedMins: 0 };
@@ -343,12 +356,16 @@ export function planBalancedRoutes(constraints: BalancedPlanConstraints): Balanc
       const minsAfterStop = ts.totalMins + travelMins + durationMins;
       if (minsAfterStop > shiftDurationMins + 30) continue; // 30-min OT buffer
 
-      // LOAD PENALTY: techs with more stops than average get a penalty
-      const avgStops = techStates.reduce((s, t) => s + t.stopCount, 0) / techStates.length;
-      const loadPenaltyFactor = 1 + Math.max(0, ts.stopCount - avgStops) * 0.3;
+      // LOAD PENALTY: techs with more stops than average get a significant penalty
+      // Only count techs that still have capacity when computing average
+      const eligibleCounts = techStates.map(t => t.stopCount);
+      const avgStops = eligibleCounts.reduce((s, n) => s + n, 0) / Math.max(1, techStates.length);
+      // Strong penalty: each stop above average adds 60% to the score
+      const loadPenaltyFactor = 1 + Math.max(0, ts.stopCount - avgStops) * 0.6;
 
-      // SCORE = travel_time × load_penalty  (lower = better candidate)
-      const score = travelMins * loadPenaltyFactor + distKm * 0.5;
+      // SCORE = (travel_time × load_penalty) + distance_penalty (lower = better candidate)
+      // Load penalty is dominant so work distributes evenly before proximity matters
+      const score = travelMins * loadPenaltyFactor + distKm * 0.3;
 
       if (score < bestScore) {
         bestScore = score;
