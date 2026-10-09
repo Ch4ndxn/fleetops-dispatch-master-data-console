@@ -284,10 +284,11 @@ function MetricsBar({ plans, unrouted, streaming, kmSaved, balanceScore, timeSav
 
 // ─── Per-tech route card (with drag-to-reorder) ──────────────────
 function TechRouteCard({
-  plan, color, idx, unrouted, mode,
+  plan, color, idx, unrouted, mode, maxKm,
   onReorder, onRemoveStop, onAddStop, onExcludeStop,
 }: {
   plan: TechnicianRoutePlan;
+  maxKm: number;
   color: string;
   idx: number;
   unrouted: Ticket[];
@@ -336,7 +337,12 @@ function TechRouteCard({
         </div>
         <div className="flex items-center gap-3">
           <div className="text-right">
-            <div className="text-xs font-bold text-slate-900 font-mono">{plan.stops.length} stops · {plan.totalDistanceKm} km</div>
+            <div className="text-xs font-bold text-slate-900 font-mono">
+              {plan.stops.length} stops ·{' '}
+              <span className={plan.totalDistanceKm > maxKm ? 'text-rose-600' : ''} title={plan.totalDistanceKm > maxKm ? `Over the ${maxKm} km limit` : undefined}>
+                {plan.totalDistanceKm} km{plan.totalDistanceKm > maxKm ? ` (limit ${maxKm})` : ''}
+              </span>
+            </div>
             <div className="text-[10px] text-slate-500">~{Math.floor(plan.totalEstimatedMins/60)}h {plan.totalEstimatedMins%60}m</div>
           </div>
           {expanded ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
@@ -910,6 +916,15 @@ Optimize within constraints.`;
     const center = centerMap.get(ticket.centerName.trim().toLowerCase());
     if (!center) { showToast('Center coordinates not found for this ticket'); return; }
 
+    const target = plans.find(p => p.technicianId === techId);
+    if (target) {
+      const trial = recalcPlan({ ...target, stops: [...target.stops, { ...target.stops[0], latitude: center.latitude, longitude: center.longitude, ticketId: ticket.ticketId } as RouteStop] });
+      if (trial.totalDistanceKm > constraints.maxKm) {
+        showToast(`Can't add: ${target.technicianName}'s route would be ${trial.totalDistanceKm} km (limit ${constraints.maxKm} km)`);
+        return;
+      }
+    }
+
     setPlans(prev => {
       return prev.map(p => {
         if (p.technicianId !== techId) return p;
@@ -1365,6 +1380,7 @@ Optimize within constraints.`;
                   idx={idx}
                   unrouted={unrouted}
                   mode={mode}
+                  maxKm={constraints.maxKm}
                   onReorder={handleReorder}
                   onRemoveStop={handleRemoveStop}
                   onAddStop={handleAddStop}

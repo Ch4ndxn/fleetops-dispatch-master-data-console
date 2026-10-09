@@ -344,9 +344,10 @@ export function planBalancedRoutes(constraints: BalancedPlanConstraints): Balanc
     for (let i = 0; i < techStates.length; i++) {
       const ts = techStates[i];
 
-      // Hard constraints
+      // Hard constraints — the km limit must hold *after* driving to this stop
       if (ts.stopCount >= constraints.maxStopsPerTech) continue;
-      if (ts.totalKm >= constraints.maxKmPerTech) continue;
+      const legKm = calculateDistanceKm(ts.curLat, ts.curLng, center.latitude, center.longitude);
+      if (ts.totalKm + legKm > constraints.maxKmPerTech) continue;
 
       // Skill matching
       const tech = availableTechs[i];
@@ -433,42 +434,56 @@ export function planBalancedRoutes(constraints: BalancedPlanConstraints): Balanc
     ts.curLng = center.longitude;
   }
 
+  // Recompute a technician's route totals, ETAs and position from their stop list
+  function recomputeState(ts: TechState) {
+    let km = 0, mins = 30, lat = ts.plan.startLat, lng = ts.plan.startLng;
+    ts.plan.stops = ts.plan.stops.map((stop, idx) => {
+      const hour = constraints.shiftStartHour + Math.floor(mins / 60);
+      km += calculateDistanceKm(lat, lng, stop.latitude, stop.longitude);
+      mins += travelTimeMins(lat, lng, stop.latitude, stop.longitude, hour);
+      const arrival = constraints.shiftStartHour * 60 + mins;
+      mins += stop.estimatedDurationMins;
+      lat = stop.latitude; lng = stop.longitude;
+      return { ...stop, stopOrder: idx + 1, estimatedArrival: `${String(Math.floor(arrival / 60)).padStart(2, '0')}:${String(arrival % 60).padStart(2, '0')}` };
+    });
+    ts.totalKm = km; ts.totalMins = mins; ts.stopCount = ts.plan.stops.length;
+    ts.curLat = lat; ts.curLng = lng;
+    ts.plan.totalDistanceKm = Math.round(km * 10) / 10;
+    ts.plan.totalEstimatedMins = mins;
+  }
+
   // ── REBALANCE PASS: move stops from overloaded to underloaded techs ──────────
-  // Run up to 3 iterations to even out stop counts
+  // Up to 3 moves; a move only happens if the receiving tech stays within every limit.
   for (let pass = 0; pass < 3; pass++) {
     const sorted = [...techStates].sort((a, b) => b.stopCount - a.stopCount);
     const mostLoaded = sorted[0];
     const leastLoaded = sorted[sorted.length - 1];
-
-    // Only rebalance if the gap is ≥ 2 stops
     if (mostLoaded.stopCount - leastLoaded.stopCount < 2) break;
 
-    // Try to move the last (lowest priority) stop from most-loaded to least-loaded
     const stopToMove = mostLoaded.plan.stops[mostLoaded.plan.stops.length - 1];
     if (!stopToMove) break;
-
-    // Check least-loaded tech can take it
     if (leastLoaded.stopCount >= constraints.maxStopsPerTech) break;
     const moveDist = calculateDistanceKm(leastLoaded.curLat, leastLoaded.curLng, stopToMove.latitude, stopToMove.longitude);
     if (leastLoaded.totalKm + moveDist > constraints.maxKmPerTech) break;
 
-    // Move it
-    mostLoaded.plan.stops.pop();
-    mostLoaded.stopCount--;
-    mostLoaded.totalKm = Math.max(0, mostLoaded.totalKm - moveDist);
-    mostLoaded.plan.totalDistanceKm = Math.round(mostLoaded.totalKm * 10) / 10;
-
-    stopToMove.stopOrder = leastLoaded.plan.stops.length + 1;
-    leastLoaded.plan.stops.push(stopToMove);
-    leastLoaded.stopCount++;
-    leastLoaded.totalKm += moveDist;
-    leastLoaded.curLat = stopToMove.latitude;
-    leastLoaded.curLng = stopToMove.longitude;
-    leastLoaded.plan.totalDistanceKm = Math.round(leastLoaded.totalKm * 10) / 10;
-
-    // Recalc stop orders for the modified plan
-    mostLoaded.plan.stops = mostLoaded.plan.stops.map((s, i) => ({ ...s, stopOrder: i + 1 }));
+    mostLoaded.plan.stops = mostLoaded.plan.stops.slice(0, -1);
+    leastLoaded.plan.stops = [...leastLoaded.plan.stops, stopToMove];
+    recomputeState(mostLoaded);
+    recomputeState(leastLoaded);
   }
+
+  // ── Final guarantee: no route exceeds the km limit (drop from the end into unrouted) ──
+  const ticketById = new Map(routableTickets.map(t => [t.ticketId, t]));
+  techStates.forEach(ts => {
+    recomputeState(ts);
+    while (ts.plan.stops.length && ts.totalKm > constraints.maxKmPerTech + 0.05) {
+      const dropped = ts.plan.stops[ts.plan.stops.length - 1];
+      ts.plan.stops = ts.plan.stops.slice(0, -1);
+      const tk = ticketById.get(dropped.ticketId);
+      if (tk) unrouted.push(tk);
+      recomputeState(ts);
+    }
+  });
 
   const plans = techStates
     .map(ts => ts.plan)
