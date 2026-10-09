@@ -174,6 +174,9 @@ export const RoutePlannerPage: React.FC = () => {
   // Map height toggle
   const [fullMap, setFullMap] = useState(false);
 
+  // Download menu
+  const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
+
   // Unassigned panel search
   const [unassignedSearch, setUnassignedSearch] = useState('');
 
@@ -451,6 +454,138 @@ export const RoutePlannerPage: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
+  // ── PDF helpers ───────────────────────────────────────────────────────────────
+  const PRIORITY_COLOR_HEX: Record<string, string> = {
+    CRITICAL: '#dc2626', HIGH: '#ea580c', MEDIUM: '#ca8a04', LOW: '#16a34a',
+  };
+
+  function buildPlanPdfHtml(plan: TechnicianRoutePlan): string {
+    const stops = plan.stops.slice().sort((a, b) => a.stopOrder - b.stopOrder);
+    const rows = stops.map(s => `
+      <tr>
+        <td style="padding:6px 8px;border-bottom:1px solid #e2e8f0;font-weight:600">${s.stopOrder}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #e2e8f0;font-family:monospace">${s.ticketId}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #e2e8f0">${s.vehicleNumber}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #e2e8f0">${s.centerName.replace(/_D$/, '')}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #e2e8f0;max-width:180px">${s.issue || ''}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #e2e8f0">
+          <span style="background:${PRIORITY_COLOR_HEX[s.priority] || '#94a3b8'};color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700">${s.priority}</span>
+        </td>
+        <td style="padding:6px 8px;border-bottom:1px solid #e2e8f0;font-weight:700;color:#2563eb">${s.estimatedArrival}</td>
+      </tr>`).join('');
+
+    return `
+      <div style="margin-bottom:32px;page-break-inside:avoid">
+        <div style="background:#0f172a;color:#fff;padding:12px 16px;border-radius:8px 8px 0 0;display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-size:14px;font-weight:700">${plan.technicianName}</div>
+            <div style="font-size:11px;color:#94a3b8">${plan.employeeId} · ${stops.length} stops · ${plan.totalDistanceKm} km</div>
+          </div>
+          <div style="font-size:11px;color:#94a3b8;text-align:right">
+            Est. ${Math.round(plan.totalEstimatedMins / 60 * 10) / 10}h<br/>
+            <span style="color:${plan.status === 'Confirmed' ? '#34d399' : '#f59e0b'}">${plan.status}</span>
+          </div>
+        </div>
+        <table style="width:100%;border-collapse:collapse;font-size:12px;font-family:Arial,sans-serif">
+          <thead>
+            <tr style="background:#f8fafc">
+              ${['#','Ticket','Vehicle','Center','Issue','Priority','ETA'].map(h =>
+                `<th style="padding:6px 8px;text-align:left;font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;border-bottom:2px solid #e2e8f0">${h}</th>`
+              ).join('')}
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+  }
+
+  function buildUnassignedSection(allTk: Ticket[], plans: TechnicianRoutePlan[]): string {
+    const assignedIds = new Set(plans.flatMap(p => p.stops.map(s => s.ticketId)));
+    const unassigned = allTk.filter(tk =>
+      tk.status !== 'Resolved' && tk.status !== 'Closed' && !assignedIds.has(tk.ticketId)
+    );
+    if (unassigned.length === 0) return '';
+    const rows = unassigned.map(tk => `
+      <tr>
+        <td style="padding:6px 8px;border-bottom:1px solid #fecaca;font-family:monospace">${tk.ticketId}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #fecaca">${tk.vehicleNumber}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #fecaca">${tk.centerName.replace(/_D$/, '')}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #fecaca;max-width:180px">${tk.issue || ''}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #fecaca">
+          <span style="background:${PRIORITY_COLOR_HEX[tk.priority] || '#94a3b8'};color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700">${tk.priority}</span>
+        </td>
+        <td style="padding:6px 8px;border-bottom:1px solid #fecaca;color:#ef4444;font-weight:600">${tk.assignedTechnicianName || '— Unassigned'}</td>
+      </tr>`).join('');
+    return `
+      <div style="margin-top:24px;page-break-inside:avoid">
+        <div style="background:#fef2f2;border:1px solid #fecaca;padding:10px 16px;border-radius:8px 8px 0 0">
+          <span style="font-size:13px;font-weight:700;color:#dc2626">⚠ Unrouted Tickets (${unassigned.length})</span>
+        </div>
+        <table style="width:100%;border-collapse:collapse;font-size:12px;font-family:Arial,sans-serif">
+          <thead>
+            <tr style="background:#fef2f2">
+              ${['Ticket','Vehicle','Center','Issue','Priority','Assigned To'].map(h =>
+                `<th style="padding:6px 8px;text-align:left;font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;border-bottom:2px solid #fecaca">${h}</th>`
+              ).join('')}
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+  }
+
+  function printHtml(html: string, filename: string) {
+    const win = window.open('', '_blank');
+    if (!win) return;
+    win.document.write(`<!doctype html><html><head>
+      <title>${filename}</title>
+      <style>
+        body { font-family: Arial, sans-serif; margin: 24px; color: #0f172a; }
+        @media print { @page { margin: 16mm; } }
+        table { page-break-inside: auto; }
+        tr { page-break-inside: avoid; }
+      </style>
+    </head><body>${html}</body></html>`);
+    win.document.close();
+    win.focus();
+    setTimeout(() => { win.print(); }, 400);
+  }
+
+  const handleDownloadPdfAll = () => {
+    const header = `
+      <div style="margin-bottom:24px;border-bottom:3px solid #0f172a;padding-bottom:16px">
+        <div style="font-size:20px;font-weight:800;color:#0f172a">FleetOps · Dispatch Roster</div>
+        <div style="font-size:12px;color:#64748b;margin-top:4px">${today} · ${routePlans.length} technicians · ${routePlans.reduce((s, p) => s + p.stops.length, 0)} stops planned</div>
+      </div>`;
+    const body = routePlans.map(p => buildPlanPdfHtml(p)).join('') + buildUnassignedSection(allTickets, routePlans);
+    printHtml(header + body, `roster-all-${today}`);
+  };
+
+  const handleDownloadPdfTech = (plan: TechnicianRoutePlan) => {
+    const header = `
+      <div style="margin-bottom:24px;border-bottom:3px solid #0f172a;padding-bottom:16px">
+        <div style="font-size:20px;font-weight:800;color:#0f172a">FleetOps · Route Sheet</div>
+        <div style="font-size:12px;color:#64748b;margin-top:4px">${today} · For: ${plan.technicianName} (${plan.employeeId})</div>
+      </div>`;
+    printHtml(header + buildPlanPdfHtml(plan), `route-${plan.employeeId}-${today}`);
+  };
+
+  const handleDownloadCsvAll = () => handleDownloadRoster();
+
+  const handleDownloadCsvTech = (plan: TechnicianRoutePlan) => {
+    const rows = ['Stop #,Ticket ID,Vehicle,Center,Issue,Priority,ETA'];
+    plan.stops.slice().sort((a, b) => a.stopOrder - b.stopOrder).forEach(s => {
+      rows.push([s.stopOrder, s.ticketId, s.vehicleNumber, `"${s.centerName.replace(/_D$/, '')}"`, `"${s.issue || ''}"`, s.priority, s.estimatedArrival].join(','));
+    });
+    const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `route-${plan.employeeId}-${today}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const handleWhatsAppAll = () => {
     if (routePlans.length === 0) return;
     const allText = routePlans
@@ -671,22 +806,34 @@ export const RoutePlannerPage: React.FC = () => {
             CLEAR
           </button>
 
-          <button
-            onClick={handleDownloadRoster}
-            className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold shadow-xs transition-colors flex items-center gap-1.5"
-          >
-            <Download className="w-3.5 h-3.5" />
-            DOWNLOAD ROSTER
-          </button>
-
-          <button
-            onClick={handleExportCSV}
-            disabled={routePlans.length === 0}
-            className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 text-slate-700 rounded-lg text-xs font-bold shadow-xs transition-colors flex items-center gap-1.5"
-          >
-            <Download className="w-3.5 h-3.5" />
-            CSV
-          </button>
+          {/* Download dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setDownloadMenuOpen(v => !v)}
+              className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold shadow-xs transition-colors flex items-center gap-1.5"
+            >
+              <Download className="w-3.5 h-3.5" />
+              DOWNLOAD
+              <ChevronDown className="w-3 h-3" />
+            </button>
+            {downloadMenuOpen && (
+              <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-50 w-44 py-1" onClick={() => setDownloadMenuOpen(false)}>
+                <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">All Technicians</div>
+                <button
+                  onClick={handleDownloadCsvAll}
+                  className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                >
+                  📄 CSV — All Routes
+                </button>
+                <button
+                  onClick={handleDownloadPdfAll}
+                  className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                >
+                  🖨 PDF — All Routes
+                </button>
+              </div>
+            )}
+          </div>
 
           <button
             onClick={handleWhatsAppAll}
@@ -945,6 +1092,22 @@ export const RoutePlannerPage: React.FC = () => {
                         className="ml-1 p-1.5 rounded-lg hover:bg-green-50 text-green-600 transition-colors"
                       >
                         <MessageCircle className="w-4 h-4" />
+                      </button>
+
+                      <button
+                        onClick={e => { e.stopPropagation(); handleDownloadCsvTech(plan); }}
+                        title="Download CSV for this tech"
+                        className="ml-1 p-1.5 rounded-lg hover:bg-blue-50 text-blue-600 transition-colors text-[10px] font-bold"
+                      >
+                        CSV
+                      </button>
+
+                      <button
+                        onClick={e => { e.stopPropagation(); handleDownloadPdfTech(plan); }}
+                        title="Download PDF for this tech"
+                        className="ml-1 p-1.5 rounded-lg hover:bg-orange-50 text-orange-600 transition-colors text-[10px] font-bold"
+                      >
+                        PDF
                       </button>
 
                       <button
