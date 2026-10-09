@@ -1329,8 +1329,8 @@ export function HexZoneMapPage() {
       const hasOpen = openCount > 0;
       const hasIgn  = cTickets.some(t => ignored.has(t.id));
 
-      // Skip DCs with no open tickets when filter is active
-      if (hideClearDCs && openCount === 0) return;
+      // Skip DCs with no open tickets when filter is active or hideClearDCs toggle is on
+      if ((hideClearDCs || hexFilter !== 'all') && openCount === 0) return;
 
       const ringColor = hasOpen && activeLayers.has('openTickets') ? '#f97316'
                       : hasIgn && activeLayers.has('ignoredTickets') ? '#94a3b8'
@@ -1484,10 +1484,10 @@ export function HexZoneMapPage() {
           </button>
           <div className="flex items-center gap-1.5">
             <Filter className="w-3.5 h-3.5 text-slate-400" />
-            {(['all', 'open', 'unassigned'] as const).map(f => (
+            {(['open', 'unassigned', 'all'] as const).map(f => (
               <button key={f} onClick={() => setHexFilter(f)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${hexFilter === f ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
-                {f === 'all' ? 'All' : f === 'open' ? 'Open' : 'Unassigned'}
+                {f === 'all' ? 'All Centers' : f === 'open' ? 'With Open Tickets' : 'Unassigned Only'}
               </button>
             ))}
           </div>
