@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   Technician,
   Center,
@@ -12,7 +12,8 @@ import {
   getTechnicians,
   getTickets,
   getAttendance,
-  getRoutePlans
+  getRoutePlans,
+  subscribeToDataChanges,
 } from '../../services/storage';
 import {
   UserPlus,
@@ -44,6 +45,10 @@ export const OverviewPage: React.FC<Props> = ({
   onOpenAddCenter,
   onOpenUploadModal
 }) => {
+  // Reactive counter so all derived data re-reads from storage on any change
+  const [tick, setTick] = useState(0);
+  useEffect(() => subscribeToDataChanges(() => setTick(n => n + 1)), []);
+
   const technicians = getTechnicians();
   const centers = getCenters();
   const tickets = getTickets();
@@ -51,8 +56,8 @@ export const OverviewPage: React.FC<Props> = ({
   const routePlans = getRoutePlans();
   const today = new Date().toISOString().split('T')[0];
 
-  // Data Quality Audit
-  const qualityStats: DataQualityStats = useMemo(() => computeDataQuality(), [technicians, centers, tickets]);
+  // Data Quality Audit — recomputes whenever storage changes (tick)
+  const qualityStats: DataQualityStats = useMemo(() => computeDataQuality(), [tick]);
 
   // High Priority Open Cases Alert (Requirement 19)
   const highPriorityCases = useMemo(() => {
@@ -381,30 +386,25 @@ export const OverviewPage: React.FC<Props> = ({
           <span className="text-[11px] text-slate-400">Delhi NCR Operations Standard</span>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-6 gap-3 text-xs pt-1">
-          <div className="bg-slate-800/80 p-3 rounded-lg border border-slate-700">
-            <span className="text-[10px] text-slate-400 block font-mono">01. Roster</span>
-            <div className="font-semibold text-white mt-1">Add / Check Tech</div>
-          </div>
-          <div className="bg-slate-800/80 p-3 rounded-lg border border-slate-700">
-            <span className="text-[10px] text-slate-400 block font-mono">02. Hubs</span>
-            <div className="font-semibold text-white mt-1">Upload Center CSV</div>
-          </div>
-          <div className="bg-slate-800/80 p-3 rounded-lg border border-slate-700">
-            <span className="text-[10px] text-slate-400 block font-mono">03. Tickets</span>
-            <div className="font-semibold text-white mt-1">Upload Tickets CSV</div>
-          </div>
-          <div className="bg-slate-800/80 p-3 rounded-lg border border-slate-700">
-            <span className="text-[10px] text-slate-400 block font-mono">04. Attendance</span>
-            <div className="font-semibold text-white mt-1">Mark Shift Check-in</div>
-          </div>
-          <div className="bg-slate-800/80 p-3 rounded-lg border border-slate-700">
-            <span className="text-[10px] text-slate-400 block font-mono">05. Optimizer</span>
-            <div className="font-semibold text-white mt-1">Plan Routes</div>
-          </div>
-          <div className="bg-slate-800/80 p-3 rounded-lg border border-slate-700">
-            <span className="text-[10px] text-slate-400 block font-mono">06. Live</span>
-            <div className="font-semibold text-white mt-1">Track Execution</div>
-          </div>
+          {([
+            { step: '01', label: 'Roster',     title: 'Add / Check Tech',    tab: 'TECHNICIAN MANAGEMENT' },
+            { step: '02', label: 'Hubs',        title: 'Upload Center CSV',   tab: 'CENTER MANAGEMENT' },
+            { step: '03', label: 'Tickets',     title: 'Upload Tickets CSV',  tab: 'IMPORT DATA' },
+            { step: '04', label: 'Attendance',  title: 'Mark Shift Check-in', tab: 'ATTENDANCE' },
+            { step: '05', label: 'Optimizer',   title: 'Plan Routes',         tab: 'ROUTE PLANNER' },
+            { step: '06', label: 'Live',        title: 'Track Execution',     tab: 'LIVE TRACKING' },
+          ] as const).map(({ step, label, title, tab }) => (
+            <button
+              key={step}
+              onClick={() => onNavigate(tab)}
+              className="bg-slate-800/80 p-3 rounded-lg border border-slate-700 hover:border-blue-500 hover:bg-slate-700/80 transition-colors text-left w-full cursor-pointer group"
+            >
+              <span className="text-[10px] text-slate-400 block font-mono group-hover:text-blue-400 transition-colors">
+                {step}. {label}
+              </span>
+              <div className="font-semibold text-white mt-1">{title}</div>
+            </button>
+          ))}
         </div>
       </div>
     </div>

@@ -170,12 +170,11 @@ export const AiAssistantPage: React.FC = () => {
   const [provider, setProvider] = useState<Provider>('gemini');
   const [selectedModel, setSelectedModel] = useState(GEMINI_MODELS[0].id);
   const [showSettings, setShowSettings] = useState(false);
-  const [groqKey, setGroqKey] = useState(() => {
-    try { return localStorage.getItem('fo_groq_key') || ''; } catch { return ''; }
-  });
-  const [geminiKey, setGeminiKey] = useState(() => {
-    try { return localStorage.getItem('fo_gemini_key') || ''; } catch { return ''; }
-  });
+  // Write-only: never read stored keys back into the input (security)
+  const [groqKey, setGroqKey] = useState('');
+  const [geminiKey, setGeminiKey] = useState('');
+  const hasGroqKey = (() => { try { return !!localStorage.getItem('fo_groq_key'); } catch { return false; } })();
+  const hasGeminiKey = (() => { try { return !!localStorage.getItem('fo_gemini_key'); } catch { return false; } })();
   const [apiKeySaved, setApiKeySaved] = useState(false);
 
   // Sync model when provider changes
@@ -348,15 +347,25 @@ export const AiAssistantPage: React.FC = () => {
           <div className="flex flex-col sm:flex-row gap-2">
             <div className="flex-1 flex items-center gap-2">
               <span className="text-[10px] font-bold text-blue-600 w-14 shrink-0">Gemini</span>
-              <input type="password" value={geminiKey} onChange={e => setGeminiKey(e.target.value)}
-                placeholder="AIza... or AQ.Ab..."
-                className="flex-1 text-xs px-3 py-1.5 rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/40 font-mono" />
+              <div className="flex-1 relative">
+                <input type="password" value={geminiKey} onChange={e => setGeminiKey(e.target.value)}
+                  placeholder={hasGeminiKey ? '••••••••••••••• (saved — paste to replace)' : 'AIza... or AQ.Ab...'}
+                  className="w-full text-xs px-3 py-1.5 rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/40 font-mono" />
+                {hasGeminiKey && !geminiKey && (
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">SAVED</span>
+                )}
+              </div>
             </div>
             <div className="flex-1 flex items-center gap-2">
               <span className="text-[10px] font-bold text-teal-600 w-14 shrink-0">Groq</span>
-              <input type="password" value={groqKey} onChange={e => setGroqKey(e.target.value)}
-                placeholder="gsk_..."
-                className="flex-1 text-xs px-3 py-1.5 rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/40 font-mono" />
+              <div className="flex-1 relative">
+                <input type="password" value={groqKey} onChange={e => setGroqKey(e.target.value)}
+                  placeholder={hasGroqKey ? '••••••••••••••• (saved — paste to replace)' : 'gsk_...'}
+                  className="w-full text-xs px-3 py-1.5 rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/40 font-mono" />
+                {hasGroqKey && !groqKey && (
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">SAVED</span>
+                )}
+              </div>
             </div>
             <button onClick={saveApiKey}
               className="px-4 py-1.5 bg-slate-800 hover:bg-black text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 shrink-0">
@@ -493,7 +502,7 @@ export const AiAssistantPage: React.FC = () => {
           </button>
         </form>
         <p className="text-[10px] text-slate-400 mt-1.5 text-center">
-          Fleet context is injected automatically with every message · Responses may not be 100% accurate
+          Live fleet data (technicians, tickets, attendance, centers) is sent with every message · Responses may not be 100% accurate
         </p>
       </div>
     </div>
