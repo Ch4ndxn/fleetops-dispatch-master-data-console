@@ -221,8 +221,8 @@ const SPECIALISATION_MAP: Record<string, string[]> = {
 
 function techCanHandleIssue(tech: Technician, issue: string): boolean {
   const issueL = issue.toLowerCase();
-  const spec = tech.specialisation || 'General';
-  if (spec === 'General') return true;
+  const spec: string = tech.specialisation || 'General';
+  if (spec === 'General' || !spec) return true;
   const keywords = SPECIALISATION_MAP[spec] || [];
   if (keywords.length === 0) return true;
   return keywords.some(kw => issueL.includes(kw));
@@ -315,15 +315,26 @@ export function planBalancedRoutes(constraints: BalancedPlanConstraints): Balanc
     stopCount: 0,
   }));
 
+  // Pre-compute each tech's home-base distance to every center
+  // Used for cluster ownership: the tech whose starting point is nearest to a center "owns" that cluster
+  function homeDistKm(ts: TechState, lat: number, lng: number): number {
+    return calculateDistanceKmStraight(ts.plan.startLat, ts.plan.startLng, lat, lng);
+  }
+
   const shiftDurationMins = (constraints.shiftEndHour - constraints.shiftStartHour) * 60;
   const unrouted: Ticket[] = [];
-
-  // ── CRITICAL-first pass: assign each CRITICAL ticket to the nearest AVAILABLE tech ──
-  // then ── remaining tickets via balanced greedy ──
 
   for (const ticket of routableTickets) {
     const center = centerMap.get(ticket.centerName.trim().toLowerCase())!;
     const durationMins = ticket.priority === 'CRITICAL' ? 70 : ticket.priority === 'HIGH' ? 55 : 45;
+
+    // Find the "home" tech for this ticket = the tech whose START POINT is nearest to this center
+    // That tech is treated as owning this cluster
+    let minHomeDist = Infinity;
+    techStates.forEach(ts => {
+      const d = homeDistKm(ts, center.latitude, center.longitude);
+      if (d < minHomeDist) minHomeDist = d;
+    });
 
     // Compute score for each tech (lower = better)
     let bestIdx = -1;
@@ -356,17 +367,26 @@ export function planBalancedRoutes(constraints: BalancedPlanConstraints): Balanc
       const minsAfterStop = ts.totalMins + travelMins + durationMins;
       if (minsAfterStop > shiftDurationMins + 30) continue; // 30-min OT buffer
 
+      // CLUSTER OWNERSHIP: tech whose start point is nearest to this center
+      // gets a bonus (negative score adjustment) — their cluster, their ticket first
+      const myHomeDist = homeDistKm(ts, center.latitude, center.longitude);
+      const isClusterOwner = myHomeDist <= minHomeDist * 1.15; // within 15% of nearest
+      // Bonus = reduce score by up to 25 points if they're the cluster owner
+      // This means: prefer this tech for their zone, but can be overridden by heavy load
+      const clusterBonus = isClusterOwner ? -25 : 0;
+
       // LOAD PENALTY: techs with more stops than average get a heavy penalty
       // This forces even distribution — an overloaded tech loses the bid even if nearest
       const eligibleCounts = techStates.map(t => t.stopCount);
       const avgStops = eligibleCounts.reduce((s, n) => s + n, 0) / Math.max(1, techStates.length);
-      // Very strong penalty: each stop above average multiplies score by 2×
-      // At 1 stop above avg → 2× penalty, 2 stops above → 3× etc.
+      // Strong penalty: each stop above average multiplies score significantly
+      // At 1 stop above avg → big penalty so nearby cluster tech picks up the work
       const loadPenaltyFactor = 1 + Math.max(0, ts.stopCount - avgStops) * 1.5;
 
-      // SCORE = (travel_time × load_penalty) + distance_penalty (lower = better candidate)
-      // Load penalty dominates so work distributes evenly before proximity matters
-      const score = travelMins * loadPenaltyFactor + distKm * 0.2;
+      // SCORE = (travel_time × load_penalty) + distance_penalty + cluster_bonus
+      // Cluster ownership pulls score down (favours home cluster)
+      // Load penalty pushes score up (forces spillover to idle neighbours)
+      const score = travelMins * loadPenaltyFactor + distKm * 0.2 + clusterBonus;
 
       if (score < bestScore) {
         bestScore = score;
