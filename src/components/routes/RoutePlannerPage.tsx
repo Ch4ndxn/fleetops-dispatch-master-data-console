@@ -38,7 +38,10 @@ import {
   Search,
   MessageCircle,
   Settings2,
-  Maximize2
+  Maximize2,
+  GripVertical,
+  ArrowRight,
+  Edit2
 } from 'lucide-react';
 
 // ─── Recalc helper ────────────────────────────────────────────────────────────
@@ -179,6 +182,16 @@ export const RoutePlannerPage: React.FC = () => {
 
   // Last plan result metadata
   const [planMeta, setPlanMeta] = useState<{ kmSaved: number; balanceScore: number; timeSavedMins: number } | null>(null);
+
+  // ── Feature 1: Drag-to-reorder ────────────────────────────────────────────
+  const [dragState, setDragState] = useState<{ techId: string; fromIdx: number } | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<{ techId: string; idx: number } | null>(null);
+
+  // ── Feature 2: Move stop to another tech ─────────────────────────────────
+  const [moveStopOpen, setMoveStopOpen] = useState<{ techId: string; ticketId: string } | null>(null);
+
+  // ── Feature 3: Inline stop editing ───────────────────────────────────────
+  const [editingStop, setEditingStop] = useState<{ techId: string; ticketId: string; priority: string; issue: string } | null>(null);
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -450,6 +463,97 @@ export const RoutePlannerPage: React.FC = () => {
       else next.add(techId);
       return next;
     });
+  };
+
+  // ── Feature 1: Drag-to-reorder handlers ──────────────────────────────────
+  const handleDragStart = (techId: string, fromIdx: number) => {
+    setDragState({ techId, fromIdx });
+  };
+
+  const handleDragOver = (e: React.DragEvent, techId: string, idx: number) => {
+    e.preventDefault();
+    setDragOverIdx({ techId, idx });
+  };
+
+  const handleDrop = (e: React.DragEvent, techId: string, toIdx: number) => {
+    e.preventDefault();
+    if (!dragState || dragState.techId !== techId || dragState.fromIdx === toIdx) {
+      setDragState(null);
+      setDragOverIdx(null);
+      return;
+    }
+    const updated = routePlans.map(plan => {
+      if (plan.technicianId !== techId) return plan;
+      const stops = [...plan.stops];
+      const [moved] = stops.splice(dragState.fromIdx, 1);
+      stops.splice(toIdx, 0, moved);
+      return recalcPlan({ ...plan, stops }, centers);
+    });
+    saveRoutePlans(updated);
+    setRoutePlans(updated);
+    setDragState(null);
+    setDragOverIdx(null);
+    showToast('Stop reordered and ETAs recalculated.');
+  };
+
+  const handleDragEnd = () => {
+    setDragState(null);
+    setDragOverIdx(null);
+  };
+
+  // ── Feature 2: Move stop to another tech ─────────────────────────────────
+  const handleMoveStop = (fromTechId: string, ticketId: string, toTechId: string) => {
+    let movedStop: RouteStop | undefined;
+    const updated = routePlans.map(plan => {
+      if (plan.technicianId === fromTechId) {
+        movedStop = plan.stops.find(s => s.ticketId === ticketId);
+        const newStops = plan.stops.filter(s => s.ticketId !== ticketId);
+        return recalcPlan({ ...plan, stops: newStops }, centers);
+      }
+      return plan;
+    });
+    if (!movedStop) return;
+    const finalUpdate = updated.map(plan => {
+      if (plan.technicianId === toTechId) {
+        return recalcPlan({ ...plan, stops: [...plan.stops, movedStop!] }, centers);
+      }
+      return plan;
+    });
+    saveRoutePlans(finalUpdate);
+    setRoutePlans(finalUpdate);
+    setMoveStopOpen(null);
+    showToast('Stop moved and ETAs recalculated.');
+  };
+
+  // ── Feature 3: Inline stop edit save ─────────────────────────────────────
+  const handleSaveStopEdit = () => {
+    if (!editingStop) return;
+    const { techId, ticketId, priority, issue } = editingStop;
+
+    // Update plan stops
+    const updatedPlans = routePlans.map(plan => {
+      if (plan.technicianId !== techId) return plan;
+      const newStops = plan.stops.map(s =>
+        s.ticketId === ticketId
+          ? { ...s, priority: priority as TicketPriority, issue }
+          : s
+      );
+      return recalcPlan({ ...plan, stops: newStops }, centers);
+    });
+    saveRoutePlans(updatedPlans);
+    setRoutePlans(updatedPlans);
+
+    // Update ticket in allTickets
+    const updatedTickets = allTickets.map(tk =>
+      tk.ticketId === ticketId
+        ? { ...tk, priority: priority as TicketPriority, issue, updatedAt: new Date().toISOString() }
+        : tk
+    );
+    saveTickets(updatedTickets);
+    setAllTickets(updatedTickets);
+
+    setEditingStop(null);
+    showToast('Stop updated.');
   };
 
   const mapHeight = fullMap ? '600px' : '450px';
@@ -804,34 +908,162 @@ export const RoutePlannerPage: React.FC = () => {
                         {plan.stops.length === 0 ? (
                           <p className="text-xs text-slate-400 py-2">No stops assigned.</p>
                         ) : (
-                          plan.stops.map(stop => (
-                            <div
-                              key={stop.ticketId}
-                              className="flex items-center gap-2 p-2.5 bg-slate-50 rounded-lg border border-slate-100 text-xs"
-                            >
-                              <span className="w-5 h-5 rounded-full bg-slate-800 text-white font-mono text-[10px] flex items-center justify-center font-bold shrink-0">
-                                {stop.stopOrder}
-                              </span>
-                              <div className="flex-1 min-w-0">
-                                <div className="font-semibold text-slate-900 truncate">{stop.centerName}</div>
-                                <div className="text-[10px] text-slate-500 flex gap-2 flex-wrap">
-                                  <span>{stop.vehicleNumber}</span>
-                                  <span className="truncate max-w-[160px]">{stop.issue}</span>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-2 shrink-0">
-                                <PriorityBadge priority={stop.priority} />
-                                <span className="font-mono text-[11px] font-bold text-blue-600">{stop.estimatedArrival}</span>
-                                <button
-                                  onClick={() => handleRemoveStop(plan.technicianId, stop.ticketId)}
-                                  title="Remove stop"
-                                  className="w-5 h-5 flex items-center justify-center rounded text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors"
+                          plan.stops.map((stop, idx) => {
+                            const isDragging = dragState?.techId === plan.technicianId && dragState?.fromIdx === idx;
+                            const isDropTarget = dragOverIdx?.techId === plan.technicianId && dragOverIdx?.idx === idx;
+                            const isMoveOpen = moveStopOpen?.techId === plan.technicianId && moveStopOpen?.ticketId === stop.ticketId;
+                            const isEditing = editingStop?.techId === plan.technicianId && editingStop?.ticketId === stop.ticketId;
+
+                            return (
+                              <div key={stop.ticketId}>
+                                {/* Stop row */}
+                                <div
+                                  draggable
+                                  onDragStart={() => handleDragStart(plan.technicianId, idx)}
+                                  onDragOver={e => handleDragOver(e, plan.technicianId, idx)}
+                                  onDrop={e => handleDrop(e, plan.technicianId, idx)}
+                                  onDragEnd={handleDragEnd}
+                                  className={`flex items-center gap-2 p-2.5 bg-slate-50 rounded-lg border border-slate-100 text-xs transition-all ${
+                                    isDragging ? 'opacity-50' : ''
+                                  } ${isDropTarget ? 'border-t-2 border-t-blue-500' : ''}`}
                                 >
-                                  <X className="w-3.5 h-3.5" />
-                                </button>
+                                  {/* Drag handle */}
+                                  <span
+                                    className="cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-500 shrink-0"
+                                    title="Drag to reorder"
+                                  >
+                                    <GripVertical className="w-3.5 h-3.5" />
+                                  </span>
+
+                                  <span className="w-5 h-5 rounded-full bg-slate-800 text-white font-mono text-[10px] flex items-center justify-center font-bold shrink-0">
+                                    {stop.stopOrder}
+                                  </span>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="font-semibold text-slate-900 truncate">{stop.centerName}</div>
+                                    <div className="text-[10px] text-slate-500 flex gap-2 flex-wrap">
+                                      <span>{stop.vehicleNumber}</span>
+                                      <span className="truncate max-w-[160px]">{stop.issue}</span>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    <PriorityBadge priority={stop.priority} />
+                                    <span className="font-mono text-[11px] font-bold text-blue-600">{stop.estimatedArrival}</span>
+
+                                    {/* Inline edit button */}
+                                    <button
+                                      onClick={() => {
+                                        if (isEditing) {
+                                          setEditingStop(null);
+                                        } else {
+                                          setEditingStop({ techId: plan.technicianId, ticketId: stop.ticketId, priority: stop.priority, issue: stop.issue });
+                                          setMoveStopOpen(null);
+                                        }
+                                      }}
+                                      title="Edit stop"
+                                      className="w-5 h-5 flex items-center justify-center rounded text-slate-400 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                                    >
+                                      <Edit2 className="w-3 h-3" />
+                                    </button>
+
+                                    {/* Move stop button */}
+                                    <div className="relative">
+                                      <button
+                                        onClick={() => {
+                                          if (isMoveOpen) {
+                                            setMoveStopOpen(null);
+                                          } else {
+                                            setMoveStopOpen({ techId: plan.technicianId, ticketId: stop.ticketId });
+                                            setEditingStop(null);
+                                          }
+                                        }}
+                                        title="Move to another tech"
+                                        className="w-5 h-5 flex items-center justify-center rounded text-slate-400 hover:bg-amber-50 hover:text-amber-600 transition-colors"
+                                      >
+                                        <ArrowRight className="w-3 h-3" />
+                                      </button>
+
+                                      {/* Move dropdown */}
+                                      {isMoveOpen && (
+                                        <div className="absolute z-30 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg w-48 max-h-48 overflow-y-auto">
+                                          <div className="px-3 py-1.5 text-[10px] font-bold text-slate-500 uppercase tracking-wide border-b border-slate-100">
+                                            Move to tech
+                                          </div>
+                                          {routePlans
+                                            .filter(p => p.technicianId !== plan.technicianId)
+                                            .map(targetPlan => (
+                                              <button
+                                                key={targetPlan.technicianId}
+                                                onClick={() => handleMoveStop(plan.technicianId, stop.ticketId, targetPlan.technicianId)}
+                                                className="w-full text-left px-3 py-2 hover:bg-amber-50 border-b border-slate-100 last:border-0 transition-colors"
+                                              >
+                                                <div className="text-[11px] font-semibold text-slate-800 truncate">{targetPlan.technicianName}</div>
+                                                <div className="text-[10px] text-slate-400">{targetPlan.stops.length} stops</div>
+                                              </button>
+                                            ))
+                                          }
+                                          {routePlans.filter(p => p.technicianId !== plan.technicianId).length === 0 && (
+                                            <div className="px-3 py-2 text-[11px] text-slate-400">No other techs.</div>
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    {/* Remove button */}
+                                    <button
+                                      onClick={() => handleRemoveStop(plan.technicianId, stop.ticketId)}
+                                      title="Remove stop"
+                                      className="w-5 h-5 flex items-center justify-center rounded text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors"
+                                    >
+                                      <X className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </div>
+
+                                {/* Inline edit form */}
+                                {isEditing && editingStop && (
+                                  <div className="mt-1 ml-5 p-3 bg-blue-50 border border-blue-200 rounded-lg space-y-2">
+                                    <div className="flex gap-2 flex-wrap">
+                                      <div className="flex-1 min-w-[120px] space-y-1">
+                                        <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wide">Priority</label>
+                                        <select
+                                          value={editingStop.priority}
+                                          onChange={e => setEditingStop(prev => prev ? { ...prev, priority: e.target.value } : null)}
+                                          className="w-full text-xs rounded-lg border border-slate-200 bg-white px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                                        >
+                                          {(['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] as const).map(p => (
+                                            <option key={p} value={p}>{p}</option>
+                                          ))}
+                                        </select>
+                                      </div>
+                                      <div className="flex-[2] min-w-[160px] space-y-1">
+                                        <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wide">Issue / Notes</label>
+                                        <input
+                                          type="text"
+                                          value={editingStop.issue}
+                                          onChange={e => setEditingStop(prev => prev ? { ...prev, issue: e.target.value } : null)}
+                                          className="w-full text-xs rounded-lg border border-slate-200 bg-white px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                                        />
+                                      </div>
+                                    </div>
+                                    <div className="flex gap-2 justify-end">
+                                      <button
+                                        onClick={() => setEditingStop(null)}
+                                        className="px-3 py-1 rounded-lg text-[11px] font-bold bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors"
+                                      >
+                                        Cancel
+                                      </button>
+                                      <button
+                                        onClick={handleSaveStopEdit}
+                                        className="px-3 py-1 rounded-lg text-[11px] font-bold bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                                      >
+                                        Save
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
                               </div>
-                            </div>
-                          ))
+                            );
+                          })
                         )}
 
                         {/* Add Stop dropdown */}
