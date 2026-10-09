@@ -133,6 +133,19 @@ export const MapTab: React.FC<MapTabProps> = ({
     );
   }, [allStops, searchLower]);
 
+  // open ticket counts per center name
+  const openTicketsByCenter = useMemo(() => {
+    const OPEN = new Set(['Open', 'Assigned', 'In Progress', 'Pending Spares']);
+    const map = new Map<string, Ticket[]>();
+    allTickets.forEach(t => {
+      if (!OPEN.has(t.status)) return;
+      const key = t.centerName.trim().toLowerCase();
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(t);
+    });
+    return map;
+  }, [allTickets]);
+
   // nearest DC to my location
   const nearestDC = useMemo(() => {
     if (!myLocation) return null;
@@ -144,8 +157,24 @@ export const MapTab: React.FC<MapTabProps> = ({
       const d = distKm(myLocation.lat, myLocation.lng, c.latitude, c.longitude);
       if (d < bestDist) { bestDist = d; best = c; }
     });
-    return { center: best, distKm: bestDist };
-  }, [myLocation, centers]);
+    const openTickets = openTicketsByCenter.get(best.name.trim().toLowerCase()) ?? [];
+    return { center: best, distKm: bestDist, openTickets };
+  }, [myLocation, centers, openTicketsByCenter]);
+
+  // all DCs sorted by distance, with open ticket count — shown when location is known
+  const nearbyCentersWithTickets = useMemo(() => {
+    if (!myLocation) return [];
+    return centers
+      .filter(c => c.latitude && c.longitude && !isNaN(c.latitude) && !isNaN(c.longitude))
+      .map(c => ({
+        center: c,
+        distKm: distKm(myLocation.lat, myLocation.lng, c.latitude, c.longitude),
+        openTickets: openTicketsByCenter.get(c.name.trim().toLowerCase()) ?? [],
+      }))
+      .filter(x => x.openTickets.length > 0)   // only DCs with open tickets
+      .sort((a, b) => a.distKm - b.distKm)
+      .slice(0, 5);                              // top 5 nearest
+  }, [myLocation, centers, openTicketsByCenter]);
 
   // selected tech label
   const selectedTechLabel = useMemo(() => {
@@ -537,14 +566,60 @@ export const MapTab: React.FC<MapTabProps> = ({
         </div>
       </div>
 
-      {/* Nearest DC banner */}
-      {myLocation && nearestDC && (
+      {/* Nearby DCs with open tickets */}
+      {myLocation && nearbyCentersWithTickets.length > 0 && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 overflow-hidden">
+          <div className="px-4 py-2 bg-amber-100 border-b border-amber-200 flex items-center gap-2">
+            <MapPin className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+            <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wider">Nearby DCs with Open Tickets</span>
+            <span className="ml-auto text-[10px] text-amber-600 font-semibold">{nearbyCentersWithTickets.length} found</span>
+          </div>
+          <div className="divide-y divide-amber-100">
+            {nearbyCentersWithTickets.map(({ center, distKm: dist, openTickets }) => {
+              const critical = openTickets.filter(t => t.priority === 'CRITICAL').length;
+              const high = openTickets.filter(t => t.priority === 'HIGH').length;
+              return (
+                <div key={center.id ?? center.name} className="px-4 py-2.5 flex items-center gap-3">
+                  <div className="w-7 h-7 bg-slate-900 rounded-[5px] flex items-center justify-center text-white text-[8px] font-bold shrink-0">DC</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[12px] font-bold text-slate-800">{center.name.replace(/_D$/, '')}</span>
+                      {critical > 0 && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-red-600 text-white">{critical} CRITICAL</span>}
+                      {high > 0 && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-orange-500 text-white">{high} HIGH</span>}
+                    </div>
+                    <div className="text-[10px] text-slate-500 mt-0.5">
+                      <b className="text-amber-700">{dist.toFixed(1)} km away</b>
+                      <span className="mx-1">·</span>
+                      <span>{openTickets.length} open ticket{openTickets.length > 1 ? 's' : ''}</span>
+                      <span className="mx-1">·</span>
+                      <span>{center.city}</span>
+                    </div>
+                  </div>
+                  <a
+                    href={`https://www.google.com/maps/dir/?api=1&origin=${myLocation.lat},${myLocation.lng}&destination=${center.latitude},${center.longitude}&travelmode=driving`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 px-2.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-[10px] transition-colors shrink-0"
+                  >
+                    <Navigation className="w-3 h-3" />
+                    Go
+                  </a>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Nearest DC (no open tickets fallback) */}
+      {myLocation && nearbyCentersWithTickets.length === 0 && nearestDC && (
         <div className="flex items-center gap-3 px-4 py-2.5 bg-blue-50 border border-blue-200 rounded-xl text-xs">
           <div className="w-7 h-7 bg-slate-900 rounded-[5px] flex items-center justify-center text-white text-[8px] font-bold shrink-0">DC</div>
           <div className="flex-1 min-w-0">
             <span className="text-blue-500 font-bold uppercase tracking-wide text-[10px]">Nearest DC · </span>
             <span className="font-bold text-slate-800">{nearestDC.center.name.replace(/_D$/, '')}</span>
             <span className="text-slate-500 ml-1">· {nearestDC.center.city} · <b className="text-blue-700">{nearestDC.distKm.toFixed(1)} km away</b></span>
+            <span className="text-emerald-600 ml-2 font-semibold">✓ No open tickets</span>
           </div>
           <a
             href={`https://www.google.com/maps/dir/?api=1&origin=${myLocation.lat},${myLocation.lng}&destination=${nearestDC.center.latitude},${nearestDC.center.longitude}&travelmode=driving`}
