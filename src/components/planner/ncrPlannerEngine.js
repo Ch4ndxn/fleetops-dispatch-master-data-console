@@ -58,6 +58,8 @@ function recomputeTicketData() {
   TICKETS_BY_DC = {};
   OPEN_TICKETS.forEach(t => {
     if (excludedTickets.has(t.ticket)) return;
+    // Also exclude tickets already closed in the planner Tracker
+    if ((ticketStatus[t.ticket]||{}).status === 'closed') return;
     if (!TICKETS_BY_DC[t.center]) TICKETS_BY_DC[t.center] = [];
     TICKETS_BY_DC[t.center].push(t);
   });
@@ -837,10 +839,13 @@ function rebuild() {
   
   // Update topbar stats
   document.getElementById('stat-techs').textContent = numTechs;
-  const activeTicketCount = OPEN_TICKETS.length - excludedTickets.size;
+  // Exclude both ignored tickets AND planner-closed tickets from the count
+  const activeTicketCount = OPEN_TICKETS.filter(t =>
+    !excludedTickets.has(t.ticket) && (ticketStatus[t.ticket]||{}).status !== 'closed'
+  ).length;
   document.getElementById('stat-tickets').textContent = activeTicketCount;
   const sub = document.getElementById('topbar-sub');
-  if(sub) sub.textContent = `${numTechs} Technician${numTechs>1?'s':''} • ${activeTicketCount} Active Tickets • Delhi NCR`;
+  if(sub) sub.textContent = `${numTechs} Technician${numTechs>1?'s':''} • ${activeTicketCount} Active Tickets • ${__data.regionLabel || 'Fleet Ops'}`;
   document.getElementById('stat-clusters').textContent = assignment.clusters.length;
   
   // Summary
@@ -1594,6 +1599,9 @@ function __restoreLocal(saved) {
   Object.entries(saved.tracker || {}).forEach(([tk, v]) => {
     ticketStatus[tk] = { status: (ticketStatus[tk] || {}).status || 'assigned', ts: v.ts || {}, note: v.note || '' };
   });
+  // Recompute now that ticketStatus is populated — closed tickets must be
+  // excluded from ACTIVE_DCS / TICKETS_BY_DC from the very first render
+  recomputeTicketData();
 }
 function __applyDbState(data) {
   Object.keys(manualOverrides).forEach(k => delete manualOverrides[k]);
