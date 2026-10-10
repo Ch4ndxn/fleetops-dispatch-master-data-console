@@ -32,10 +32,137 @@ import {
 type MapLayer = 'openTickets' | 'ignoredTickets' | 'techBases' | 'clusters' | 'spareHubs' | 'techRoutes';
 
 // ─── Hex grid parameters ─────────────────────────────────────────────────────
-const BBOX = { minLat: 28.28, maxLat: 28.85, minLng: 76.80, maxLng: 77.58 };
 const HEX_R_LAT = 0.055;
 const HEX_R_LNG = 0.075;
-const NUM_CLUSTERS = 12;
+
+// ─── City / Region configs ────────────────────────────────────────────────────
+// bbox = { minLat, maxLat, minLng, maxLng }
+// clusters = k-means cluster count
+// recommendedTechs = vehicles ÷ 15 (industry ratio for fleet service)
+// vehicleCount / centerCount from vehicles.json analysis
+export interface RegionConfig {
+  key: string;
+  label: string;
+  bbox: { minLat: number; maxLat: number; minLng: number; maxLng: number };
+  clusters: number;
+  recommendedTechs: number;
+  vehicleCount: number;
+  centerCount: number;
+  mapCenter: [number, number];
+  mapZoom: number;
+}
+
+export const REGION_CONFIGS: RegionConfig[] = [
+  {
+    key: 'Delhi NCR',
+    label: 'Delhi NCR',
+    bbox: { minLat: 28.28, maxLat: 28.85, minLng: 76.80, maxLng: 77.58 },
+    clusters: 12, recommendedTechs: 10, vehicleCount: 156, centerCount: 95,
+    mapCenter: [28.58, 77.18], mapZoom: 11,
+  },
+  {
+    key: 'Mumbai',
+    label: 'Mumbai',
+    bbox: { minLat: 18.85, maxLat: 19.35, minLng: 72.75, maxLng: 73.20 },
+    clusters: 9, recommendedTechs: 9, vehicleCount: 136, centerCount: 85,
+    mapCenter: [19.10, 72.95], mapZoom: 11,
+  },
+  {
+    key: 'Bangalore',
+    label: 'Bangalore',
+    bbox: { minLat: 12.70, maxLat: 13.20, minLng: 77.40, maxLng: 77.80 },
+    clusters: 7, recommendedTechs: 7, vehicleCount: 103, centerCount: 58,
+    mapCenter: [12.97, 77.59], mapZoom: 11,
+  },
+  {
+    key: 'Pune',
+    label: 'Pune',
+    bbox: { minLat: 18.40, maxLat: 18.70, minLng: 73.70, maxLng: 74.00 },
+    clusters: 4, recommendedTechs: 3, vehicleCount: 50, centerCount: 35,
+    mapCenter: [18.52, 73.86], mapZoom: 11,
+  },
+  {
+    key: 'Chennai',
+    label: 'Chennai',
+    bbox: { minLat: 12.85, maxLat: 13.25, minLng: 80.05, maxLng: 80.35 },
+    clusters: 4, recommendedTechs: 3, vehicleCount: 44, centerCount: 29,
+    mapCenter: [13.08, 80.20], mapZoom: 11,
+  },
+  {
+    key: 'Ahmedabad',
+    label: 'Ahmedabad',
+    bbox: { minLat: 22.90, maxLat: 23.20, minLng: 72.45, maxLng: 72.75 },
+    clusters: 3, recommendedTechs: 2, vehicleCount: 30, centerCount: 21,
+    mapCenter: [23.02, 72.57], mapZoom: 12,
+  },
+  {
+    key: 'Punjab',
+    label: 'Punjab',
+    bbox: { minLat: 30.40, maxLat: 31.00, minLng: 75.70, maxLng: 76.90 },
+    clusters: 3, recommendedTechs: 2, vehicleCount: 29, centerCount: 24,
+    mapCenter: [30.73, 76.78], mapZoom: 10,
+  },
+  {
+    key: 'Surat',
+    label: 'Surat',
+    bbox: { minLat: 21.10, maxLat: 21.30, minLng: 72.75, maxLng: 73.05 },
+    clusters: 2, recommendedTechs: 1, vehicleCount: 22, centerCount: 4,
+    mapCenter: [21.17, 72.83], mapZoom: 12,
+  },
+  {
+    key: 'Hyderabad',
+    label: 'Hyderabad',
+    bbox: { minLat: 17.25, maxLat: 17.65, minLng: 78.30, maxLng: 78.65 },
+    clusters: 2, recommendedTechs: 1, vehicleCount: 21, centerCount: 16,
+    mapCenter: [17.44, 78.50], mapZoom: 12,
+  },
+  {
+    key: 'Goa',
+    label: 'Goa',
+    bbox: { minLat: 15.25, maxLat: 15.60, minLng: 73.85, maxLng: 74.10 },
+    clusters: 2, recommendedTechs: 1, vehicleCount: 10, centerCount: 8,
+    mapCenter: [15.49, 73.82], mapZoom: 12,
+  },
+  {
+    key: 'Raipur',
+    label: 'Raipur',
+    bbox: { minLat: 21.15, maxLat: 21.35, minLng: 81.55, maxLng: 81.75 },
+    clusters: 2, recommendedTechs: 1, vehicleCount: 10, centerCount: 5,
+    mapCenter: [21.25, 81.65], mapZoom: 13,
+  },
+  {
+    key: 'AP',
+    label: 'Andhra Pradesh',
+    bbox: { minLat: 16.20, maxLat: 16.70, minLng: 80.35, maxLng: 81.10 },
+    clusters: 2, recommendedTechs: 1, vehicleCount: 10, centerCount: 10,
+    mapCenter: [16.31, 80.44], mapZoom: 11,
+  },
+  {
+    key: 'Jaipur',
+    label: 'Jaipur',
+    bbox: { minLat: 26.75, maxLat: 26.98, minLng: 75.70, maxLng: 75.95 },
+    clusters: 2, recommendedTechs: 1, vehicleCount: 8, centerCount: 8,
+    mapCenter: [26.91, 75.79], mapZoom: 12,
+  },
+  {
+    key: 'Gujarat',
+    label: 'Gujarat (Other)',
+    bbox: { minLat: 22.40, maxLat: 23.60, minLng: 72.40, maxLng: 73.20 },
+    clusters: 2, recommendedTechs: 1, vehicleCount: 5, centerCount: 5,
+    mapCenter: [23.02, 72.57], mapZoom: 10,
+  },
+  {
+    key: 'Uttar Pradesh',
+    label: 'Uttar Pradesh',
+    bbox: { minLat: 25.20, maxLat: 25.45, minLng: 82.90, maxLng: 83.10 },
+    clusters: 2, recommendedTechs: 1, vehicleCount: 2, centerCount: 2,
+    mapCenter: [25.32, 82.99], mapZoom: 13,
+  },
+];
+
+const DEFAULT_REGION = REGION_CONFIGS[0]; // Delhi NCR
+// Legacy constant for backward compat where still referenced
+const NUM_CLUSTERS = DEFAULT_REGION.clusters;
 
 // ─── Cluster palette ──────────────────────────────────────────────────────────
 const CLUSTER_COLORS = [
@@ -98,17 +225,19 @@ function centerCoords(name: string, centers: Center[]) {
   coordCache.set(name, r); return r;
 }
 
-function buildGrid(tickets: Ticket[], centers: Center[], techs: Technician[]): HexCell[] {
+type BBox = { minLat: number; maxLat: number; minLng: number; maxLng: number };
+
+function buildGrid(tickets: Ticket[], centers: Center[], techs: Technician[], bbox: BBox = DEFAULT_REGION.bbox): HexCell[] {
   const stepLng = HEX_R_LNG * 1.5;
   const stepLat = HEX_R_LAT * Math.sqrt(3);
-  const cols = Math.ceil((BBOX.maxLng - BBOX.minLng) / stepLng) + 1;
-  const rows = Math.ceil((BBOX.maxLat - BBOX.minLat) / stepLat) + 1;
+  const cols = Math.ceil((bbox.maxLng - bbox.minLng) / stepLng) + 1;
+  const rows = Math.ceil((bbox.maxLat - bbox.minLat) / stepLat) + 1;
   const cells: HexCell[] = [];
   for (let col = 0; col < cols; col++) {
     for (let row = 0; row < rows; row++) {
-      const cLng = BBOX.minLng + col * stepLng;
-      const cLat = BBOX.minLat + row * stepLat + (col % 2) * (stepLat / 2);
-      if (cLat > BBOX.maxLat + HEX_R_LAT) continue;
+      const cLng = bbox.minLng + col * stepLng;
+      const cLat = bbox.minLat + row * stepLat + (col % 2) * (stepLat / 2);
+      if (cLat > bbox.maxLat + HEX_R_LAT) continue;
       const cellTickets = tickets.filter(t => {
         const c = centerCoords(t.centerName, centers);
         return c && isInsideHex(c.lat, c.lng, cLat, cLng);
@@ -128,7 +257,7 @@ function buildGrid(tickets: Ticket[], centers: Center[], techs: Technician[]): H
 }
 
 // ─── K-means clustering (weighted by vehicle density) ─────────────────────────
-function kMeansClusters(cells: HexCell[], k: number): number[] {
+function kMeansClusters(cells: HexCell[], k: number = NUM_CLUSTERS): number[] {
   const activeCells = cells.filter(c => c.vehicleCount > 0 || c.tickets.length > 0 || c.centers.length > 0);
   if (activeCells.length === 0) return cells.map(() => 0);
 
@@ -1179,8 +1308,11 @@ export function HexZoneMapPage() {
     toast('Roster reset to auto-assign');
   }
 
+  // Region / city selector
+  const [selectedRegion, setSelectedRegion] = useState<RegionConfig>(DEFAULT_REGION);
+
   // Bottom panel tab
-  type BottomTab = 'roster' | 'sitting' | 'zones';
+  type BottomTab = 'roster' | 'sitting' | 'zones' | 'coverage';
   const [bottomTab, setBottomTab] = useState<BottomTab>('roster');
 
   type HexFilter = 'all' | 'open' | 'unassigned';
@@ -1189,6 +1321,13 @@ export function HexZoneMapPage() {
 
   useEffect(() => { const u = subscribeToDataChanges(() => setTickets(getTickets())); return u; }, []);
   useEffect(() => { coordCache.clear(); }, [centers]);
+
+  // Fly to new region when user switches
+  useEffect(() => {
+    if (mapRef.current) {
+      mapRef.current.flyTo(selectedRegion.mapCenter, selectedRegion.mapZoom, { duration: 1.2 });
+    }
+  }, [selectedRegion]);
 
   function persistIgnored(s: Set<string>) { setIgnoredState(new Set(s)); setIgnored(s); }
 
@@ -1289,12 +1428,12 @@ export function HexZoneMapPage() {
     return true;
   }), [tickets, hexFilter]);
 
-  // Build grid + run k-means
+  // Build grid + run k-means for selected region
   const grid = useMemo(() => {
-    const raw = buildGrid(filteredTickets, centers, allTechs);
-    const assignments = kMeansClusters(raw, NUM_CLUSTERS);
+    const raw = buildGrid(filteredTickets, centers, allTechs, selectedRegion.bbox);
+    const assignments = kMeansClusters(raw, selectedRegion.clusters);
     return raw.map((cell, i) => ({ ...cell, clusterId: assignments[i] }));
-  }, [filteredTickets, centers, allTechs]);
+  }, [filteredTickets, centers, allTechs, selectedRegion]);
 
   const clusters = useMemo(() => buildClusters(grid, allTechs, centers), [grid, allTechs, centers]);
 
@@ -1369,7 +1508,7 @@ export function HexZoneMapPage() {
   useEffect(() => {
     if (!mapContainerRef.current) return;
     if (!mapRef.current) {
-      mapRef.current = L.map(mapContainerRef.current, { center: [28.58, 77.22], zoom: 11, zoomControl: true });
+      mapRef.current = L.map(mapContainerRef.current, { center: selectedRegion.mapCenter, zoom: selectedRegion.mapZoom, zoomControl: true });
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap contributors', maxZoom: 19,
       }).addTo(mapRef.current);
@@ -1589,11 +1728,31 @@ export function HexZoneMapPage() {
     <div className="space-y-4">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight">HEX ZONE MAP</h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Delhi NCR · {NUM_CLUSTERS} vehicle-density clusters · 1 technician/cluster · spare hubs every 20 vehicles
-          </p>
+        <div className="flex items-start gap-4">
+          <div>
+            <h1 className="text-xl font-bold text-slate-900 tracking-tight">HEX ZONE MAP</h1>
+            <p className="text-xs text-slate-500 mt-0.5">
+              {selectedRegion.label} · {selectedRegion.clusters} clusters · {selectedRegion.vehicleCount} vehicles · {selectedRegion.recommendedTechs} techs recommended
+            </p>
+          </div>
+          {/* Region / City selector */}
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            <select
+              value={selectedRegion.key}
+              onChange={e => {
+                const r = REGION_CONFIGS.find(c => c.key === e.target.value);
+                if (r) setSelectedRegion(r);
+              }}
+              className="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white text-slate-700 font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {REGION_CONFIGS.map(r => (
+                <option key={r.key} value={r.key}>
+                  {r.label} ({r.vehicleCount}V · {r.recommendedTechs}T)
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {/* PLAN ROUTES button */}
@@ -1701,7 +1860,7 @@ export function HexZoneMapPage() {
             </div>
           </div>
           <div className="pt-1 mt-1 border-t border-slate-100">
-            <div className="text-[10px] font-semibold text-slate-400 uppercase mb-1">Clusters (C1–C{NUM_CLUSTERS})</div>
+            <div className="text-[10px] font-semibold text-slate-400 uppercase mb-1">Clusters (C1–C{selectedRegion.clusters})</div>
             <div className="grid grid-cols-4 gap-1">
               {clustersWithRoster.slice(0, 12).map(c => (
                 <div key={c.id} className="flex items-center gap-0.5">
@@ -1757,9 +1916,10 @@ export function HexZoneMapPage() {
         {/* Tab bar */}
         <div className="flex border-b border-slate-200">
           {([
-            { id: 'roster'  as BottomTab, label: 'Cluster Roster',   icon: <Diamond className="w-3.5 h-3.5" /> },
-            { id: 'sitting' as BottomTab, label: 'Sitting Roster',   icon: <Coffee  className="w-3.5 h-3.5" /> },
-            { id: 'zones'   as BottomTab, label: 'Active Zones',     icon: <Users   className="w-3.5 h-3.5" /> },
+            { id: 'roster'   as BottomTab, label: 'Cluster Roster',   icon: <Diamond   className="w-3.5 h-3.5" /> },
+            { id: 'sitting'  as BottomTab, label: 'Sitting Roster',   icon: <Coffee    className="w-3.5 h-3.5" /> },
+            { id: 'zones'    as BottomTab, label: 'Active Zones',     icon: <Users     className="w-3.5 h-3.5" /> },
+            { id: 'coverage' as BottomTab, label: 'Fleet Coverage',   icon: <Layers    className="w-3.5 h-3.5" /> },
           ] as const).map(tab => (
             <button key={tab.id} onClick={() => setBottomTab(tab.id)}
               className={`flex items-center gap-1.5 px-5 py-3 text-xs font-semibold border-b-2 transition-colors ${
@@ -1780,7 +1940,7 @@ export function HexZoneMapPage() {
         <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-2">
           <Diamond className="w-4 h-4 text-teal-600" />
           <span className="text-sm font-semibold text-slate-800">Cluster Roster</span>
-          <span className="text-xs text-slate-400 ml-1">— {NUM_CLUSTERS} zones · manually assign technicians below</span>
+          <span className="text-xs text-slate-400 ml-1">— {selectedRegion.clusters} zones · {selectedRegion.label} · manually assign technicians below</span>
           <div className="ml-auto flex items-center gap-2">
             <button
               onClick={handleResetRoster}
@@ -2052,6 +2212,93 @@ export function HexZoneMapPage() {
           </table>
         </div>
       </div>}
+
+      {bottomTab === 'coverage' && (
+        <div>
+          <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-2">
+            <Layers className="w-4 h-4 text-slate-500" />
+            <span className="text-sm font-semibold text-slate-800">Pan India Fleet Coverage</span>
+            <span className="text-xs text-slate-400 ml-1">— required technicians by region (1 tech per 15 vehicles)</span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className="bg-slate-50">
+                <tr>
+                  {['Region', 'Vehicles', 'Centers', 'Clusters', 'Required Techs', 'Tech Load', 'Action'].map(h => (
+                    <th key={h} className="text-left px-4 py-2.5 font-semibold text-slate-500 uppercase tracking-wide text-[10px]">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {REGION_CONFIGS.map(r => {
+                  const load = r.vehicleCount / r.recommendedTechs;
+                  const isSelected = r.key === selectedRegion.key;
+                  return (
+                    <tr key={r.key} className={`transition-colors ${isSelected ? 'bg-blue-50' : 'hover:bg-slate-50'}`}>
+                      <td className="px-4 py-2.5">
+                        <div className="flex items-center gap-2">
+                          {isSelected && <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />}
+                          <span className={`font-semibold ${isSelected ? 'text-blue-700' : 'text-slate-800'}`}>{r.label}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-2.5 font-bold text-slate-900">{r.vehicleCount}</td>
+                      <td className="px-4 py-2.5 text-slate-600">{r.centerCount}</td>
+                      <td className="px-4 py-2.5 text-slate-600">{r.clusters}</td>
+                      <td className="px-4 py-2.5">
+                        <span className="inline-flex items-center gap-1">
+                          <span className="text-lg font-bold text-emerald-700">{r.recommendedTechs}</span>
+                          <span className="text-slate-400 text-[10px]">techs</span>
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <div className="flex items-center gap-2">
+                          <div className="w-20 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                            <div
+                              className="h-full rounded-full"
+                              style={{
+                                width: `${Math.min(100, (load / 20) * 100)}%`,
+                                background: load > 18 ? '#dc2626' : load > 14 ? '#f59e0b' : '#10b981',
+                              }}
+                            />
+                          </div>
+                          <span className="text-[11px] text-slate-500">{load.toFixed(1)}V/T</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <button
+                          onClick={() => { setSelectedRegion(r); setBottomTab('roster'); }}
+                          className={`text-[11px] px-2.5 py-1 rounded-lg font-semibold transition-colors ${
+                            isSelected
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-slate-100 text-slate-600 hover:bg-blue-100 hover:text-blue-700'
+                          }`}
+                        >
+                          {isSelected ? '✓ Viewing' : 'View Map'}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot className="bg-slate-50 border-t-2 border-slate-200">
+                <tr>
+                  <td className="px-4 py-2.5 font-bold text-slate-800">TOTAL</td>
+                  <td className="px-4 py-2.5 font-bold text-slate-900">{REGION_CONFIGS.reduce((s, r) => s + r.vehicleCount, 0)}</td>
+                  <td className="px-4 py-2.5 font-bold text-slate-900">{REGION_CONFIGS.reduce((s, r) => s + r.centerCount, 0)}</td>
+                  <td className="px-4 py-2.5 font-bold text-slate-900">{REGION_CONFIGS.reduce((s, r) => s + r.clusters, 0)}</td>
+                  <td className="px-4 py-2.5">
+                    <span className="inline-flex items-center gap-1">
+                      <span className="text-lg font-bold text-blue-700">{REGION_CONFIGS.reduce((s, r) => s + r.recommendedTechs, 0)}</span>
+                      <span className="text-slate-400 text-[10px]">techs total</span>
+                    </span>
+                  </td>
+                  <td colSpan={2} />
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      )}
 
       </div>{/* end bottom panel */}
     </div>
