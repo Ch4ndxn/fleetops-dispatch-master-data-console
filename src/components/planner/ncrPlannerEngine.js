@@ -50,6 +50,13 @@ OPEN_TICKETS.forEach(t => {
   if (dc) TICKET_DC_COORDS[t.ticket] = { lat: dc.lat, lon: dc.lon, dc: t.center };
 });
 
+// ── ticketStatus must be declared before recomputeTicketData() is called ──────
+// ticketStatus[ticketId] = { status:'assigned'|'visited'|'closed', ts:{...}, note:'' }
+// (Rolldown/ESM TDZ: const cannot be referenced before its declaration line)
+const ticketStatus = {};
+let trackerFilter = 'all';
+let trackerTechFilter = 'all';
+
 // Reactive derived structures — call recomputeTicketData() after toggling exclusions
 let TICKETS_BY_DC = {};
 let ACTIVE_DCS = [];
@@ -1154,10 +1161,7 @@ function buildTicketDashboard(filter) {
 //  TICKET TRACKER
 // ═══════════════════════════════════════════════════════
 
-// ticketStatus[ticketId] = { status:'assigned'|'visited'|'closed', ts:{assigned,visited,closed}, note:'' }
-const ticketStatus = {};
-let trackerFilter = 'all';
-let trackerTechFilter = 'all';
+// ticketStatus / trackerFilter / trackerTechFilter declared near top of file (before first use)
 
 function initTicketTracker() {
   // Default all active tickets to 'assigned'
