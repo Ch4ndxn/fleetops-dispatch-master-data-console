@@ -25,7 +25,7 @@ import { Ticket, Technician, Center, TechnicianRoutePlan, RouteStop } from '../.
 import {
   Users, Zap, CheckCircle2, X, MapPin, AlertTriangle,
   EyeOff, RefreshCw, Filter, Layers, Diamond, UserCheck, Edit2, Navigation,
-  Compass, GripVertical, ArrowRight, MessageCircle, Settings2,
+  Compass, GripVertical, ArrowRight, MessageCircle, Settings2, Download, Coffee,
 } from 'lucide-react';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -1154,6 +1154,51 @@ export function HexZoneMapPage() {
     saveClusterRoster({});
     toast('Roster reset to auto-assign');
   }
+
+  // Bottom panel tab
+  type BottomTab = 'roster' | 'sitting' | 'zones';
+  const [bottomTab, setBottomTab] = useState<BottomTab>('roster');
+
+  // Sitting roster: techs with 0 open assigned tickets
+  const sittingTechs = useMemo(() => {
+    const activeTechList = allTechs.filter(t => t.status === 'Active');
+    const openAssigned = new Map<string, number>();
+    tickets.forEach(t => {
+      if (t.assignedTechnicianId && t.status !== 'Resolved' && t.status !== 'Closed' && !ignored.has(t.id)) {
+        openAssigned.set(t.assignedTechnicianId, (openAssigned.get(t.assignedTechnicianId) ?? 0) + 1);
+      }
+    });
+    return activeTechList
+      .map(t => ({ tech: t, openCases: openAssigned.get(t.id) ?? 0 }))
+      .filter(x => x.openCases === 0)
+      .sort((a, b) => (a.tech.zone || a.tech.city).localeCompare(b.tech.zone || b.tech.city));
+  }, [allTechs, tickets, ignored]);
+
+  function downloadSittingRoster() {
+    const now = new Date();
+    const dateStr = `${now.getDate().toString().padStart(2,'0')}-${(now.getMonth()+1).toString().padStart(2,'0')}-${now.getFullYear()}`;
+    const timeStr = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
+    const header = ['Employee ID', 'Name', 'Zone', 'City', 'Base Lat', 'Base Lng', 'Default DC', 'Status', 'Open Cases', 'As of'];
+    const rows = sittingTechs.map(({ tech }) => [
+      tech.employeeId,
+      tech.name,
+      tech.zone || '',
+      tech.city || '',
+      tech.startingLatitude ?? '',
+      tech.startingLongitude ?? '',
+      tech.defaultDc || '',
+      'SITTING',
+      '0',
+      `${dateStr} ${timeStr}`,
+    ]);
+    const csv = [header, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `sitting-roster-${dateStr}.csv`; a.click();
+    URL.revokeObjectURL(url);
+    toast(`Downloaded sitting roster — ${sittingTechs.length} technicians`);
+  }
   type HexFilter = 'all' | 'open' | 'unassigned';
   const [hexFilter, setHexFilter] = useState<HexFilter>('open');
   const [activeClusterView, setActiveClusterView] = useState(true);
@@ -1670,8 +1715,31 @@ export function HexZoneMapPage() {
         onToast={toast}
       />
 
-      {/* Cluster Roster (assignment table with manual override) */}
+      {/* ── Bottom panel with tabs ── */}
       <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+        {/* Tab bar */}
+        <div className="flex border-b border-slate-200">
+          {([
+            { id: 'roster'  as BottomTab, label: 'Cluster Roster',   icon: <Diamond className="w-3.5 h-3.5" /> },
+            { id: 'sitting' as BottomTab, label: 'Sitting Roster',   icon: <Coffee  className="w-3.5 h-3.5" /> },
+            { id: 'zones'   as BottomTab, label: 'Active Zones',     icon: <Users   className="w-3.5 h-3.5" /> },
+          ] as const).map(tab => (
+            <button key={tab.id} onClick={() => setBottomTab(tab.id)}
+              className={`flex items-center gap-1.5 px-5 py-3 text-xs font-semibold border-b-2 transition-colors ${
+                bottomTab === tab.id
+                  ? 'border-blue-600 text-blue-700 bg-blue-50'
+                  : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+              }`}>
+              {tab.icon}{tab.label}
+              {tab.id === 'sitting' && sittingTechs.length > 0 && (
+                <span className="ml-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-100 text-amber-700">{sittingTechs.length}</span>
+              )}
+            </button>
+          ))}
+        </div>
+
+      {/* Cluster Roster tab */}
+      {bottomTab === 'roster' && <div className="overflow-hidden">
         <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-2">
           <Diamond className="w-4 h-4 text-teal-600" />
           <span className="text-sm font-semibold text-slate-800">Cluster Roster</span>
@@ -1765,10 +1833,79 @@ export function HexZoneMapPage() {
             {rosterSaved ? '✓ Roster saved' : 'Save changes'}
           </button>
         </div>
-      </div>
+      </div>}
 
-      {/* Zone-level table */}
-      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+      {/* Sitting Roster tab */}
+      {bottomTab === 'sitting' && (
+        <div>
+          <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-3">
+            <Coffee className="w-4 h-4 text-amber-500" />
+            <div>
+              <span className="text-sm font-semibold text-slate-800">Sitting Roster</span>
+              <span className="text-xs text-slate-400 ml-2">— technicians with 0 open cases · available for deployment</span>
+            </div>
+            <div className="ml-auto flex items-center gap-2">
+              <span className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full">
+                {sittingTechs.length} sitting
+              </span>
+              <button
+                onClick={downloadSittingRoster}
+                disabled={sittingTechs.length === 0}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white text-xs font-bold rounded-lg transition-colors"
+              >
+                <Download className="w-3.5 h-3.5" /> Download CSV
+              </button>
+            </div>
+          </div>
+          {sittingTechs.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center text-slate-400">
+              <CheckCircle2 className="w-8 h-8 mb-2 text-emerald-300" />
+              <div className="text-sm font-semibold text-slate-500">All technicians have active cases</div>
+              <div className="text-xs mt-1">No sitting technicians right now</div>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead className="bg-amber-50">
+                  <tr>
+                    {['Employee ID', 'Name', 'Zone / Base', 'City', 'Coordinates', 'Default DC', 'Status'].map(h => (
+                      <th key={h} className="text-left px-4 py-2.5 font-semibold text-amber-700 uppercase tracking-wide text-[10px]">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {sittingTechs.map(({ tech }) => (
+                    <tr key={tech.id} className="hover:bg-amber-50/50 transition-colors">
+                      <td className="px-4 py-3 font-mono font-bold text-slate-700 text-[11px]">{tech.employeeId}</td>
+                      <td className="px-4 py-3 font-semibold text-slate-900">{tech.name}</td>
+                      <td className="px-4 py-3 text-slate-600 text-[11px]">{tech.zone || '—'}</td>
+                      <td className="px-4 py-3 text-slate-500 text-[11px]">{tech.city || '—'}</td>
+                      <td className="px-4 py-3 text-slate-400 text-[11px] font-mono">
+                        {tech.startingLatitude && tech.startingLongitude
+                          ? `${tech.startingLatitude.toFixed(4)}, ${tech.startingLongitude.toFixed(4)}`
+                          : '—'}
+                      </td>
+                      <td className="px-4 py-3 text-slate-500 text-[11px]">{tech.defaultDc || '—'}</td>
+                      <td className="px-4 py-3">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-200">
+                          SITTING
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <div className="px-4 py-2.5 border-t border-slate-100 bg-slate-50 text-[11px] text-slate-400">
+            As of {new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' })} IST
+            · Active technicians only · Resolved and closed tickets excluded from case count
+          </div>
+        </div>
+      )}
+
+      {/* Active Zones tab */}
+      {bottomTab === 'zones' && <div>
         <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-2">
           <Users className="w-4 h-4 text-slate-500" />
           <span className="text-sm font-semibold text-slate-800">Active Zones</span>
@@ -1826,7 +1963,9 @@ export function HexZoneMapPage() {
             </tbody>
           </table>
         </div>
-      </div>
+      </div>}
+
+      </div>{/* end bottom panel */}
     </div>
   );
 }
