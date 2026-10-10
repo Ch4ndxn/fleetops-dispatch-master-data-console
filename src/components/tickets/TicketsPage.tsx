@@ -5,7 +5,7 @@ import {
   ChevronLeft, ChevronRight, AlertCircle, Clock, CheckCircle2, User, Filter
 } from 'lucide-react';
 import { Ticket, TicketStatus, TicketPriority, Technician, Center } from '../../types';
-import { getTickets, saveTickets, getTechnicians, getCenters, newId, subscribeToDataChanges, clearResolvedTickets } from '../../services/storage';
+import { getTickets, saveTickets, getTechnicians, getCenters, newId, subscribeToDataChanges, clearResolvedTickets, clearAllTickets } from '../../services/storage';
 import { generateCSV, downloadCSV } from '../../services/csvParser';
 
 interface Props {
@@ -284,7 +284,22 @@ export const TicketsPage: React.FC<Props> = ({ onOpenUploadModal }) => {
     closeModal();
   };
 
+  const [clearAllConfirm, setClearAllConfirm] = useState(false);
   const [clearing, setClearing] = useState(false);
+
+  const handleClearAll = async () => {
+    if (!clearAllConfirm) { setClearAllConfirm(true); return; }
+    setClearing(true);
+    const { removed, error } = await clearAllTickets();
+    setTickets([]);
+    setClearing(false);
+    setClearAllConfirm(false);
+    setPage(1);
+    const prev = document.title;
+    document.title = error ? `⚠ DB error — local cleared` : `✓ Deleted all ${removed} tickets`;
+    setTimeout(() => { document.title = prev; }, 3000);
+  };
+
   const handleClearOld = async () => {
     if (!clearOldConfirm) { setClearOldConfirm(true); return; }
     setClearing(true);
@@ -361,6 +376,23 @@ export const TicketsPage: React.FC<Props> = ({ onOpenUploadModal }) => {
           >
             <Download size={14} /> Export CSV
           </button>
+          {stats.total > 0 && (
+            clearAllConfirm ? (
+              <div className="flex items-center gap-1.5 bg-rose-50 border border-rose-300 rounded-lg px-3 py-1.5">
+                <AlertCircle size={13} className="text-rose-600 shrink-0" />
+                <span className="text-xs text-rose-800 font-semibold">Delete ALL {stats.total} tickets?</span>
+                <button onClick={handleClearAll} disabled={clearing} className="px-2 py-0.5 bg-rose-700 text-white text-xs rounded hover:bg-rose-800 transition-colors disabled:opacity-50">{clearing ? 'Deleting…' : 'Yes, delete all'}</button>
+                <button onClick={() => setClearAllConfirm(false)} className="px-2 py-0.5 border border-rose-300 text-rose-600 text-xs rounded hover:bg-rose-50 transition-colors">Cancel</button>
+              </div>
+            ) : (
+              <button
+                onClick={handleClearAll}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-rose-600 text-white rounded-lg hover:bg-rose-700 transition-colors font-medium"
+              >
+                <Trash2 size={14} /> Delete All
+              </button>
+            )
+          )}
           {stats.resolved > 0 && (
             clearOldConfirm ? (
               <div className="flex items-center gap-1.5 bg-rose-50 border border-rose-200 rounded-lg px-3 py-1.5">

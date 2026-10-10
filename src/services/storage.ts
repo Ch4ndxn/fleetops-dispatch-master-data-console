@@ -496,11 +496,9 @@ export async function clearResolvedTickets(): Promise<{ removed: number; error?:
   const all = getTickets();
   const kept = all.filter(t => t.status !== 'Resolved' && t.status !== 'Closed');
   const removedIds = all.filter(t => t.status === 'Resolved' || t.status === 'Closed').map(t => t.id);
-  // Update local store immediately
   lsSet(STORAGE_KEYS.TICKETS, kept);
   notify();
   if (removedIds.length === 0) return { removed: 0 };
-  // Direct bulk delete in Supabase (single round-trip)
   if (isDbEnabled()) {
     const { error } = await supabase!.from('tickets').delete().in('status', ['Resolved', 'Closed']);
     if (error) {
@@ -509,6 +507,21 @@ export async function clearResolvedTickets(): Promise<{ removed: number; error?:
     }
   }
   return { removed: removedIds.length };
+}
+
+/** Delete ALL tickets from localStorage AND Supabase. */
+export async function clearAllTickets(): Promise<{ removed: number; error?: string }> {
+  const removed = getTickets().length;
+  lsSet(STORAGE_KEYS.TICKETS, []);
+  notify();
+  if (isDbEnabled()) {
+    const { error } = await supabase!.from('tickets').delete().neq('id', '');
+    if (error) {
+      console.error('[FleetOps] clearAllTickets:', error.message);
+      return { removed, error: error.message };
+    }
+  }
+  return { removed };
 }
 
 // ─────────────────────────────────────────────────────────────────
