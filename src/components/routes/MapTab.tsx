@@ -255,6 +255,9 @@ export const MapTab: React.FC<MapTabProps> = ({
       ? routePlans
       : routePlans.filter(p => p.technicianId === selectedTechId);
 
+    // Collect route data during forEach, then fetch sequentially to avoid OSRM rate limits
+    const routeFetchData: { latlngs: [number, number][]; color: string; isSelected: boolean; placeholder: L.Polyline }[] = [];
+
     plansToRender.forEach(plan => {
       if (plan.stops.length === 0) return;
       const colorIdx = routePlans.findIndex(p => p.technicianId === plan.technicianId) % ROUTE_COLORS.length;
@@ -285,7 +288,7 @@ export const MapTab: React.FC<MapTabProps> = ({
             </div>`);
       }
 
-      // Polyline — dashed placeholder, replaced by road route async
+      // Polyline — dashed placeholder (road route fetched sequentially below)
       const latlngs: [number, number][] = [
         [plan.startLat, plan.startLng],
         ...plan.stops.map(s => [s.latitude, s.longitude] as [number, number]),
@@ -293,15 +296,7 @@ export const MapTab: React.FC<MapTabProps> = ({
       const placeholder = L.polyline(latlngs, {
         color, weight: 1.5, opacity: 0.35, dashArray: '3 8',
       }).addTo(map);
-      fetchRoadRoute(latlngs).then(roadCoords => {
-        if (!mapInstanceRef.current) return;
-        placeholder.remove();
-        L.polyline(roadCoords, {
-          color,
-          weight: isSelected ? 5 : 3,
-          opacity: isSelected ? 0.95 : 0.75,
-        }).addTo(map);
-      });
+      routeFetchData.push({ latlngs, color, isSelected, placeholder });
 
       // Arrow decorators
       for (let i = 0; i < latlngs.length - 1; i++) {
@@ -372,6 +367,25 @@ export const MapTab: React.FC<MapTabProps> = ({
     }
 
     mapInstanceRef.current = map;
+
+    // Fetch real road routes sequentially (300 ms stagger) to avoid OSRM rate limits
+    (async () => {
+      for (let i = 0; i < routeFetchData.length; i++) {
+        if (!mapInstanceRef.current) break;
+        if (i > 0) await new Promise<void>(r => setTimeout(r, 300));
+        const { latlngs, color, isSelected, placeholder } = routeFetchData[i];
+        try {
+          const roadCoords = await fetchRoadRoute(latlngs);
+          if (!mapInstanceRef.current) break;
+          placeholder.remove();
+          L.polyline(roadCoords, {
+            color,
+            weight: isSelected ? 5 : 3,
+            opacity: isSelected ? 0.95 : 0.75,
+          }).addTo(map);
+        } catch { /* placeholder stays */ }
+      }
+    })();
   }, [centers, routePlans, selectedTechId, statusMap]);
 
   useEffect(() => {

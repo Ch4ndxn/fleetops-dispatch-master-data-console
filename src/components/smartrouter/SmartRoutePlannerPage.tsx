@@ -520,6 +520,8 @@ function LeafletMapView({ plans }: { plans: TechnicianRoutePlan[] }) {
 
       const allLatLngs: [number, number][] = [];
 
+      const smartRouteFetch: { latlngs: [number, number][]; color: string; placeholder: L.Polyline }[] = [];
+
       plans.forEach((plan, pi) => {
         const color = TECH_COLORS[pi % TECH_COLORS.length];
 
@@ -535,16 +537,12 @@ function LeafletMapView({ plans }: { plans: TechnicianRoutePlan[] }) {
           .bindPopup(`<strong>${plan.technicianName}</strong><br/>${plan.employeeId}<br/>Base`);
         allLatLngs.push([plan.startLat, plan.startLng]);
 
-        // Polyline — dashed placeholder, replaced by OSRM road route async
+        // Polyline — dashed placeholder (road route fetched sequentially below)
         const latlngs: [number, number][] = [[plan.startLat, plan.startLng]];
         plan.stops.forEach(s => { latlngs.push([s.latitude, s.longitude]); allLatLngs.push([s.latitude, s.longitude]); });
         if (latlngs.length > 1) {
           const placeholder = L.polyline(latlngs, { color, weight: 1.5, opacity: 0.35, dashArray: '3 8' }).addTo(map);
-          fetchRoadRouteS(latlngs).then(road => {
-            if (!mapInstance.current) return;
-            placeholder.remove();
-            L.polyline(road, { color, weight: 2.5, opacity: 0.8 }).addTo(map);
-          });
+          smartRouteFetch.push({ latlngs, color, placeholder });
         }
 
         // Stop markers
@@ -565,6 +563,21 @@ function LeafletMapView({ plans }: { plans: TechnicianRoutePlan[] }) {
       if (allLatLngs.length > 0) {
         map.fitBounds(allLatLngs, { padding: [30, 30] });
       }
+
+      // Fetch real road routes sequentially (300 ms stagger) to avoid OSRM rate limits
+      (async () => {
+        for (let i = 0; i < smartRouteFetch.length; i++) {
+          if (!mapInstance.current) break;
+          if (i > 0) await new Promise<void>(r => setTimeout(r, 300));
+          const { latlngs, color, placeholder } = smartRouteFetch[i];
+          try {
+            const road = await fetchRoadRouteS(latlngs);
+            if (!mapInstance.current) break;
+            placeholder.remove();
+            L.polyline(road, { color, weight: 2.5, opacity: 0.8 }).addTo(map);
+          } catch { /* placeholder stays */ }
+        }
+      })();
     };
 
     loadLeaflet().catch(console.error);

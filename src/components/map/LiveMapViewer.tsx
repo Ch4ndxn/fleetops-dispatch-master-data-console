@@ -95,18 +95,22 @@ function decodePolyline(encoded: string): [number, number][] {
   return pts;
 }
 
+const OSRM_SERVERS = [
+  'https://router.project-osrm.org',
+  'https://routing.openstreetmap.de/routed-car',
+];
 async function fetchRoadRoute(waypoints: [number, number][]): Promise<[number, number][]> {
-  try {
-    const coords = waypoints.map(([la, ln]) => `${ln},${la}`).join(';');
-    const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=polyline`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-    if (!res.ok) return waypoints;
-    const data = await res.json();
-    if (data.code !== 'Ok' || !data.routes?.[0]?.geometry) return waypoints;
-    return decodePolyline(data.routes[0].geometry);
-  } catch {
-    return waypoints;
+  const coords = waypoints.map(([la, ln]) => `${ln},${la}`).join(';');
+  for (const server of OSRM_SERVERS) {
+    try {
+      const res = await fetch(`${server}/route/v1/driving/${coords}?overview=full&geometries=polyline`, { signal: AbortSignal.timeout(10000) });
+      if (!res.ok) continue;
+      const data = await res.json();
+      if (data.code !== 'Ok' || !data.routes?.[0]?.geometry) continue;
+      return decodePolyline(data.routes[0].geometry);
+    } catch { /* try next */ }
   }
+  return waypoints;
 }
 
 export const LiveMapViewer: React.FC<Props> = ({
@@ -179,13 +183,21 @@ export const LiveMapViewer: React.FC<Props> = ({
       ? routePlans.filter(p => p.technicianId === selectedTechId)
       : routePlans;
 
-    plansToRender.forEach((plan, idx) => {
-      if (plan.stops.length === 0) return;
+    // Build per-plan data synchronously, then fetch road routes sequentially
+    const planData = plansToRender
+      .filter(p => p.stops.length > 0)
+      .map(plan => ({
+        plan,
+        color: ROUTE_COLORS[routePlans.findIndex(p => p.technicianId === plan.technicianId) % ROUTE_COLORS.length],
+        isSelected: selectedTechId === plan.technicianId,
+        latlngs: [[plan.startLat, plan.startLng], ...plan.stops.map(s => [s.latitude, s.longitude])] as [number, number][],
+      }));
 
-      const color = ROUTE_COLORS[
-        routePlans.findIndex(p => p.technicianId === plan.technicianId) % ROUTE_COLORS.length
-      ];
-      const isSelected = selectedTechId === plan.technicianId;
+    // Draw home markers, arrows, stop pins + dashed placeholders immediately (all sync).
+    // Collect placeholder polylines so the async block below can replace them.
+    const placeholders: L.Polyline[] = [];
+
+    planData.forEach(({ plan, color, latlngs }) => {
 
       // a. Start / home base marker
       if (plan.startLat && plan.startLng) {
@@ -214,30 +226,9 @@ export const LiveMapViewer: React.FC<Props> = ({
             </div>`);
       }
 
-      // b. Route polyline with arrows
-      const latlngs: [number, number][] = [
-        [plan.startLat, plan.startLng],
-        ...plan.stops.map(s => [s.latitude, s.longitude] as [number, number])
-      ];
-
-      // Dashed placeholder while road route loads
-      const placeholder = L.polyline(latlngs, {
-        color, weight: 1.5, opacity: 0.35, dashArray: '3 8'
-      }).addTo(map);
-
-      // Fetch real road geometry and replace placeholder
-      fetchRoadRoute(latlngs).then(roadCoords => {
-        if (!mapInstanceRef.current) return;
-        placeholder.remove();
-        L.polyline(roadCoords, {
-          color,
-          weight: isSelected ? 5 : 3,
-          opacity: isSelected ? 0.95 : 0.75,
-        }).addTo(map)
-          .bindPopup(`
-            <strong style="color:${color}">${plan.technicianName}</strong><br/>
-            ${plan.stops.length} stops · ${plan.totalDistanceKm} km · ~${plan.totalEstimatedMins} min`);
-      });
+      // b. Dashed placeholder polyline (replaced with road geometry after async fetch)
+      const placeholder = L.polyline(latlngs, { color, weight: 1.5, opacity: 0.35, dashArray: '3 8' }).addTo(map);
+      placeholders.push(placeholder);
 
       // Direction decorator arrows — draw a small arrowhead at each segment midpoint
       for (let i = 0; i < latlngs.length - 1; i++) {
@@ -309,6 +300,26 @@ export const LiveMapViewer: React.FC<Props> = ({
               </div>`, { maxWidth: 260 });
         });
     });
+
+    // Fetch real road routes sequentially (300 ms stagger) to avoid OSRM rate limits.
+    // Replaces each dashed placeholder with a solid road polyline.
+    (async () => {
+      for (let i = 0; i < planData.length; i++) {
+        if (!mapInstanceRef.current) break;           // map was unmounted
+        if (i > 0) await new Promise<void>(r => setTimeout(r, 300));
+        const { latlngs, color, isSelected } = planData[i];
+        try {
+          const roadCoords = await fetchRoadRoute(latlngs);
+          if (!mapInstanceRef.current) break;
+          placeholders[i].remove();
+          L.polyline(roadCoords, {
+            color,
+            weight: isSelected ? 5 : 3,
+            opacity: isSelected ? 0.95 : 0.80,
+          }).addTo(map);
+        } catch { /* placeholder remains — acceptable */ }
+      }
+    })();
 
     // ── 3. Unrouted technicians (those with no plan) ───────────────────────────
     if (!selectedTechId) {
