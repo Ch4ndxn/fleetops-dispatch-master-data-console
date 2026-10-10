@@ -84,6 +84,7 @@ export const TicketsPage: React.FC<Props> = ({ onOpenUploadModal }) => {
   const [editTicket, setEditTicket] = useState<Partial<Ticket>>(emptyTicket());
   const [isNew, setIsNew] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [clearOldConfirm, setClearOldConfirm] = useState(false);
 
   // Quick status dropdown
   const [quickStatusId, setQuickStatusId] = useState<string | null>(null);
@@ -283,6 +284,19 @@ export const TicketsPage: React.FC<Props> = ({ onOpenUploadModal }) => {
     closeModal();
   };
 
+  const handleClearOld = () => {
+    if (!clearOldConfirm) { setClearOldConfirm(true); return; }
+    const kept = tickets.filter(t => t.status !== 'Resolved' && t.status !== 'Closed');
+    const removed = tickets.length - kept.length;
+    persist(kept);
+    setClearOldConfirm(false);
+    setPage(1);
+    // brief toast via title flicker — no toast system here
+    const prev = document.title;
+    document.title = `✓ Cleared ${removed} tickets`;
+    setTimeout(() => { document.title = prev; }, 2500);
+  };
+
   const handleTechChange = (techId: string) => {
     const tech = technicians.find(t => t.id === techId);
     setEditTicket(prev => ({
@@ -346,6 +360,23 @@ export const TicketsPage: React.FC<Props> = ({ onOpenUploadModal }) => {
           >
             <Download size={14} /> Export CSV
           </button>
+          {stats.resolved > 0 && (
+            clearOldConfirm ? (
+              <div className="flex items-center gap-1.5 bg-rose-50 border border-rose-200 rounded-lg px-3 py-1.5">
+                <AlertCircle size={13} className="text-rose-500 shrink-0" />
+                <span className="text-xs text-rose-700">Delete {stats.resolved} resolved/closed?</span>
+                <button onClick={handleClearOld} className="px-2 py-0.5 bg-rose-600 text-white text-xs rounded hover:bg-rose-700 transition-colors">Yes, clear</button>
+                <button onClick={() => setClearOldConfirm(false)} className="px-2 py-0.5 border border-rose-300 text-rose-600 text-xs rounded hover:bg-rose-50 transition-colors">Cancel</button>
+              </div>
+            ) : (
+              <button
+                onClick={handleClearOld}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-white border border-rose-200 rounded-lg text-rose-600 hover:bg-rose-50 transition-colors"
+              >
+                <Trash2 size={14} /> Clear Old ({stats.resolved})
+              </button>
+            )
+          )}
           <button
             onClick={openCreate}
             className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
