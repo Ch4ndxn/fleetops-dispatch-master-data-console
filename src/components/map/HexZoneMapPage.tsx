@@ -186,10 +186,15 @@ function setIgnored(next: Set<string>) {
 }
 
 // ─── Hex geometry ─────────────────────────────────────────────────────────────
-function hexCorners(cLat: number, cLng: number): [number, number][] {
+function hexCorners(cLat: number, cLng: number, bbox?: BBox): [number, number][] {
   return Array.from({ length: 6 }, (_, i) => {
     const a = (Math.PI / 180) * (60 * i);
-    return [cLat + HEX_R_LAT * Math.sin(a), cLng + HEX_R_LNG * Math.cos(a)] as [number, number];
+    const lat = cLat + HEX_R_LAT * Math.sin(a);
+    const lng = cLng + HEX_R_LNG * Math.cos(a);
+    // Clip to bbox so hexes don't extend into ocean or outside the region
+    const clippedLat = bbox ? Math.max(bbox.minLat, Math.min(bbox.maxLat, lat)) : lat;
+    const clippedLng = bbox ? Math.max(bbox.minLng, Math.min(bbox.maxLng, lng)) : lng;
+    return [clippedLat, clippedLng] as [number, number];
   });
 }
 function isInsideHex(pLat: number, pLng: number, cLat: number, cLng: number): boolean {
@@ -385,15 +390,19 @@ function buildClusters(cells: HexCell[], techs: Technician[], allCenters: Center
       usedTechIds.add(assignedTech.id);
     }
 
-    // Spare vehicle hubs: 1 hub per 20 vehicles, placed at cell centers sorted by density
+    // Spare vehicle hubs: 1 hub per 20 vehicles
+    // Placed at the actual DC coordinates (not an offset from hex center)
+    // so hubs never land in water/empty space
     const hubCount = Math.max(1, Math.floor(vehicleCount / 20));
     const sortedByDensity = [...members].sort((a, b) => b.vehicleCount - a.vehicleCount);
     const spareHubs = Array.from({ length: hubCount }, (_, hi) => {
       const hostCell = sortedByDensity[hi % sortedByDensity.length];
-      // Offset slightly so it doesn't overlap DC markers
-      const offsetLat = hostCell.cLat + HEX_R_LAT * 0.35 * Math.cos((hi * 2.1));
-      const offsetLng = hostCell.cLng + HEX_R_LNG * 0.35 * Math.sin((hi * 2.1));
-      return { lat: offsetLat, lng: offsetLng, hubIndex: hi + 1 };
+      // Use the actual DC inside this cell (sorted by vehicle count desc) as the hub location
+      const cellDCs = hostCell.centers.filter(c => c.latitude && c.longitude && !isNaN(c.latitude) && !isNaN(c.longitude));
+      const dcForHub = cellDCs[hi % Math.max(cellDCs.length, 1)];
+      const lat = dcForHub ? dcForHub.latitude : hostCell.cLat;
+      const lng = dcForHub ? dcForHub.longitude : hostCell.cLng;
+      return { lat, lng, hubIndex: hi + 1 };
     });
 
     // Primary DC: center closest to cluster centroid (from cells, fallback to all centers)
@@ -1562,7 +1571,7 @@ export function HexZoneMapPage() {
       grid.forEach(cell => {
         const cluster = clusters.find(c => c.id === cell.clusterId);
         if (!cluster) return;
-        const poly = L.polygon(hexCorners(cell.cLat, cell.cLng), {
+        const poly = L.polygon(hexCorners(cell.cLat, cell.cLng, selectedRegion.bbox), {
           color: cluster.color, weight: 1, opacity: 0.5,
           fillColor: cluster.color, fillOpacity: activeClusterView ? 0.08 : 0,
         }).addTo(map);
@@ -1600,7 +1609,7 @@ export function HexZoneMapPage() {
       // Count only non-ignored open tickets for the label bubble
       const count   = hasOpen ? open.length : ign.length;
 
-      const poly = L.polygon(hexCorners(cell.cLat, cell.cLng), {
+      const poly = L.polygon(hexCorners(cell.cLat, cell.cLng, selectedRegion.bbox), {
         color: fill, weight: hasOpen ? 1.5 : 0.8,
         fillColor: fill, fillOpacity: opacity, opacity: hasOpen ? 0.8 : 0.4,
       }).addTo(map);
