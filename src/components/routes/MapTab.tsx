@@ -23,6 +23,36 @@ interface MapTabProps {
   allTickets: Ticket[];
 }
 
+// ── OSRM real road routing ────────────────────────────────────────────────────
+function decodePolyline(encoded: string): [number, number][] {
+  const pts: [number, number][] = [];
+  let idx = 0, lat = 0, lng = 0;
+  while (idx < encoded.length) {
+    let b, shift = 0, result = 0;
+    do { b = encoded.charCodeAt(idx++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+    lat += result & 1 ? ~(result >> 1) : result >> 1;
+    shift = 0; result = 0;
+    do { b = encoded.charCodeAt(idx++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+    lng += result & 1 ? ~(result >> 1) : result >> 1;
+    pts.push([lat / 1e5, lng / 1e5]);
+  }
+  return pts;
+}
+
+async function fetchRoadRoute(waypoints: [number, number][]): Promise<[number, number][]> {
+  try {
+    const coords = waypoints.map(([la, ln]) => `${ln},${la}`).join(';');
+    const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=polyline`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) return waypoints;
+    const data = await res.json();
+    if (data.code !== 'Ok' || !data.routes?.[0]?.geometry) return waypoints;
+    return decodePolyline(data.routes[0].geometry);
+  } catch {
+    return waypoints;
+  }
+}
+
 // ─── Constants ─────────────────────────────────────────────────────────────────
 const ROUTE_COLORS = [
   '#2563eb', '#16a34a', '#d97706', '#9333ea',
@@ -255,17 +285,23 @@ export const MapTab: React.FC<MapTabProps> = ({
             </div>`);
       }
 
-      // Polyline
+      // Polyline — dashed placeholder, replaced by road route async
       const latlngs: [number, number][] = [
         [plan.startLat, plan.startLng],
         ...plan.stops.map(s => [s.latitude, s.longitude] as [number, number]),
       ];
-      L.polyline(latlngs, {
-        color,
-        weight: isSelected ? 5 : 3,
-        opacity: isSelected ? 0.95 : 0.7,
-        dashArray: isSelected ? undefined : '6,10',
+      const placeholder = L.polyline(latlngs, {
+        color, weight: 1.5, opacity: 0.35, dashArray: '3 8',
       }).addTo(map);
+      fetchRoadRoute(latlngs).then(roadCoords => {
+        if (!mapInstanceRef.current) return;
+        placeholder.remove();
+        L.polyline(roadCoords, {
+          color,
+          weight: isSelected ? 5 : 3,
+          opacity: isSelected ? 0.95 : 0.75,
+        }).addTo(map);
+      });
 
       // Arrow decorators
       for (let i = 0; i < latlngs.length - 1; i++) {

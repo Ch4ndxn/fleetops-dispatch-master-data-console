@@ -446,6 +446,32 @@ function TechRouteCard({
   );
 }
 
+// ── OSRM helpers (SmartRoute) ─────────────────────────────────────
+function decodePolylineS(encoded: string): [number, number][] {
+  const pts: [number, number][] = [];
+  let idx = 0, lat = 0, lng = 0;
+  while (idx < encoded.length) {
+    let b, shift = 0, result = 0;
+    do { b = encoded.charCodeAt(idx++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+    lat += result & 1 ? ~(result >> 1) : result >> 1;
+    shift = 0; result = 0;
+    do { b = encoded.charCodeAt(idx++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+    lng += result & 1 ? ~(result >> 1) : result >> 1;
+    pts.push([lat / 1e5, lng / 1e5]);
+  }
+  return pts;
+}
+async function fetchRoadRouteS(waypoints: [number, number][]): Promise<[number, number][]> {
+  try {
+    const coords = waypoints.map(([la, ln]) => `${ln},${la}`).join(';');
+    const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=polyline`, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) return waypoints;
+    const data = await res.json();
+    if (data.code !== 'Ok' || !data.routes?.[0]?.geometry) return waypoints;
+    return decodePolylineS(data.routes[0].geometry);
+  } catch { return waypoints; }
+}
+
 // ─── Leaflet map view ─────────────────────────────────────────────
 function LeafletMapView({ plans }: { plans: TechnicianRoutePlan[] }) {
   const mapRef = useRef<HTMLDivElement>(null);
@@ -509,11 +535,16 @@ function LeafletMapView({ plans }: { plans: TechnicianRoutePlan[] }) {
           .bindPopup(`<strong>${plan.technicianName}</strong><br/>${plan.employeeId}<br/>Base`);
         allLatLngs.push([plan.startLat, plan.startLng]);
 
-        // Polyline
+        // Polyline — dashed placeholder, replaced by OSRM road route async
         const latlngs: [number, number][] = [[plan.startLat, plan.startLng]];
         plan.stops.forEach(s => { latlngs.push([s.latitude, s.longitude]); allLatLngs.push([s.latitude, s.longitude]); });
         if (latlngs.length > 1) {
-          L.polyline(latlngs, { color, weight: 2.5, opacity: 0.75, dashArray: undefined }).addTo(map);
+          const placeholder = L.polyline(latlngs, { color, weight: 1.5, opacity: 0.35, dashArray: '3 8' }).addTo(map);
+          fetchRoadRouteS(latlngs).then(road => {
+            if (!mapInstance.current) return;
+            placeholder.remove();
+            L.polyline(road, { color, weight: 2.5, opacity: 0.8 }).addTo(map);
+          });
         }
 
         // Stop markers
