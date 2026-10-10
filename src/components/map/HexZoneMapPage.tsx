@@ -228,16 +228,25 @@ function centerCoords(name: string, centers: Center[]) {
 type BBox = { minLat: number; maxLat: number; minLng: number; maxLng: number };
 
 function buildGrid(tickets: Ticket[], centers: Center[], techs: Technician[], bbox: BBox = DEFAULT_REGION.bbox): HexCell[] {
+  // Only include centers with valid coordinates
+  const validCenters = centers.filter(c => c.latitude && c.longitude && !isNaN(c.latitude) && !isNaN(c.longitude));
+
   const stepLng = HEX_R_LNG * 1.5;
   const stepLat = HEX_R_LAT * Math.sqrt(3);
   const cols = Math.ceil((bbox.maxLng - bbox.minLng) / stepLng) + 1;
   const rows = Math.ceil((bbox.maxLat - bbox.minLat) / stepLat) + 1;
   const cells: HexCell[] = [];
+
   for (let col = 0; col < cols; col++) {
     for (let row = 0; row < rows; row++) {
       const cLng = bbox.minLng + col * stepLng;
       const cLat = bbox.minLat + row * stepLat + (col % 2) * (stepLat / 2);
       if (cLat > bbox.maxLat + HEX_R_LAT) continue;
+
+      // Only render this hex if at least one DC falls inside it
+      const cellCenters = validCenters.filter(c => isInsideHex(c.latitude, c.longitude, cLat, cLng));
+      if (cellCenters.length === 0) continue; // ← skip empty hexes
+
       const cellTickets = tickets.filter(t => {
         const c = centerCoords(t.centerName, centers);
         return c && isInsideHex(c.lat, c.lng, cLat, cLng);
@@ -246,7 +255,7 @@ function buildGrid(tickets: Ticket[], centers: Center[], techs: Technician[], bb
       cells.push({
         key: `${col}-${row}`, col, row, cLat, cLng,
         tickets: cellTickets,
-        centers: centers.filter(c => isInsideHex(c.latitude, c.longitude, cLat, cLng)),
+        centers: cellCenters,
         techs: techs.filter(t => t.startingLatitude && t.startingLongitude && isInsideHex(t.startingLatitude, t.startingLongitude, cLat, cLng)),
         vehicleCount: vehicles.size,
         clusterId: -1,
