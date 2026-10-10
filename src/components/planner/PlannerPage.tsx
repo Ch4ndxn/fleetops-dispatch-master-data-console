@@ -14,7 +14,7 @@ import 'leaflet/dist/leaflet.css';
 import './ncrPlanner.css';
 import { NCR_PLANNER_MARKUP } from './ncrPlannerMarkup';
 import { mountNcrPlanner } from './ncrPlannerEngine.js';
-import RAW_VEHICLES from '../../data/ncrVehicles.json';
+import RAW_VEHICLES from '../../data/vehicles.json';
 import {
   getCenters, getTickets, getTechnicians, getAttendance,
   upsertTicket, upsertTechnician, upsertAttendanceRecord, saveTickets,

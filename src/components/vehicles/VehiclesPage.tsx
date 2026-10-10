@@ -9,27 +9,31 @@ import {
   Search, Download, AlertTriangle, CheckCircle2,
   FileWarning, Car, MapPin, Calendar, Filter, X,
 } from 'lucide-react';
-import RAW_VEHICLES from '../../data/ncrVehicles.json';
+import RAW_VEHICLES from '../../data/vehicles.json';
 
 // ── Types ─────────────────────────────────────────────────────────────
 interface Vehicle {
   contractNo: string;
-  actualNo: string;
-  deployedMonth: string;
-  check: string;
-  contractStart: string;
   chassisNo: string;
   center: string;
   city: string;
   cityType: string;
   cluster: string;
-  brand: string;
-  hasMismatch: boolean;
-  noContract: boolean;
-  noChassis: boolean;
+  // derived / optional
+  actualNo?: string;
+  deployedMonth?: string;
+  brand?: string;
+  hasMismatch?: boolean;
+  noContract?: boolean;
+  noChassis?: boolean;
 }
 
-const VEHICLES = RAW_VEHICLES as Vehicle[];
+const VEHICLES: Vehicle[] = (RAW_VEHICLES as Vehicle[]).map(v => ({
+  ...v,
+  noContract: !v.contractNo,
+  noChassis: !v.chassisNo,
+  hasMismatch: false,
+}));
 
 // ── City colour map ───────────────────────────────────────────────────
 const CITY_COLORS: Record<string, { bg: string; text: string; border: string }> = {
@@ -113,7 +117,7 @@ export function VehiclesPage() {
         const q = search.toLowerCase();
         return (
           v.contractNo.toLowerCase().includes(q) ||
-          v.actualNo.toLowerCase().includes(q) ||
+          (v.actualNo ?? '').toLowerCase().includes(q) ||
           v.chassisNo.toLowerCase().includes(q) ||
           v.center.toLowerCase().includes(q) ||
           v.city.toLowerCase().includes(q)

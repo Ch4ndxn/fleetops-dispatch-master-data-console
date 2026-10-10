@@ -1,0 +1,5090 @@
+[
+  {
+    "contractNo": "DL03DC4035",
+    "chassisNo": "MD9M2SGM26B624035",
+    "center": "Delhi_SheikhSarai_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "DL03DC4000",
+    "chassisNo": "MD9M2SGM26A624003",
+    "center": "Delhi_Deoli1_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "DL03DC4006",
+    "chassisNo": "MD9M2SGM26A624006",
+    "center": "Delhi_Mehrauli1_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "DL03DC4048",
+    "chassisNo": "MD9M2SGM26B624040",
+    "center": "Delhi_MotiNagar_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "DL03DC4039",
+    "chassisNo": "MD9M2SGM26B624039",
+    "center": "Gurgaon_Jharsa_D (Haryana)",
+    "city": "Gurgaon",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "DL03DC4054",
+    "chassisNo": "MD9M2SGM26B624054",
+    "center": "Noida_Vaidpura1_D (Uttar Pradesh)",
+    "city": "Noida",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "DL03DC4053",
+    "chassisNo": "MD9M2SGM26B624053",
+    "center": "Noida_Sector122_D (Uttar Pradesh)",
+    "city": "Noida",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "DL03DC7563",
+    "chassisNo": "MD9M2SGM25J624015",
+    "center": "Noida_Chhijarsi_D (Uttar Pradesh)",
+    "city": "Noida",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "DL03DC4052",
+    "chassisNo": "MD9M2SGM26B624052",
+    "center": "Noida_Sector67Bblock_D (Uttar Pradesh)",
+    "city": "Noida",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "HR55AV0915",
+    "chassisNo": "MD9ZNSYV24J624053",
+    "center": "Gurgaon_Kadipur (Haryana)",
+    "city": "Gurgaon",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "KA03AC4076",
+    "chassisNo": "MD9M2SGM25D624076",
+    "center": "Bangalore_Horamavu1_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA03AC4107",
+    "chassisNo": "MD9M2SGM25D624107",
+    "center": "Doddaballapura_Kuntanahalli_D (Karnataka)",
+    "city": "Doddaballapura",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA03AC4111",
+    "chassisNo": "MD9M2SGM25D624111",
+    "center": "Bangalore_Talaghatapura_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "TN03AC4085",
+    "chassisNo": "MD9M2SGM25D624085",
+    "center": "Chennai_Nolambur_D (Tamil Nadu)",
+    "city": "Chennai",
+    "cityType": "Metro",
+    "cluster": "Chennai"
+  },
+  {
+    "contractNo": "TN03AC4083",
+    "chassisNo": "MD9M2SGM25D624083",
+    "center": "Chennai_Mambakkam_D (Tamil Nadu)",
+    "city": "Chennai",
+    "cityType": "Metro",
+    "cluster": "Chennai"
+  },
+  {
+    "contractNo": "TN03AC4118",
+    "chassisNo": "MD9M2SGM25D624118",
+    "center": "Chennai_Egattur_D (Tamil Nadu)",
+    "city": "Chennai",
+    "cityType": "Metro",
+    "cluster": "Chennai"
+  },
+  {
+    "contractNo": "DL06EC0446",
+    "chassisNo": "MD9M2SGM25D624176",
+    "center": "Delhi_Rohini_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "UP03AC4180",
+    "chassisNo": "MD9M2SGM25D624180",
+    "center": "Noida_Sector11_D (Uttar Pradesh)",
+    "city": "Noida",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "MH14MH6145",
+    "chassisNo": "MD9M2SGM25D624125",
+    "center": "Pune_Bapodi_D (Maharashtra)",
+    "city": "Pune",
+    "cityType": "Metro",
+    "cluster": "Pune"
+  },
+  {
+    "contractNo": "KA03AC4106",
+    "chassisNo": "MD9M2SGM25D624106",
+    "center": "Bangalore_Kadugondnahli_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA03AC4109",
+    "chassisNo": "MD9M2SGM25D624109",
+    "center": "Bangalore_Kasavanahalli_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA03AC4119",
+    "chassisNo": "MD9M2SGM25D624119",
+    "center": "Bangalore_DoddaBanaswadi_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA03AC4112",
+    "chassisNo": "MD9M2SGM25D624112",
+    "center": "Bangalore_ChenapaLayout_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA03AC4114",
+    "chassisNo": "MD9M2SGM25D624114",
+    "center": "Bangalore_Kowdenahalli_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA03AC4113",
+    "chassisNo": "MD9M2SGM25D624113",
+    "center": "Bangalore_Horamavu1_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "DL03AC4172",
+    "chassisNo": "MD9M2SGM25D624172",
+    "center": "Delhi_MalviyaNagar_NDC (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "DL06EC0455",
+    "chassisNo": "MD9M2SGM25D624177",
+    "center": "Delhi_Jangpura_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "DL06EC0450",
+    "chassisNo": "MD9M2SGM25D624179",
+    "center": "Delhi_OkhlaIndusEstate_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "DL03AC4174",
+    "chassisNo": "MD9M2SGM25D624174",
+    "center": "Faridabad_NIT3_D (Haryana)",
+    "city": "Faridabad",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "MH14MH6153",
+    "chassisNo": "MD9M2SGM25D624124",
+    "center": "Mumbai_Sonarpada_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH14MH6149",
+    "chassisNo": "MD9M2SGM25D624154",
+    "center": "Pune_Haveli_D (Maharashtra)",
+    "city": "Pune",
+    "cityType": "Metro",
+    "cluster": "Pune"
+  },
+  {
+    "contractNo": "MH14MH6138",
+    "chassisNo": "MD9M2SGM25D624138",
+    "center": "Pune_Maharshinagar_D (Maharashtra)",
+    "city": "Pune",
+    "cityType": "Metro",
+    "cluster": "Pune"
+  },
+  {
+    "contractNo": "TN03AC4128",
+    "chassisNo": "MD9M2SGM25D624128",
+    "center": "Chennai_MartinLuSt_D (Tamil Nadu)",
+    "city": "Chennai",
+    "cityType": "Metro",
+    "cluster": "Chennai"
+  },
+  {
+    "contractNo": "KA03AC4130",
+    "chassisNo": "MD9M2SGM25D624130",
+    "center": "Bangalore_Mahadevapura_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA03AC4140",
+    "chassisNo": "MD9M2SGM25D624140",
+    "center": "Bangalore_Chunchgatta_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA03AC4159",
+    "chassisNo": "MD9M2SGM25D624159",
+    "center": "Bangalore_Horamavu1_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "DL03AC4184",
+    "chassisNo": "MD9M2SGM25D624184",
+    "center": "Gurgaon_Central_D_15 (Haryana)",
+    "city": "Gurgaon",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "KA03AC4101",
+    "chassisNo": "MD9M2SGM25D624101",
+    "center": "Bangalore_Srirampura_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA03AC4120",
+    "chassisNo": "MD9M2SGM25D624120",
+    "center": "Bangalore_Talaghatapura_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA03AC4152",
+    "chassisNo": "MD9M2SGM25D624152",
+    "center": "Bangalore_Chellikere_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA03AC4158",
+    "chassisNo": "MD9M2SGM25D624158",
+    "center": "Bangalore_JayantiNagar_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "DL03AC4175",
+    "chassisNo": "MD9M2SGM25D624175",
+    "center": "Delhi_AshkVihr_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "TN03AC4097",
+    "chassisNo": "MD9M2SGM25D624097",
+    "center": "Chennai_PerumalNagar_D (Tamil Nadu)",
+    "city": "Chennai",
+    "cityType": "Metro",
+    "cluster": "Chennai"
+  },
+  {
+    "contractNo": "TN03AC4089",
+    "chassisNo": "MD9M2SGM25D624089",
+    "center": "Chennai_Arasankalani_D (Tamil Nadu)",
+    "city": "Chennai",
+    "cityType": "Metro",
+    "cluster": "Chennai"
+  },
+  {
+    "contractNo": "TN03AC4133",
+    "chassisNo": "MD9M2SGM25D624133",
+    "center": "Chennai_Kavankarai_D (Tamil Nadu)",
+    "city": "Chennai",
+    "cityType": "Metro",
+    "cluster": "Chennai"
+  },
+  {
+    "contractNo": "TN03AC4123",
+    "chassisNo": "MD9M2SGM25D624123",
+    "center": "Chennai_Nolambur_D (Tamil Nadu)",
+    "city": "Chennai",
+    "cityType": "Metro",
+    "cluster": "Chennai"
+  },
+  {
+    "contractNo": "TN03AC4098",
+    "chassisNo": "MD9M2SGM25D624098",
+    "center": "Chennai_Potheri_D (Tamil Nadu)",
+    "city": "Chennai",
+    "cityType": "Metro",
+    "cluster": "Chennai"
+  },
+  {
+    "contractNo": "TN03AC4135",
+    "chassisNo": "MD9M2SGM25D624135",
+    "center": "Chennai_PerumalNagar_D (Tamil Nadu)",
+    "city": "Chennai",
+    "cityType": "Metro",
+    "cluster": "Chennai"
+  },
+  {
+    "contractNo": "KA03AC4139",
+    "chassisNo": "MD9M2SGM25D624139",
+    "center": "Bangalore_Vidyarnyapura_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "DL03AC4073",
+    "chassisNo": "MD9M2SGM25D624073",
+    "center": "Delhi_Burari_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "KA03AC4160",
+    "chassisNo": "MD9M2SGM25D624160",
+    "center": "Bangalore_Yeswanthpur_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA03AC6240",
+    "chassisNo": "MD9M2SGM25D624078",
+    "center": "Bangalore_Nspalya2_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA03AC4144",
+    "chassisNo": "MD9M2SGM25D624144",
+    "center": "Bangalore_Madhuranagara_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA03AC4143",
+    "chassisNo": "MD9M2SGM25D624143",
+    "center": "Bangalore_KonpnaAgrahra_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "DL03AC4171",
+    "chassisNo": "MD9M2SGM25D624171",
+    "center": "Delhi_Lajpatnagar_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "MH14MH6135",
+    "chassisNo": "MD9M2SGM25D624142",
+    "center": "Mumbai_DevichaPada_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH14MH6147",
+    "chassisNo": "MD9M2SGM25D624095",
+    "center": "Mumbai_BandraWest3_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "TS03AC4196",
+    "chassisNo": "MD9M2SGM25E624013",
+    "center": "Hyderabad_SnehapuriColony_D (Telangana)",
+    "city": "Hyderabad",
+    "cityType": "Metro",
+    "cluster": "Hyderabad"
+  },
+  {
+    "contractNo": "TS03AC4190",
+    "chassisNo": "MD9M2SGM25D624190",
+    "center": "Hyderabad_ASRaoNgr_D (Telangana)",
+    "city": "Hyderabad",
+    "cityType": "Metro",
+    "cluster": "Hyderabad"
+  },
+  {
+    "contractNo": "DL06EC0598",
+    "chassisNo": "MD9M2SGM25D624103",
+    "center": "Delhi_Ghazipur1_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "DL03AC4072",
+    "chassisNo": "MD9M2SGM25D624072",
+    "center": "Noida_Sector57_D (Uttar Pradesh)",
+    "city": "Noida",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "DL03AC4183",
+    "chassisNo": "MD9M2SGM25D624183",
+    "center": "Gurgaon_Sector52_D (Haryana)",
+    "city": "Gurgaon",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "KA03AC4157",
+    "chassisNo": "MD9M2SGM25D624157",
+    "center": "Bangalore_Koramangala2_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "TS03AC4192",
+    "chassisNo": "MD9M2SGM25D624192",
+    "center": "Hyderabad_North_D_2 (Telangana)",
+    "city": "Hyderabad",
+    "cityType": "Metro",
+    "cluster": "Hyderabad"
+  },
+  {
+    "contractNo": "DL03AC4185",
+    "chassisNo": "MD9M2SGM25D624185",
+    "center": "Delhi_NarainaIndPhase2_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "TS03AC4191",
+    "chassisNo": "MD9M2SGM25D624191",
+    "center": "Hyderabad_PndrgNgr_DC (Telangana)",
+    "city": "Hyderabad",
+    "cityType": "Metro",
+    "cluster": "Hyderabad"
+  },
+  {
+    "contractNo": "MH14MH6154",
+    "chassisNo": "MD9M2SGM25D624127",
+    "center": "Thane_PanchPakhdi_D (Maharashtra)",
+    "city": "Thane",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH14MH6143",
+    "chassisNo": "MD9M2SGM25D624090",
+    "center": "Mumbai_WagleIndusEstate_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH14MH6146",
+    "chassisNo": "MD9M2SGM25D624087",
+    "center": "Mumbai_Katrap_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH14MH6160",
+    "chassisNo": "MD9M2SGM25D624134",
+    "center": "Mumbai_TagoreNagar1_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH14MH6133",
+    "chassisNo": "MD9M2SGM25D624163",
+    "center": "Mumbai_Manpada1_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "KA03AC4148",
+    "chassisNo": "MD9M2SGM25D624148",
+    "center": "Bangalore_Doddakannelli_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "MH14MH6158",
+    "chassisNo": "MD9M2SGM25D624166",
+    "center": "Mumbai_GhansliSec5_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "DL06EC0480",
+    "chassisNo": "MD9M2SGM25D624075",
+    "center": "Delhi_Nehruvihar_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "KA03AC4116",
+    "chassisNo": "MD9M2SGM25D624116",
+    "center": "Bangalore_Vidyarnyapura_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA03AC4131",
+    "chassisNo": "MD9M2SGM25D624131",
+    "center": "Bangalore_BellndurNew_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA03AC4137",
+    "chassisNo": "MD9M2SGM25D624137",
+    "center": "Bangalore_KannikaNagar_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA03AC4155",
+    "chassisNo": "MD9M2SGM25D624155",
+    "center": "Bangalore_BalaramaLayo_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "DL01AC4105",
+    "chassisNo": "MD9M2SGM25D624105",
+    "center": "Gurgaon_Hasanpur2_D (Haryana)",
+    "city": "Gurgaon",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "TN03AC4099",
+    "chassisNo": "MD9M2SGM25D624099",
+    "center": "Chennai_MartinLuSt_D (Tamil Nadu)",
+    "city": "Chennai",
+    "cityType": "Metro",
+    "cluster": "Chennai"
+  },
+  {
+    "contractNo": "TN03AC4100",
+    "chassisNo": "MD9M2SGM25D624100",
+    "center": "Chennai_Madipakkam_D (Tamil Nadu)",
+    "city": "Chennai",
+    "cityType": "Metro",
+    "cluster": "Chennai"
+  },
+  {
+    "contractNo": "TN03AC4079",
+    "chassisNo": "MD9M2SGM25D624079",
+    "center": "Chennai_Puthagaram_D (Tamil Nadu)",
+    "city": "Chennai",
+    "cityType": "Metro",
+    "cluster": "Chennai"
+  },
+  {
+    "contractNo": "KA03AC4077",
+    "chassisNo": "MD9M2SGM25D624077",
+    "center": "Bangalore_VivekanandaNagar_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "MH14MH6123",
+    "chassisNo": "MD9M2SGM25D624121",
+    "center": "Mumbai_WestAmbernath_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "KA03AC4115",
+    "chassisNo": "MD9M2SGM25D624115",
+    "center": "Bangalore_Hulimangala_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA03AC4153",
+    "chassisNo": "MD9M2SGM25D624153",
+    "center": "Bangalore_DommasandraCircle_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA03AC4149",
+    "chassisNo": "MD9M2SGM25D624149",
+    "center": "Bangalore_Mahadevapura_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "MH14MH6136",
+    "chassisNo": "MD9M2SGM25D624136",
+    "center": "Mumbai_VikhroliWest_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "TN03AC4081",
+    "chassisNo": "MD9M2SGM25D624081",
+    "center": "Chennai_Koladi_D (Tamil Nadu)",
+    "city": "Chennai",
+    "cityType": "Metro",
+    "cluster": "Chennai"
+  },
+  {
+    "contractNo": "MH14MH6140",
+    "chassisNo": "MD9M2SGM25D624132",
+    "center": "Mumbai_Upvan_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH14MH6137",
+    "chassisNo": "MD9M2SGM25D624168",
+    "center": "Thane_PrasikNagar_D (Maharashtra)",
+    "city": "Thane",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "TN03AC4189",
+    "chassisNo": "MD9M2SGM25D624189",
+    "center": "Chennai_RKNagar_D (Tamil Nadu)",
+    "city": "Chennai",
+    "cityType": "Metro",
+    "cluster": "Chennai"
+  },
+  {
+    "contractNo": "TN03AC4186",
+    "chassisNo": "MD9M2SGM25D624186",
+    "center": "Chennai_VenkateswaraNgr_D (Tamil Nadu)",
+    "city": "Chennai",
+    "cityType": "Metro",
+    "cluster": "Chennai"
+  },
+  {
+    "contractNo": "KA03AC4151",
+    "chassisNo": "MD9M2SGM25D624151",
+    "center": "Doddaballapura_Kuntanahalli_D (Karnataka)",
+    "city": "Doddaballapura",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA03AC4117",
+    "chassisNo": "MD9M2SGM25D624117",
+    "center": "Bangalore_UdayNagar_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "DL01AC4102",
+    "chassisNo": "MD9M2SGM25D624102",
+    "center": "Delhi_BudhVihar_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "DL03AC4068",
+    "chassisNo": "MD9M2SGM25D624068",
+    "center": "Delhi_WazirpurIndArea_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "KA03AC4074",
+    "chassisNo": "MD9M2SGM25D624074",
+    "center": "Bangalore_Chinagenahalli_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA03AC4147",
+    "chassisNo": "MD9M2SGM25D624147",
+    "center": "Devanahalli_Vidyanagar_D (Karnataka)",
+    "city": "Devanahalli",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA03AC4071",
+    "chassisNo": "MD9M2SGM25D624071",
+    "center": "Bangalore_Chikabanavara_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA03AC4150",
+    "chassisNo": "MD9M2SGM25D624150",
+    "center": "Bangalore_Singasandra_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "MH14MH6130",
+    "chassisNo": "MD9M2SGM25D624094",
+    "center": "Mumbai_KoparKhairane1_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH14MH6159",
+    "chassisNo": "MD9M2SGM25D624145",
+    "center": "Mumbai_GhodbunderRd_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH14MH6156",
+    "chassisNo": "MD9M2SGM25D624164",
+    "center": "Mumbai_MaladIndstrEst_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "TS03AC4195",
+    "chassisNo": "MD9M2SGM25D624195",
+    "center": "Hyderabad_Shaikpet_D (Telangana)",
+    "city": "Hyderabad",
+    "cityType": "Metro",
+    "cluster": "Hyderabad"
+  },
+  {
+    "contractNo": "TS03AC4198",
+    "chassisNo": "MD9M2SGM25D624198",
+    "center": "Hyderabad_Malkajgiri_D (Telangana)",
+    "city": "Hyderabad",
+    "cityType": "Metro",
+    "cluster": "Hyderabad"
+  },
+  {
+    "contractNo": "TS03AC4201",
+    "chassisNo": "MD9M2SGM25D624201",
+    "center": "Medchal_RaghavendraNgr_D (Telangana)",
+    "city": "Medchal",
+    "cityType": "Metro",
+    "cluster": "Hyderabad"
+  },
+  {
+    "contractNo": "TS03AC4193",
+    "chassisNo": "MD9M2SGM25D624193",
+    "center": "Hyderabad_SravanthiNgr_D (Telangana)",
+    "city": "Hyderabad",
+    "cityType": "Metro",
+    "cluster": "Hyderabad"
+  },
+  {
+    "contractNo": "TS03AC4194",
+    "chassisNo": "MD9M2SGM25D624194",
+    "center": "Hyderabad_AlkapurTwp1_D (Telangana)",
+    "city": "Hyderabad",
+    "cityType": "Metro",
+    "cluster": "Hyderabad"
+  },
+  {
+    "contractNo": "DL03AC4084",
+    "chassisNo": "MD9M2SGM25D624084",
+    "center": "Delhi_Sundervihar_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "MH14MH6152",
+    "chassisNo": "MD9M2SGM25D624091",
+    "center": "Mumbai_ShastriNagar_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH14MH6151",
+    "chassisNo": "MD9M2SGM25D624093",
+    "center": "Mumbai_Upvan_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH14MH6163",
+    "chassisNo": "MD9M2SGM25D624162",
+    "center": "Mumbai_GhodbunderRd_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH14MH6139",
+    "chassisNo": "MD9M2SGM25D624161",
+    "center": "Mumbai_Palaspe2_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "TN03AC4141",
+    "chassisNo": "MD9M2SGM25D624141",
+    "center": "Chennai_Padianallur_D (Tamil Nadu)",
+    "city": "Chennai",
+    "cityType": "Metro",
+    "cluster": "Chennai"
+  },
+  {
+    "contractNo": "TN03AC4086",
+    "chassisNo": "MD9M2SGM25D624086",
+    "center": "Chennai_Periyamet_D (Tamil Nadu)",
+    "city": "Chennai",
+    "cityType": "Metro",
+    "cluster": "Chennai"
+  },
+  {
+    "contractNo": "TN03AC4096",
+    "chassisNo": "MD9M2SGM25D624096",
+    "center": "Chennai_Kavankarai_D (Tamil Nadu)",
+    "city": "Chennai",
+    "cityType": "Metro",
+    "cluster": "Chennai"
+  },
+  {
+    "contractNo": "TN03AC4187",
+    "chassisNo": "MD9M2SGM25D624187",
+    "center": "Chennai_Kasturibainagar_D (Tamil Nadu)",
+    "city": "Chennai",
+    "cityType": "Metro",
+    "cluster": "Chennai"
+  },
+  {
+    "contractNo": "KA03AC4146",
+    "chassisNo": "MD9M2SGM25D624146",
+    "center": "Bangalore_Rayasandra_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA03AC4104",
+    "chassisNo": "MD9M2SGM25D624104",
+    "center": "Devanahalli_Vidyanagar_D (Karnataka)",
+    "city": "Devanahalli",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA03AC4169",
+    "chassisNo": "MD9M2SGM25D624169",
+    "center": "Bangalore_Devasandra_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA05AQ1942",
+    "chassisNo": "MD9ZNSYV25A624104",
+    "center": "Bangalore_Bikasipura_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA05AQ1938",
+    "chassisNo": "MD9ZNSYV25A624038",
+    "center": "Bangalore_Mahadevapura_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA05AQ1925",
+    "chassisNo": "MD9ZNSYV25A624106",
+    "center": "Bangalore_Bikasipura_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA05AQ2819",
+    "chassisNo": "MD9ZNSYV25A624200",
+    "center": "Bangalore_Narayanapura_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA05AQ2812",
+    "chassisNo": "MD9ZNSYV25A624202",
+    "center": "Bangalore_Devasandra_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA05AQ2821",
+    "chassisNo": "MD9ZNSYV25A624205",
+    "center": "Bangalore_Kowdenahalli_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA05AQ2816",
+    "chassisNo": "MD9ZNSYV25A624204",
+    "center": "Bangalore_Narayanapura_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA05AQ2755",
+    "chassisNo": "MD9ZNSYV25A624114",
+    "center": "Bangalore_Gubbalala_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA05AQ2810",
+    "chassisNo": "MD9ZNSYV25A624011",
+    "center": "Bangalore_Nagasandra_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA05AQ2760",
+    "chassisNo": "MD9ZNSYV25A624177",
+    "center": "Bangalore_Gubbalala_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA05AQ2804",
+    "chassisNo": "MD9ZNSYV25A624052",
+    "center": "Bangalore_RoyalCounty1_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA05AQ2765",
+    "chassisNo": "MD9ZNSYV25A624149",
+    "center": "Bangalore_Yelahanka_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA05AQ2748",
+    "chassisNo": "MD9ZNSYV25A624143",
+    "center": "Bangalore_Rayasandra_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA05AQ2762",
+    "chassisNo": "MD9ZNSYV25A624117",
+    "center": "Bengaluru_Agrahara_DC (Karnataka)",
+    "city": "Bengaluru",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA05AQ2773",
+    "chassisNo": "MD9ZNSYV25A624120",
+    "center": "Bangalore_Chellikere_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "TS03AC4027",
+    "chassisNo": "MD9M2SGM25E624027",
+    "center": "Hyderabad_Kukatpally_D (Telangana)",
+    "city": "Hyderabad",
+    "cityType": "Metro",
+    "cluster": "Hyderabad"
+  },
+  {
+    "contractNo": "TS03AC4032",
+    "chassisNo": "MD9M2SGM25E624032",
+    "center": "Hyderabad_Bandlaguda_D (Telangana)",
+    "city": "Hyderabad",
+    "cityType": "Metro",
+    "cluster": "Hyderabad"
+  },
+  {
+    "contractNo": "MH14MH8753",
+    "chassisNo": "MD9M2SGM25E624050",
+    "center": "Pune_Pratiknagar_D (Maharashtra)",
+    "city": "Pune",
+    "cityType": "Metro",
+    "cluster": "Pune"
+  },
+  {
+    "contractNo": "MH12MH8751",
+    "chassisNo": "MD9M2SGM25E624067",
+    "center": "Pune_Kasarwadi_D (Maharashtra)",
+    "city": "Pune",
+    "cityType": "Metro",
+    "cluster": "Pune"
+  },
+  {
+    "contractNo": "MH14MH8744",
+    "chassisNo": "MD9M2SGM25E624056",
+    "center": "Pune_Talawade_D (Maharashtra)",
+    "city": "Pune",
+    "cityType": "Metro",
+    "cluster": "Pune"
+  },
+  {
+    "contractNo": "MH14MH8741",
+    "chassisNo": "MD9M2SGM25E624061",
+    "center": "Pune_Pratiknagar_D (Maharashtra)",
+    "city": "Pune",
+    "cityType": "Metro",
+    "cluster": "Pune"
+  },
+  {
+    "contractNo": "MH14MH8738",
+    "chassisNo": "MD9M2SGM25E624036",
+    "center": "Pune_Tophakhana_D (Maharashtra)",
+    "city": "Pune",
+    "cityType": "Metro",
+    "cluster": "Pune"
+  },
+  {
+    "contractNo": "MH14MH8735",
+    "chassisNo": "MD9M2SGM25E624059",
+    "center": "Pune_GhavateNagar_D (Maharashtra)",
+    "city": "Pune",
+    "cityType": "Metro",
+    "cluster": "Pune"
+  },
+  {
+    "contractNo": "MH14MH3432",
+    "chassisNo": "MD9ZNSYV25C624247",
+    "center": "Pune_KalyaniNagar_D (Maharashtra)",
+    "city": "Pune",
+    "cityType": "Metro",
+    "cluster": "Pune"
+  },
+  {
+    "contractNo": "MH14MH3517",
+    "chassisNo": "MD9ZNSYV25C624018",
+    "center": "Pune_KalyaniNagar_D (Maharashtra)",
+    "city": "Pune",
+    "cityType": "Metro",
+    "cluster": "Pune"
+  },
+  {
+    "contractNo": "MH14MH3447",
+    "chassisNo": "MD9ZNSYV25C624308",
+    "center": "Pune_Godumbre_D (Maharashtra)",
+    "city": "Pune",
+    "cityType": "Metro",
+    "cluster": "Pune"
+  },
+  {
+    "contractNo": "MH14MH8739",
+    "chassisNo": "MD9ZNSYV25C624218",
+    "center": "Pune_PIsoli_D (Maharashtra)",
+    "city": "Pune",
+    "cityType": "Metro",
+    "cluster": "Pune"
+  },
+  {
+    "contractNo": "TN03AC4080",
+    "chassisNo": "MD9M2SGM25D624080",
+    "center": "Chennai_VivekanandaNgr_D (Tamil Nadu)",
+    "city": "Chennai",
+    "cityType": "Metro",
+    "cluster": "Chennai"
+  },
+  {
+    "contractNo": "TN03AC4188",
+    "chassisNo": "MD9M2SGM25D624188",
+    "center": "Chennai_KasturiNagar_D (Tamil Nadu)",
+    "city": "Chennai",
+    "cityType": "Metro",
+    "cluster": "Chennai"
+  },
+  {
+    "contractNo": "TS03AC4086",
+    "chassisNo": "MD9M2SGM25E624086",
+    "center": "Hyderabad_Malkajgiri_D (Telangana)",
+    "city": "Hyderabad",
+    "cityType": "Metro",
+    "cluster": "Hyderabad"
+  },
+  {
+    "contractNo": "MH14MH3440",
+    "chassisNo": "MD9ZNSYV25C624311",
+    "center": "Mumbai_Sion_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH14MH3516",
+    "chassisNo": "MD9ZNSYV25C624288",
+    "center": "Mumbai_Manpada1_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH14MH3428",
+    "chassisNo": "MD9ZNSYV25C624221",
+    "center": "Mumbai_Gothivali_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH14MH3518",
+    "chassisNo": "MD9ZNSYV25C624019",
+    "center": "Jasai_JNPTNMsez_D (Maharashtra)",
+    "city": "Jasai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH14MH3457",
+    "chassisNo": "MD9ZNSYV25C624295",
+    "center": "Mumbai_RBIColony_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH14MH3441",
+    "chassisNo": "MD9ZNSYV25C624278",
+    "center": "Mumbai_MaladIndstrEst_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH14MH3452",
+    "chassisNo": "MD9ZNSYV25C624301",
+    "center": "Mumbai_WagleIndusEstate_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "DL04EC3841",
+    "chassisNo": "MD9M2SGM25E624060",
+    "center": "Ghaziabad_Chhapraula1_D (Uttar Pradesh)",
+    "city": "Ghaziabad",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "DL04EC3888",
+    "chassisNo": "MD9M2SGM25E624029",
+    "center": "Noida_Sector83_D (Uttar Pradesh)",
+    "city": "Noida",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "HR55AU8530",
+    "chassisNo": "MD9ZNSYV24F624018",
+    "center": "Palwal_Sikri_D (Haryana)",
+    "city": "Palwal",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "DL04EC3882",
+    "chassisNo": "MD9M2SGM25E624025",
+    "center": "Noida_Sector11_D (Uttar Pradesh)",
+    "city": "Noida",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "KA05AQ2791",
+    "chassisNo": "MD9ZNSYV25A624086",
+    "center": "Bangalore_DoddaBanaswadi_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "HR55AY5755",
+    "chassisNo": "MD9M2SGM25E624064",
+    "center": "Gurgaon_Sikanderpur_D (Haryana)",
+    "city": "Gurgaon",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "HR55AY5385",
+    "chassisNo": "MD9M2SGM25E624066",
+    "center": "Gurgaon_MalibuTown_D (Haryana)",
+    "city": "Gurgaon",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "MH14KH3436",
+    "chassisNo": "MD9ZNSYV25C624282",
+    "center": "Mumbai_BandraWest3_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "TS03AC4009",
+    "chassisNo": "MD9M2SGM25E624009",
+    "center": "Hyd_Chandanagar_D (Telangana)",
+    "city": "Hyd",
+    "cityType": "Metro",
+    "cluster": "Hyderabad"
+  },
+  {
+    "contractNo": "KA05AQ2798",
+    "chassisNo": "MD9ZNSYV25A624065",
+    "center": "Bangalore_RTNagar_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "MH05AC4309",
+    "chassisNo": "MD9ZNSYV25C624309",
+    "center": "Mumbai_PadmaNagar_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH05AC4326",
+    "chassisNo": "MD9M2SGM25H624026",
+    "center": "Mumbai_Kharvai_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH05AC4002",
+    "chassisNo": "MD9M2SGM25H624002",
+    "center": "Mumbai_KharMarkazRd_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH05AC4027",
+    "chassisNo": "MD9M2SGM25H624027",
+    "center": "Mumbai_Parel1_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH05AC4033",
+    "chassisNo": "MD9M2SGM25H624033",
+    "center": "Mumbai_Seawoods_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH05AC4001",
+    "chassisNo": "MD9M2SGM25H624001",
+    "center": "Mumbai_KandivaliWest_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH05AC4005",
+    "chassisNo": "MD9M2SGM25H624005",
+    "center": "Mumbai_YogiNagar_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH05AC4022",
+    "chassisNo": "MD9M2SGM25H624022",
+    "center": "Mumbai_Gandhingr_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH05AC4031",
+    "chassisNo": "MD9M2SGM25H624031",
+    "center": "Mumbai_GhansliSec5_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH05AC4016",
+    "chassisNo": "MD9M2SGM25H624016",
+    "center": "Mumbai_PantNagar_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "DL04EC3896",
+    "chassisNo": "MD9M2SGM25E624002",
+    "center": "Delhi_NewFriendsClny_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "DL04EC3859",
+    "chassisNo": "MD9M2SGM25E624024",
+    "center": "Delhi_Mohammadpur (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "HR55AU3497",
+    "chassisNo": "MD9ZNSYV24D624015",
+    "center": "Delhi_ShahpurJat_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "HR55AU5516",
+    "chassisNo": "MD9ZNSYV240624004",
+    "center": "Delhi_HariNagarExtn_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "HR55AU3471",
+    "chassisNo": "MD9ZNSYV24D624073",
+    "center": "Delhi_Deoli1_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "HR55AU1173",
+    "chassisNo": "MD9ZNSYV24F624010",
+    "center": "Delhi_Deoli1_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "DL04EC3889",
+    "chassisNo": "MD9M2SGM25E624051",
+    "center": "Delhi_PatelNagar1_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "DL04EC3870",
+    "chassisNo": "MD9M2SGM25E624043",
+    "center": "Delhi_Chhatarpur1_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "MH05AC4019",
+    "chassisNo": "MD9M2SGM25H624019",
+    "center": "Mumbai_VikhroliWest_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "HR55AV3365",
+    "chassisNo": "MD9ZNSYV24J624048",
+    "center": "Delhi_BerSarai_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "GJ03AC4011",
+    "chassisNo": "MD9M2SGM25J624011",
+    "center": "Ahmedabad_Motera_D (Gujarat)",
+    "city": "Ahmedabad",
+    "cityType": "Metro",
+    "cluster": "Ahmedabad"
+  },
+  {
+    "contractNo": "GJ03AC4006",
+    "chassisNo": "MD9M2SGM25J624006",
+    "center": "Ahmedabad_ChndramoliSoc_D (Gujarat)",
+    "city": "Ahmedabad",
+    "cityType": "Metro",
+    "cluster": "Ahmedabad"
+  },
+  {
+    "contractNo": "GJ03AC4018",
+    "chassisNo": "MD9M2SGM25H624018",
+    "center": "Kalol_SOLA_D (Gujarat)",
+    "city": "Kalol",
+    "cityType": "Metro",
+    "cluster": "Ahmedabad"
+  },
+  {
+    "contractNo": "GJ03AC4014",
+    "chassisNo": "MD9M2SGM25H624014",
+    "center": "Ahmedabad_Chandkheda_D (Gujarat)",
+    "city": "Ahmedabad",
+    "cityType": "Metro",
+    "cluster": "Ahmedabad"
+  },
+  {
+    "contractNo": "GJ03AC4004",
+    "chassisNo": "MD9M2SGM25J624004",
+    "center": "Ahmedabad_Maninagar_D (Gujarat)",
+    "city": "Ahmedabad",
+    "cityType": "Metro",
+    "cluster": "Ahmedabad"
+  },
+  {
+    "contractNo": "GJ03AC4029",
+    "chassisNo": "MD9M2SGM25H624029",
+    "center": "Ahmedabad_Vishala_D (Gujarat)",
+    "city": "Ahmedabad",
+    "cityType": "Metro",
+    "cluster": "Ahmedabad"
+  },
+  {
+    "contractNo": "GJ03AC4005",
+    "chassisNo": "MD9M2SGM25J624005",
+    "center": "Ahmedabad_Makarba_D (Gujarat)",
+    "city": "Ahmedabad",
+    "cityType": "Metro",
+    "cluster": "Ahmedabad"
+  },
+  {
+    "contractNo": "GJ03AC4008",
+    "chassisNo": "MD9M2SGM25J624008",
+    "center": "Gandhinagar_Sector25_D (Gujarat)",
+    "city": "Gandhinagar",
+    "cityType": "Metro",
+    "cluster": "Ahmedabad"
+  },
+  {
+    "contractNo": "GJ03AC4007",
+    "chassisNo": "MD9M2SGM25J624007",
+    "center": "Ahmedabad_GIDCNaroda_D (Gujarat)",
+    "city": "Ahmedabad",
+    "cityType": "Metro",
+    "cluster": "Ahmedabad"
+  },
+  {
+    "contractNo": "GJ03AC4015",
+    "chassisNo": "MD9M2SGM25H624015",
+    "center": "Ahmedabad_SarvodayaNgr_D (Gujarat)",
+    "city": "Ahmedabad",
+    "cityType": "Metro",
+    "cluster": "Ahmedabad"
+  },
+  {
+    "contractNo": "GJ03AC4034",
+    "chassisNo": "MD9M2SGM25H624034",
+    "center": "Ahmedabad_Navrangpura_D (Gujarat)",
+    "city": "Ahmedabad",
+    "cityType": "Metro",
+    "cluster": "Ahmedabad"
+  },
+  {
+    "contractNo": "GJ03AC4003",
+    "chassisNo": "MD9M2SGM25H624003",
+    "center": "Kalol_SOLA_D (Gujarat)",
+    "city": "Kalol",
+    "cityType": "Metro",
+    "cluster": "Ahmedabad"
+  },
+  {
+    "contractNo": "GJ03AC4028",
+    "chassisNo": "MD9M2SGM25H624028",
+    "center": "Ahmedabad_Maningar_D (Gujarat)",
+    "city": "Ahmedabad",
+    "cityType": "Metro",
+    "cluster": "Ahmedabad"
+  },
+  {
+    "contractNo": "GJ03AC4030",
+    "chassisNo": "MD9M2SGM25H624030",
+    "center": "Ahmedabad_Kankaria_D (Gujarat)",
+    "city": "Ahmedabad",
+    "cityType": "Metro",
+    "cluster": "Ahmedabad"
+  },
+  {
+    "contractNo": "GJ03AC4017",
+    "chassisNo": "MD9M2SGM25H624017",
+    "center": "Ahmedabad_RamdevNagar_D (Gujarat)",
+    "city": "Ahmedabad",
+    "cityType": "Metro",
+    "cluster": "Ahmedabad"
+  },
+  {
+    "contractNo": "MH08AC4004",
+    "chassisNo": "MD9M2SGM25M624004",
+    "center": "Mumbai_Khadakpada_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH07AC4008",
+    "chassisNo": "MD9M2SGM25F624008",
+    "center": "Pune_Hadapsar_D (Maharashtra)",
+    "city": "Pune",
+    "cityType": "Metro",
+    "cluster": "Pune"
+  },
+  {
+    "contractNo": "MH08AC4031",
+    "chassisNo": "MD9M2SGM25D624031",
+    "center": "Pune_Malwadi_D (Maharashtra)",
+    "city": "Pune",
+    "cityType": "Metro",
+    "cluster": "Pune"
+  },
+  {
+    "contractNo": "MH07AC4003",
+    "chassisNo": "MD9M2SGM25F624003",
+    "center": "Pune_ShastriNgr_D (Maharashtra)",
+    "city": "Pune",
+    "cityType": "Metro",
+    "cluster": "Pune"
+  },
+  {
+    "contractNo": "MH07AC4013",
+    "chassisNo": "MD9M2SGM25F624013",
+    "center": "Pune_MukaiNgr1_D (Maharashtra)",
+    "city": "Pune",
+    "cityType": "Metro",
+    "cluster": "Pune"
+  },
+  {
+    "contractNo": "MH07AC4042",
+    "chassisNo": "MD9M2SGM25D624042",
+    "center": "Pune_Walhekarwadi_D (Maharashtra)",
+    "city": "Pune",
+    "cityType": "Metro",
+    "cluster": "Pune"
+  },
+  {
+    "contractNo": "MH07AC4037",
+    "chassisNo": "MD9M2SGM25D624037",
+    "center": "Pune_Walhekarwadi_D (Maharashtra)",
+    "city": "Pune",
+    "cityType": "Metro",
+    "cluster": "Pune"
+  },
+  {
+    "contractNo": "MH07AC4007",
+    "chassisNo": "MD9M2SGM25H624007",
+    "center": "Pune_Pratiknagar_D (Maharashtra)",
+    "city": "Pune",
+    "cityType": "Metro",
+    "cluster": "Pune"
+  },
+  {
+    "contractNo": "MH06AC4003",
+    "chassisNo": "MD9M2SGM25D624003",
+    "center": "Pune_Haveli_D (Maharashtra)",
+    "city": "Pune",
+    "cityType": "Metro",
+    "cluster": "Pune"
+  },
+  {
+    "contractNo": "MH07AC4005",
+    "chassisNo": "MD9M2SGM25F624005",
+    "center": "Pune_Kesnand_D (Maharashtra)",
+    "city": "Pune",
+    "cityType": "Metro",
+    "cluster": "Pune"
+  },
+  {
+    "contractNo": "MH07AC4009",
+    "chassisNo": "MD9M2SGM25M624009",
+    "center": "Pune_KhandveNagar_D (Maharashtra)",
+    "city": "Pune",
+    "cityType": "Metro",
+    "cluster": "Pune"
+  },
+  {
+    "contractNo": "MH07AC4025",
+    "chassisNo": "MD9M2SGM25M624025",
+    "center": "Pune_Dhanori1_D (Maharashtra)",
+    "city": "Pune",
+    "cityType": "Metro",
+    "cluster": "Pune"
+  },
+  {
+    "contractNo": "MH07AC4032",
+    "chassisNo": "MD9M2SGM25M624032",
+    "center": "Pune_Dattanagar_D (Maharashtra)",
+    "city": "Pune",
+    "cityType": "Metro",
+    "cluster": "Pune"
+  },
+  {
+    "contractNo": "MH08AC4030",
+    "chassisNo": "MD9M2SGM25M624030",
+    "center": "Pune_Kasarwadi_D (Maharashtra)",
+    "city": "Pune",
+    "cityType": "Metro",
+    "cluster": "Pune"
+  },
+  {
+    "contractNo": "MH08AC4029",
+    "chassisNo": "MD9M2SGM25M624029",
+    "center": "Pune_Susgaon_D (Maharashtra)",
+    "city": "Pune",
+    "cityType": "Metro",
+    "cluster": "Pune"
+  },
+  {
+    "contractNo": "MH08AC4027",
+    "chassisNo": "MD9M2SGM25M624027",
+    "center": "Pune_KalaKhadak_D (Maharashtra)",
+    "city": "Pune",
+    "cityType": "Metro",
+    "cluster": "Pune"
+  },
+  {
+    "contractNo": "MH08AC4028",
+    "chassisNo": "MD9M2SGM25M624028",
+    "center": "Pune_Chandannagar_D (Maharashtra)",
+    "city": "Pune",
+    "cityType": "Metro",
+    "cluster": "Pune"
+  },
+  {
+    "contractNo": "MH08AC4010",
+    "chassisNo": "MD9M2SGM25M624010",
+    "center": "Pune_Bapodi_D (Maharashtra)",
+    "city": "Pune",
+    "cityType": "Metro",
+    "cluster": "Pune"
+  },
+  {
+    "contractNo": "MH08AC4015",
+    "chassisNo": "MD9M2SGM25M624015",
+    "center": "Pune_Someshwarwadi_D (Maharashtra)",
+    "city": "Pune",
+    "cityType": "Metro",
+    "cluster": "Pune"
+  },
+  {
+    "contractNo": "MH07AC4016",
+    "chassisNo": "MD9M2SGM25M624016",
+    "center": "Pune_Vimananagar_D (Maharashtra)",
+    "city": "Pune",
+    "cityType": "Metro",
+    "cluster": "Pune"
+  },
+  {
+    "contractNo": "MH08AC4049",
+    "chassisNo": "MD9M2SGM25M624049",
+    "center": "Mumbai_Fort_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH08AC4006",
+    "chassisNo": "MD9M2SGM25M624006",
+    "center": "Mumbai_Gharivali_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH08AC4022",
+    "chassisNo": "MD9M2SGM25D624022",
+    "center": "Mumbai_Mahim_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH08AC4005",
+    "chassisNo": "MD9M2SGM25M624005",
+    "center": "Mumbai_Gorai2_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH07AC4011",
+    "chassisNo": "MD9M2SGM25D624011",
+    "center": "Pune_Pisoli_D (Maharashtra)",
+    "city": "Pune",
+    "cityType": "Metro",
+    "cluster": "Pune"
+  },
+  {
+    "contractNo": "MH07AC4002",
+    "chassisNo": "MD9M2SGM25M624002",
+    "center": "Pune_Someshwarwadi_D (Maharashtra)",
+    "city": "Pune",
+    "cityType": "Metro",
+    "cluster": "Pune"
+  },
+  {
+    "contractNo": "MH07AC4024",
+    "chassisNo": "MD9M2SGM25D624024",
+    "center": "Pune_Nanded1_D (Maharashtra)",
+    "city": "Pune",
+    "cityType": "Metro",
+    "cluster": "Pune"
+  },
+  {
+    "contractNo": "MH10AC4008",
+    "chassisNo": "MD9M2SGM25H624008",
+    "center": "Pune_Maan2_D (Maharashtra)",
+    "city": "Pune",
+    "cityType": "Metro",
+    "cluster": "Pune"
+  },
+  {
+    "contractNo": "MH10AC4003",
+    "chassisNo": "MD9M2SGM25M624003",
+    "center": "Pune_Marunji_D (Maharashtra)",
+    "city": "Pune",
+    "cityType": "Metro",
+    "cluster": "Pune"
+  },
+  {
+    "contractNo": "MH09AC4030",
+    "chassisNo": "MD9M2SGM25D624030",
+    "center": "Mumbai_VeeradesaiRd_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH09AC4023",
+    "chassisNo": "MD9M2SGM25D624023",
+    "center": "Mumbai_TagoreNagar1_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH09AC4020",
+    "chassisNo": "MD9M2SGM25F624020",
+    "center": "Mumbai_TagoreNagar1_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH10AC4017",
+    "chassisNo": "MD9M2SGM25F624017",
+    "center": "Mumbai_DokaliPada_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH09AC4009",
+    "chassisNo": "MD9M2SGM25D624009",
+    "center": "Mumbai_AssisiNagar_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH09AC4010",
+    "chassisNo": "MD9M2SGM25D624010",
+    "center": "Mumbai_Sion_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH09AC4008",
+    "chassisNo": "MD9M2SGM25D624008",
+    "center": "Mumbai_Chunabhatti_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH08AC4033",
+    "chassisNo": "MD9M2SGM25M624033",
+    "center": "Pune_WadgaonSheri_D (Maharashtra)",
+    "city": "Pune",
+    "cityType": "Metro",
+    "cluster": "Pune"
+  },
+  {
+    "contractNo": "MH09AC4011",
+    "chassisNo": "MD9M2SGM25M624011",
+    "center": "Pune_Maan1_D (Maharashtra)",
+    "city": "Pune",
+    "cityType": "Metro",
+    "cluster": "Pune"
+  },
+  {
+    "contractNo": "MH09AC4017",
+    "chassisNo": "MD9M2SGM25M624017",
+    "center": "Pune_KhandveNagar_D (Maharashtra)",
+    "city": "Pune",
+    "cityType": "Metro",
+    "cluster": "Pune"
+  },
+  {
+    "contractNo": "MH09AC4028",
+    "chassisNo": "MD9M2SGM25D624028",
+    "center": "Pune_Phursungi1_D (Maharashtra)",
+    "city": "Pune",
+    "cityType": "Metro",
+    "cluster": "Pune"
+  },
+  {
+    "contractNo": "MH08AC4035",
+    "chassisNo": "MD9M2SGM25D624035",
+    "center": "Pune_Marunji_D (Maharashtra)",
+    "city": "Pune",
+    "cityType": "Metro",
+    "cluster": "Pune"
+  },
+  {
+    "contractNo": "MH08AC4012",
+    "chassisNo": "MD9M2SGM25M624012",
+    "center": "Pune_Kasarwadi_D (Maharashtra)",
+    "city": "Pune",
+    "cityType": "Metro",
+    "cluster": "Pune"
+  },
+  {
+    "contractNo": "MH09AC4031",
+    "chassisNo": "MD9M2SGM25M624031",
+    "center": "Pune_Marunji_D (Maharashtra)",
+    "city": "Pune",
+    "cityType": "Metro",
+    "cluster": "Pune"
+  },
+  {
+    "contractNo": "MH10AC4025",
+    "chassisNo": "MD9M2SGM25D624025",
+    "center": "Mumbai_SakiNaka1_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH10AC4036",
+    "chassisNo": "MD9M2SGM25D624036",
+    "center": "Mumbai_DokaliPada_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH10AC4026",
+    "chassisNo": "MD9M2SGM25D624026",
+    "center": "Pune_TapkirNagar_D (Maharashtra)",
+    "city": "Pune",
+    "cityType": "Metro",
+    "cluster": "Pune"
+  },
+  {
+    "contractNo": "MH10AC4012",
+    "chassisNo": "MD9M2SGM25F624012",
+    "center": "Pune_Someshwarwadi_D (Maharashtra)",
+    "city": "Pune",
+    "cityType": "Metro",
+    "cluster": "Pune"
+  },
+  {
+    "contractNo": "MH11AC4026",
+    "chassisNo": "MD9M2SGM25M624026",
+    "center": "Pune_Katraj_D (Maharashtra)",
+    "city": "Pune",
+    "cityType": "Metro",
+    "cluster": "Pune"
+  },
+  {
+    "contractNo": "MH03DC4007",
+    "chassisNo": "MD9M2SGM25M624007",
+    "center": "Mumbai_Manpada1_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH03DC4015",
+    "chassisNo": "MD9M2SGM25F624015",
+    "center": "Mumbai_TilakNagar_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH03DC4019",
+    "chassisNo": "MD9M2SGM25F624019",
+    "center": "Mumbai_Charkop1_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH03DC4014",
+    "chassisNo": "MD9M2SGM25M624014",
+    "center": "Mumbai_Vadghar_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH04DC4019",
+    "chassisNo": "MD9M2SGM25M624019",
+    "center": "Mumbai_Kasarvadavali_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH03DC4021",
+    "chassisNo": "MD9M2SGM25M624021",
+    "center": "Mumbai_Dapode1_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH03DC4001",
+    "chassisNo": "MD9M2SGM25M624001",
+    "center": "Mumbai_Dapode1_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH04DC4007",
+    "chassisNo": "MD9M2SGM25D624007",
+    "center": "Mumbai_Ulhasnagar_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH03DC4035",
+    "chassisNo": "MD9M2SGM25M624035",
+    "center": "Mumbai_Sonarpada_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "KA03DC4013",
+    "chassisNo": "MD9M2SGM26B624013",
+    "center": "Bangalore_Hulimangala_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA03DC4016",
+    "chassisNo": "MD9M2SGM26B624016",
+    "center": "Bangalore_BDALayout_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA03DC4028",
+    "chassisNo": "MD9M2SGM26B624028",
+    "center": "Bangalore_Nspalya2_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA03DC4027",
+    "chassisNo": "MD9M2SGM26B624027",
+    "center": "Bangalore_MarthalliNew_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA03DC4012",
+    "chassisNo": "MD9M2SGM26B624012",
+    "center": "Bangalore_HSRLayout_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA03DC4023",
+    "chassisNo": "MD9M2SGM26B624023",
+    "center": "Bangalore_BDALayout_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA03DC4025",
+    "chassisNo": "MD9M2SGM26B624025",
+    "center": "Bangalore_Jarganahalli_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA03DC4019",
+    "chassisNo": "MD9M2SGM26B624019",
+    "center": "Bengaluru_Banshkri_DC (Karnataka)",
+    "city": "Bengaluru",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA03DC4021",
+    "chassisNo": "MD9M2SGM26B624021",
+    "center": "Bangalore_MarthalliNew_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA03DC4029",
+    "chassisNo": "MD9M2SGM26B624029",
+    "center": "Bangalore_BDALayout_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA03DC4004",
+    "chassisNo": "MD9M2SGM26B624004",
+    "center": "Bangalore_Singasandra_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA03DC4022",
+    "chassisNo": "MD9M2SGM26B624022",
+    "center": "Bangalore_Kamagondahali_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA03DC4024",
+    "chassisNo": "MD9M2SGM26B624024",
+    "center": "Bangalore_Madhuranagara_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA03DC4026",
+    "chassisNo": "MD9M2SGM26B624026",
+    "center": "Bangalore_Rajajinagar1_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA03DC4032",
+    "chassisNo": "MD9M2SGM26B624032",
+    "center": "Bangalore_GunjurVillg_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA03DC4046",
+    "chassisNo": "MD9M2SGM26B624046",
+    "center": "Bangalore_BellndurNew_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA03DC4078",
+    "chassisNo": "MD9M2SGM26B624078",
+    "center": "Bangalore_HSR7thSector_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA04DC4046",
+    "chassisNo": "MD9M2SGM26B624049",
+    "center": "Bangalore_BellndurNew_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA03DC4044",
+    "chassisNo": "MD9M2SGM26B624044",
+    "center": "Bangalore_Munekollal_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA03DC4034",
+    "chassisNo": "MD9M2SGM26B624034",
+    "center": "Bangalore_AnanthNgr_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "DL03DC4002",
+    "chassisNo": "MD9M2SGM26A624002",
+    "center": "Delhi_Budella_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "KA03DC4050",
+    "chassisNo": "MD9M2SGM26B624050",
+    "center": "Bangalore_DoddaBanaswadi_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA03DC4065",
+    "chassisNo": "MD9M2SGM26B624065",
+    "center": "Bengaluru_Agrahara_DC (Karnataka)",
+    "city": "Bengaluru",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "DL03DC4009",
+    "chassisNo": "MD9M2SGM25H624009",
+    "center": "Delhi_SubhashNagar_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "KA03DC4041",
+    "chassisNo": "MD9M2SGM26B624041",
+    "center": "Bangalore_Lingarajapuram_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "DL03DC4004",
+    "chassisNo": "MD9M2SGM26A624004",
+    "center": "Gurgaon_Basai_D (Haryana)",
+    "city": "Gurgaon",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "KA03DC4042",
+    "chassisNo": "MD9M2SGM26B624042",
+    "center": "Bangalore_Kasavanahalli_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "GA03AC4069",
+    "chassisNo": "MD9M2SGM26B624069",
+    "center": "Goa_Nagve_D (Goa)",
+    "city": "Goa",
+    "cityType": "Non-Metro",
+    "cluster": "Goa"
+  },
+  {
+    "contractNo": "GA03AC4070",
+    "chassisNo": "MD9M2SGM26B624070",
+    "center": "Goa_verla_D (Goa)",
+    "city": "Goa",
+    "cityType": "Non-Metro",
+    "cluster": "Goa"
+  },
+  {
+    "contractNo": "GA03AC4064",
+    "chassisNo": "MD9M2SGM26B624064",
+    "center": "Canacona_Shristal_D (Goa)",
+    "city": "Canacona",
+    "cityType": "Non-Metro",
+    "cluster": "Goa"
+  },
+  {
+    "contractNo": "GA03AC4061",
+    "chassisNo": "MD9M2SGM26B624061",
+    "center": "Goa_Benaulim_D (Goa)",
+    "city": "Goa",
+    "cityType": "Non-Metro",
+    "cluster": "Goa"
+  },
+  {
+    "contractNo": "GA03AC4063",
+    "chassisNo": "MD9M2SGM26B624063",
+    "center": "Goa_Navelim1_D (Goa)",
+    "city": "Goa",
+    "cityType": "Non-Metro",
+    "cluster": "Goa"
+  },
+  {
+    "contractNo": "GA03AC4067",
+    "chassisNo": "MD9M2SGM26B624067",
+    "center": "Goa_Nagve_D (Goa)",
+    "city": "Goa",
+    "cityType": "Non-Metro",
+    "cluster": "Goa"
+  },
+  {
+    "contractNo": "GA03AC4066",
+    "chassisNo": "MD9M2SGM26B624066",
+    "center": "Goa_Vagator_D (Goa)",
+    "city": "Goa",
+    "cityType": "Non-Metro",
+    "cluster": "Goa"
+  },
+  {
+    "contractNo": "GA03AC4062",
+    "chassisNo": "MD9M2SGM26B624062",
+    "center": "Goa_Sancoale_D (Goa)",
+    "city": "Goa",
+    "cityType": "Non-Metro",
+    "cluster": "Goa"
+  },
+  {
+    "contractNo": "GA03AC4071",
+    "chassisNo": "MD9M2SGM26B624071",
+    "center": "Goa_Baingini_D (Goa)",
+    "city": "Goa",
+    "cityType": "Non-Metro",
+    "cluster": "Goa"
+  },
+  {
+    "contractNo": "GA03AC4068",
+    "chassisNo": "MD9M2SGM26B624068",
+    "center": "Goa_Nagve_D (Goa)",
+    "city": "Goa",
+    "cityType": "Non-Metro",
+    "cluster": "Goa"
+  },
+  {
+    "contractNo": "TS03AC4072",
+    "chassisNo": "MD9M2SGM26B624072",
+    "center": "Medchal_RaghavendraNgr_D (Telangana)",
+    "city": "Medchal",
+    "cityType": "Metro",
+    "cluster": "Hyderabad"
+  },
+  {
+    "contractNo": "TS03AC4073",
+    "chassisNo": "MD9M2SGM26B624073",
+    "center": "Hyderabad_Kompally_D (Telangana)",
+    "city": "Hyderabad",
+    "cityType": "Metro",
+    "cluster": "Hyderabad"
+  },
+  {
+    "contractNo": "TS03AC4074",
+    "chassisNo": "MD9M2SGM26B624074",
+    "center": "Hyd_LB-Nagar_Dc (Telangana)",
+    "city": "Hyd",
+    "cityType": "Metro",
+    "cluster": "Hyderabad"
+  },
+  {
+    "contractNo": "TS03AC4075",
+    "chassisNo": "MD9M2SGM26B624075",
+    "center": "Hyderabad_Tngocolony_D (Telangana)",
+    "city": "Hyderabad",
+    "cityType": "Metro",
+    "cluster": "Hyderabad"
+  },
+  {
+    "contractNo": "TS03AC4076",
+    "chassisNo": "MD9M2SGM26B624076",
+    "center": "Hyderabad_Kompally_D (Telangana)",
+    "city": "Hyderabad",
+    "cityType": "Metro",
+    "cluster": "Hyderabad"
+  },
+  {
+    "contractNo": "TS03AC4079",
+    "chassisNo": "MD9M2SGM26B624079",
+    "center": "Hyd_Chandanagar_Dc (Telangana)",
+    "city": "Hyd",
+    "cityType": "Metro",
+    "cluster": "Hyderabad"
+  },
+  {
+    "contractNo": "TS03AC4080",
+    "chassisNo": "MD9M2SGM26B624080",
+    "center": "Hyderabad_Tngocolony_D (Telangana)",
+    "city": "Hyderabad",
+    "cityType": "Metro",
+    "cluster": "Hyderabad"
+  },
+  {
+    "contractNo": "TS03AC4082",
+    "chassisNo": "MD9M2SGM26B624082",
+    "center": "Hyderabad_ASRaoNgr_D (Telangana)",
+    "city": "Hyderabad",
+    "cityType": "Metro",
+    "cluster": "Hyderabad"
+  },
+  {
+    "contractNo": "KA03DC4077",
+    "chassisNo": "MD9M2SGM26B624077",
+    "center": "Bangalore_Jarganahalli_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "UP03DC4083",
+    "chassisNo": "MD9M2SGM26B624083",
+    "center": "Delhi_Ghazipur1_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "UP03DC4084",
+    "chassisNo": "MD9M2SGM26B624084",
+    "center": "Noida_Kasna2_D (Uttar Pradesh)",
+    "city": "Noida",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "UP03DC4090",
+    "chassisNo": "MD9M2SGM26B624090",
+    "center": "Gurgaon_Sector95_D (Haryana)",
+    "city": "Gurgaon",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "MH03DC4044",
+    "chassisNo": "MD9M2SGM25M624044",
+    "center": "Mumbai_Dwarligaon_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH03DC4024",
+    "chassisNo": "MD9M2SGM25M624024",
+    "center": "Mumbai_Dwarligaon_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH03DC4036",
+    "chassisNo": "MD9M2SGM25M624036",
+    "center": "Mumbai_DokaliPada_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH03DC4020",
+    "chassisNo": "MD9M2SGM25M624020",
+    "center": "Jasai_Ulwe2_D (Maharashtra)",
+    "city": "Jasai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH03DC4034",
+    "chassisNo": "MD9M2SGM25M624034",
+    "center": "Mumbai_Viratnagar_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "KA03DC4043",
+    "chassisNo": "MD9M2SGM26B624043",
+    "center": "Bangalore_Munekollal_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "DL04DC4035",
+    "chassisNo": "MD9M2SGM26C624035",
+    "center": "Delhi_Harkeshnagar1_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "RJ14CA4029",
+    "chassisNo": "MD9M2SGM26C624029",
+    "center": "Jaipur_Saktinagar_D (Rajasthan)",
+    "city": "Jaipur",
+    "cityType": "Non-Metro",
+    "cluster": "Jaipur"
+  },
+  {
+    "contractNo": "RJ14CA4077",
+    "chassisNo": "MD9M2SGM26C624077",
+    "center": "Jaipur_sodala1_D (Rajasthan)",
+    "city": "Jaipur",
+    "cityType": "Non-Metro",
+    "cluster": "Jaipur"
+  },
+  {
+    "contractNo": "RJ14CA4037",
+    "chassisNo": "MD9M2SGM26C624037",
+    "center": "Jaipur_Jagatpura1_D (Rajasthan)",
+    "city": "Jaipur",
+    "cityType": "Non-Metro",
+    "cluster": "Jaipur"
+  },
+  {
+    "contractNo": "RJ14CA4030",
+    "chassisNo": "MD9M2SGM26C624030",
+    "center": "Jaipur_ShyamNagar_D (Rajasthan)",
+    "city": "Jaipur",
+    "cityType": "Non-Metro",
+    "cluster": "Jaipur"
+  },
+  {
+    "contractNo": "RJ14CA4034",
+    "chassisNo": "MD9M2SGM26C624034",
+    "center": "Jaipur_Kalyanpura_D (Rajasthan)",
+    "city": "Jaipur",
+    "cityType": "Non-Metro",
+    "cluster": "Jaipur"
+  },
+  {
+    "contractNo": "RJ14CA4036",
+    "chassisNo": "MD9M2SGM26C624036",
+    "center": "Jaipur_RamNagar_D (Rajasthan)",
+    "city": "Jaipur",
+    "cityType": "Non-Metro",
+    "cluster": "Jaipur"
+  },
+  {
+    "contractNo": "RJ14CA4090",
+    "chassisNo": "MD9M2SGM26C624090",
+    "center": "Jaipur_Chitrakoot_D (Rajasthan)",
+    "city": "Jaipur",
+    "cityType": "Non-Metro",
+    "cluster": "Jaipur"
+  },
+  {
+    "contractNo": "RJ14CA4083",
+    "chassisNo": "MD9M2SGM26C624083",
+    "center": "Jaipur_ShastriNagar_D (Rajasthan)",
+    "city": "Jaipur",
+    "cityType": "Non-Metro",
+    "cluster": "Jaipur"
+  },
+  {
+    "contractNo": "MH03DC4038",
+    "chassisNo": "MD9M2SGM25M624038",
+    "center": "Jasai_Ulwe2_D (Maharashtra)",
+    "city": "Jasai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH03DC4041",
+    "chassisNo": "MD9M2SGM25M624041",
+    "center": "Jasai_Ulwe2_D (Maharashtra)",
+    "city": "Jasai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH03DC4043",
+    "chassisNo": "MD9M2SGM25M624043",
+    "center": "Mumbai_Bhandup_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH03DC4046",
+    "chassisNo": "MD9M2SGM25M624046",
+    "center": "Mumbai_VasaiWest1_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH03DC4023",
+    "chassisNo": "MD9M2SGM25H624023",
+    "center": "Mumbai_Amrutnagar_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH03DC4032",
+    "chassisNo": "MD9M2SGM25H624032",
+    "center": "Mumbai_UdyogNagar_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH03DC4050",
+    "chassisNo": "MD9M2SGM25M624050",
+    "center": "Mumbai_Gharivali_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH03DC4051",
+    "chassisNo": "MD9M2SGM25M624051",
+    "center": "Mumbai_SidhiVinayakNgr_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH04DC4001",
+    "chassisNo": "MD9M2SGM26A624001",
+    "center": "Thane_PrasikNagar_D (Maharashtra)",
+    "city": "Thane",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH04DC4008",
+    "chassisNo": "MD9M2SGM25M624008",
+    "center": "Mumbai_Vadghar_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "DL03DC4101",
+    "chassisNo": "MD9M2SGM26B624101",
+    "center": "Delhi_OkhlaIndusEstate_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "UP03DC4091",
+    "chassisNo": "MD9M2SGM26B624091",
+    "center": "Noida_Sector83_D (Uttar Pradesh)",
+    "city": "Noida",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "KA03DC4033",
+    "chassisNo": "MD9M2SGM26B624033",
+    "center": "Bangalore_BalaramaLayo_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA03DC4047",
+    "chassisNo": "MD9M2SGM26B624047",
+    "center": "Bangalore_Geddalahalii_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "HR03DC4087",
+    "chassisNo": "MD9M2SGM26B624087",
+    "center": "Delhi_HariNagarExtn_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "HR03DC4085",
+    "chassisNo": "MD9M2SGM26B624085",
+    "center": "Faridabad_NIT3_D (Haryana)",
+    "city": "Faridabad",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "DL03DC4012",
+    "chassisNo": "MD9M2SGM26C624012",
+    "center": "Delhi_Kakrola_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "DL03DC4089",
+    "chassisNo": "MD9M2SGM26B624089",
+    "center": "Delhi_Lajpatnagar_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "DL03DC4071",
+    "chassisNo": "MD9M2SGM26C624071",
+    "center": "Delhi_DwarkaSector3_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "DL03DC4011",
+    "chassisNo": "MD9M2SGM26C624011",
+    "center": "Delhi_Okhla2_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "DL03DC4073",
+    "chassisNo": "MD9M2SGM26C624073",
+    "center": "Delhi_Sector19B_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "HR03DC4072",
+    "chassisNo": "MD9M2SGM26C624072",
+    "center": "Gurgaon_Hasanpur2_D (Haryana)",
+    "city": "Gurgaon",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "HR03DC4067",
+    "chassisNo": "MD9M2SGM26C624067",
+    "center": "Gurgaon_Sector18_D (Haryana)",
+    "city": "Gurgaon",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "DL03DC4088",
+    "chassisNo": "MD9M2SGM26B624088",
+    "center": "Delhi_Gharoli_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "DL03DC4075",
+    "chassisNo": "MD9M2SGM26C624075",
+    "center": "Delhi_PatelNagar1_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "MH03AC4011",
+    "chassisNo": "MD9M2SGM25H624011",
+    "center": "Mumbai_Sion_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "DL03DC4066",
+    "chassisNo": "MD9M2SGM26C624066",
+    "center": "Delhi_Kakrola_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "MH04DC4023",
+    "chassisNo": "MD9M2SGM25M624023",
+    "center": "Mumbai_Manjarli_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH04DC4018",
+    "chassisNo": "MD9M2SGM25M624018",
+    "center": "Mumbai_HanumanNagar_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH04DC4022",
+    "chassisNo": "MD9M2SGM25M624022",
+    "center": "Mumbai_NerulSector28_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH04DC4010",
+    "chassisNo": "MD9M2SGM26A624010",
+    "center": "Pune_Kasarwadi_D (Maharashtra)",
+    "city": "Pune",
+    "cityType": "Metro",
+    "cluster": "Pune"
+  },
+  {
+    "contractNo": "MH04DC4015",
+    "chassisNo": "MD9M2SGM26A624015",
+    "center": "Pune_GiridharNagar_D (Maharashtra)",
+    "city": "Pune",
+    "cityType": "Metro",
+    "cluster": "Pune"
+  },
+  {
+    "contractNo": "MH04DC4013",
+    "chassisNo": "MD9M2SGM26A624013",
+    "center": "Pune_Haveli_D (Maharashtra)",
+    "city": "Pune",
+    "cityType": "Metro",
+    "cluster": "Pune"
+  },
+  {
+    "contractNo": "MH03DC4009",
+    "chassisNo": "MD9M2SGM26A624009",
+    "center": "Mumbai_Panvel_2_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH03DC4004",
+    "chassisNo": "MD9M2SGM26B624001",
+    "center": "Mumbai_VashiWard_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH03DC4008",
+    "chassisNo": "MD9M2SGM26A624008",
+    "center": "Mumbai_Upvan_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH03DC4011",
+    "chassisNo": "MD9M2SGM26A624011",
+    "center": "Mumbai_JankalyanNagar_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "DL03DC4033",
+    "chassisNo": "MD9M2SGM26C624033",
+    "center": "Delhi_Sanoth1_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "DL03DC4031",
+    "chassisNo": "MD9M2SGM26C624031",
+    "center": "Delhi_Rajpura_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "MH03DC4013",
+    "chassisNo": "MD9M2SGM25M624013",
+    "center": "Mumbai_VashiWard_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH03DC4016",
+    "chassisNo": "MD9M2SGM26A624016",
+    "center": "Mumbai_VashiWard_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH04DC4014",
+    "chassisNo": "MD9M2SGM26A624014",
+    "center": "Mumbai_Palaspe2_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "DL04DC4053",
+    "chassisNo": "MD9M2SGM26C624053",
+    "center": "Delhi_SRCAyaNagar_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "MH04AC4039",
+    "chassisNo": "MD9M2SGM25M624039",
+    "center": "Mumbai_Dapode1_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH04AC4048",
+    "chassisNo": "MD9M2SGM25M624048",
+    "center": "Mumbai_Dwarligaon_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "CG03AC4103",
+    "chassisNo": "MD9M2SGM26C624103",
+    "center": "Raipur_Sector1_D (Chhattisgarh)",
+    "city": "Raipur",
+    "cityType": "Non-Metro",
+    "cluster": "Raipur"
+  },
+  {
+    "contractNo": "CG03AC4101",
+    "chassisNo": "MD9M2SGM26C624101",
+    "center": "Raipur_Sector1_D (Chhattisgarh)",
+    "city": "Raipur",
+    "cityType": "Non-Metro",
+    "cluster": "Raipur"
+  },
+  {
+    "contractNo": "CG03AC4082",
+    "chassisNo": "MD9M2SGM26C624082",
+    "center": "Raipur_ShyamNagar_D (Chhattisgarh)",
+    "city": "Raipur",
+    "cityType": "Non-Metro",
+    "cluster": "Raipur"
+  },
+  {
+    "contractNo": "CG03AC4052",
+    "chassisNo": "MD9M2SGM26C624052",
+    "center": "Raipur_ShyamNagar_D (Chhattisgarh)",
+    "city": "Raipur",
+    "cityType": "Non-Metro",
+    "cluster": "Raipur"
+  },
+  {
+    "contractNo": "CG03AC4111",
+    "chassisNo": "MD9M2SGM26C624111",
+    "center": "Raipur_Kushalpurchowk_D (Chhattisgarh)",
+    "city": "Raipur",
+    "cityType": "Non-Metro",
+    "cluster": "Raipur"
+  },
+  {
+    "contractNo": "CG03AC4107",
+    "chassisNo": "MD9M2SGM26C624107",
+    "center": "Raipur_Kushalpurchowk_D (Chhattisgarh)",
+    "city": "Raipur",
+    "cityType": "Non-Metro",
+    "cluster": "Raipur"
+  },
+  {
+    "contractNo": "CG03AC4074",
+    "chassisNo": "MD9M2SGM26C624074",
+    "center": "Raipur_Govindnagar_D (Chhattisgarh)",
+    "city": "Raipur",
+    "cityType": "Non-Metro",
+    "cluster": "Raipur"
+  },
+  {
+    "contractNo": "CG03AC4104",
+    "chassisNo": "MD9M2SGM26C624104",
+    "center": "Raipur_SarvodayaNagar_D (Chhattisgarh)",
+    "city": "Raipur",
+    "cityType": "Non-Metro",
+    "cluster": "Raipur"
+  },
+  {
+    "contractNo": "CG03AC4110",
+    "chassisNo": "MD9M2SGM26C624110",
+    "center": "Raipur_SarvodayaNagar_D (Chhattisgarh)",
+    "city": "Raipur",
+    "cityType": "Non-Metro",
+    "cluster": "Raipur"
+  },
+  {
+    "contractNo": "CG03AC4112",
+    "chassisNo": "MD9M2SGM26C624112",
+    "center": "Raipur_Govindnagar_D (Chhattisgarh)",
+    "city": "Raipur",
+    "cityType": "Non-Metro",
+    "cluster": "Raipur"
+  },
+  {
+    "contractNo": "DL03DC4032",
+    "chassisNo": "MD9M2SGM26C624032",
+    "center": "Delhi_Budella_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "KA05AQ2815",
+    "chassisNo": "MD9ZNSYV25A624199",
+    "center": "Bangalore_Ganapathipura_C (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "GJ03DC4108",
+    "chassisNo": "MD9M2SGM26C624108",
+    "center": "Surat_Brpc (Gujarat)",
+    "city": "Surat",
+    "cityType": "Non-Metro",
+    "cluster": "Surat"
+  },
+  {
+    "contractNo": "GJ03DC4093",
+    "chassisNo": "MD9M2SGM26C624093",
+    "center": "Surat_Laldarwaja_R (Gujarat)",
+    "city": "Surat",
+    "cityType": "Non-Metro",
+    "cluster": "Surat"
+  },
+  {
+    "contractNo": "GJ03DC4114",
+    "chassisNo": "MD9M2SGM26C624114",
+    "center": "Surat_Laldarwaja_R (Gujarat)",
+    "city": "Surat",
+    "cityType": "Non-Metro",
+    "cluster": "Surat"
+  },
+  {
+    "contractNo": "GJ03DC4105",
+    "chassisNo": "MD9M2SGM26C624105",
+    "center": "Surat_Brpc (Gujarat)",
+    "city": "Surat",
+    "cityType": "Non-Metro",
+    "cluster": "Surat"
+  },
+  {
+    "contractNo": "GJ03DC4099",
+    "chassisNo": "MD9M2SGM26C624099",
+    "center": "Surat_Brpc (Gujarat)",
+    "city": "Surat",
+    "cityType": "Non-Metro",
+    "cluster": "Surat"
+  },
+  {
+    "contractNo": "GJ03DC4125",
+    "chassisNo": "MD9M2SGM26C624125",
+    "center": "Surat_Kamrej_R (Gujarat)",
+    "city": "Surat",
+    "cityType": "Non-Metro",
+    "cluster": "Surat"
+  },
+  {
+    "contractNo": "GJ03DC4126",
+    "chassisNo": "MD9M2SGM26C624126",
+    "center": "Surat_Brpc (Gujarat)",
+    "city": "Surat",
+    "cityType": "Non-Metro",
+    "cluster": "Surat"
+  },
+  {
+    "contractNo": "GJ03DC4134",
+    "chassisNo": "MD9M2SGM26C624134",
+    "center": "Surat_Brpc (Gujarat)",
+    "city": "Surat",
+    "cityType": "Non-Metro",
+    "cluster": "Surat"
+  },
+  {
+    "contractNo": "GJ03DC4127",
+    "chassisNo": "MD9M2SGM26C624127",
+    "center": "Surat_NanaVarachha1_R (Gujarat)",
+    "city": "Surat",
+    "cityType": "Non-Metro",
+    "cluster": "Surat"
+  },
+  {
+    "contractNo": "GJ03DC4128",
+    "chassisNo": "MD9M2SGM26C624128",
+    "center": "Surat_Brpc (Gujarat)",
+    "city": "Surat",
+    "cityType": "Non-Metro",
+    "cluster": "Surat"
+  },
+  {
+    "contractNo": "GJ03DC4129",
+    "chassisNo": "MD9M2SGM26C624129",
+    "center": "Surat_Brpc (Gujarat)",
+    "city": "Surat",
+    "cityType": "Non-Metro",
+    "cluster": "Surat"
+  },
+  {
+    "contractNo": "GJ03DC4130",
+    "chassisNo": "MD9M2SGM26C624130",
+    "center": "Surat_Brpc (Gujarat)",
+    "city": "Surat",
+    "cityType": "Non-Metro",
+    "cluster": "Surat"
+  },
+  {
+    "contractNo": "HR03DC4174",
+    "chassisNo": "MD9M2SGM26C624174",
+    "center": "Delhi_Masoodpur_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "HR03DC4171",
+    "chassisNo": "MD9M2SGM26C624171",
+    "center": "Gurgaon_Chauma_D (Haryana)",
+    "city": "Gurgaon",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "DL03DC4055",
+    "chassisNo": "MD9M2SGM26C624055",
+    "center": "Delhi_Kalkaji_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "HR55AU4173",
+    "chassisNo": "MD9M2SGM26C624173",
+    "center": "Gurgaon_Wazirabad_D (Haryana)",
+    "city": "Gurgaon",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "HR55AU4166",
+    "chassisNo": "MD9M2SGM26C624166",
+    "center": "Gurgaon_Sihi_D (Haryana)",
+    "city": "Gurgaon",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "DL04DC4054",
+    "chassisNo": "MD9M2SGM26C624054",
+    "center": "Delhi_Masoodpur_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "DL03DC4164",
+    "chassisNo": "MD9M2SGM26C624164",
+    "center": "Gurgaon_Sector28_D (Haryana)",
+    "city": "Gurgaon",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "DL03DC4175",
+    "chassisNo": "MD9M2SGM26C624175",
+    "center": "Gurgaon_Sector28_D (Haryana)",
+    "city": "Gurgaon",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "TN03AC4005",
+    "chassisNo": "MD9M2SGM26B624005",
+    "center": "Chennai_RajajiNagar_D (Tamil Nadu)",
+    "city": "Chennai",
+    "cityType": "Metro",
+    "cluster": "Chennai"
+  },
+  {
+    "contractNo": "GJ03DC4131",
+    "chassisNo": "MD9M2SGM26C624131",
+    "center": "Surat_Brpc (Gujarat)",
+    "city": "Surat",
+    "cityType": "Non-Metro",
+    "cluster": "Surat"
+  },
+  {
+    "contractNo": "GJ03DC4132",
+    "chassisNo": "MD9M2SGM26C624132",
+    "center": "Surat_NanaVarachha1_R (Gujarat)",
+    "city": "Surat",
+    "cityType": "Non-Metro",
+    "cluster": "Surat"
+  },
+  {
+    "contractNo": "GJ03DC4152",
+    "chassisNo": "MD9M2SGM26C624152",
+    "center": "Surat_Brpc (Gujarat)",
+    "city": "Surat",
+    "cityType": "Non-Metro",
+    "cluster": "Surat"
+  },
+  {
+    "contractNo": "GJ03DC4153",
+    "chassisNo": "MD9M2SGM26C624153",
+    "center": "Surat_Brpc (Gujarat)",
+    "city": "Surat",
+    "cityType": "Non-Metro",
+    "cluster": "Surat"
+  },
+  {
+    "contractNo": "GJ03DC4154",
+    "chassisNo": "MD9M2SGM26C624154",
+    "center": "Surat_Brpc (Gujarat)",
+    "city": "Surat",
+    "cityType": "Non-Metro",
+    "cluster": "Surat"
+  },
+  {
+    "contractNo": "GJ03DC4155",
+    "chassisNo": "MD9M2SGM26C624155",
+    "center": "Surat_NanaVarachha1_R (Gujarat)",
+    "city": "Surat",
+    "cityType": "Non-Metro",
+    "cluster": "Surat"
+  },
+  {
+    "contractNo": "GJ03DC4159",
+    "chassisNo": "MD9M2SGM26C624159",
+    "center": "Surat_Brpc (Gujarat)",
+    "city": "Surat",
+    "cityType": "Non-Metro",
+    "cluster": "Surat"
+  },
+  {
+    "contractNo": "GJ03DC4160",
+    "chassisNo": "MD9M2SGM26C624160",
+    "center": "Surat_Brpc (Gujarat)",
+    "city": "Surat",
+    "cityType": "Non-Metro",
+    "cluster": "Surat"
+  },
+  {
+    "contractNo": "GJ03DC4161",
+    "chassisNo": "MD9M2SGM26C624161",
+    "center": "Surat_Laldarwaja_R (Gujarat)",
+    "city": "Surat",
+    "cityType": "Non-Metro",
+    "cluster": "Surat"
+  },
+  {
+    "contractNo": "GJ03DC4162",
+    "chassisNo": "MD9M2SGM26C624162",
+    "center": "Surat_Brpc (Gujarat)",
+    "city": "Surat",
+    "cityType": "Non-Metro",
+    "cluster": "Surat"
+  },
+  {
+    "contractNo": "HR37DC4113",
+    "chassisNo": "MD9M2SGM26C624113",
+    "center": "Ambala_Mandli_D (Haryana)",
+    "city": "Ambala",
+    "cityType": "Non-Metro",
+    "cluster": "Punjab"
+  },
+  {
+    "contractNo": "HR37DC4098",
+    "chassisNo": "MD9M2SGM26C624098",
+    "center": "Ambala_Poojavihar_D (Haryana)",
+    "city": "Ambala",
+    "cityType": "Non-Metro",
+    "cluster": "Punjab"
+  },
+  {
+    "contractNo": "CH02DC4085",
+    "chassisNo": "MD9M2SGM26C624085",
+    "center": "Chandigarh_Jujharnagar_D (Chandigarh)",
+    "city": "Chandigarh",
+    "cityType": "Non-Metro",
+    "cluster": "Punjab"
+  },
+  {
+    "contractNo": "CH02DC4100",
+    "chassisNo": "MD9M2SGM26C624100",
+    "center": "Chandigarh_Kishangarh_D (Chandigarh)",
+    "city": "Chandigarh",
+    "cityType": "Non-Metro",
+    "cluster": "Punjab"
+  },
+  {
+    "contractNo": "PB11DC4309",
+    "chassisNo": "MD9M2SGM26C624309",
+    "center": "Machhiwara_Samrala_D (Punjab)",
+    "city": "Machhiwara",
+    "cityType": "Non-Metro",
+    "cluster": "Punjab"
+  },
+  {
+    "contractNo": "PB65DC4102",
+    "chassisNo": "MD9M2SGM26C624102",
+    "center": "Morinda_Kurali_D (Punjab)",
+    "city": "Morinda",
+    "cityType": "Non-Metro",
+    "cluster": "Punjab"
+  },
+  {
+    "contractNo": "PB65DC4091",
+    "chassisNo": "MD9M2SGM26C624091",
+    "center": "Mohali_Kharar1_D (Punjab)",
+    "city": "Mohali",
+    "cityType": "Non-Metro",
+    "cluster": "Punjab"
+  },
+  {
+    "contractNo": "PB65DC4092",
+    "chassisNo": "MD9M2SGM26C624092",
+    "center": "Mohali_Chilla_D (Punjab)",
+    "city": "Mohali",
+    "cityType": "Non-Metro",
+    "cluster": "Punjab"
+  },
+  {
+    "contractNo": "PB65DC4078",
+    "chassisNo": "MD9M2SGM26C624078",
+    "center": "Mohali_Sector123_D (Punjab)",
+    "city": "Mohali",
+    "cityType": "Non-Metro",
+    "cluster": "Punjab"
+  },
+  {
+    "contractNo": "PB65DC4089",
+    "chassisNo": "MD9M2SGM26C624089",
+    "center": "Mohali_Sector126_D (Punjab)",
+    "city": "Mohali",
+    "cityType": "Non-Metro",
+    "cluster": "Punjab"
+  },
+  {
+    "contractNo": "PB65DC4081",
+    "chassisNo": "MD9M2SGM26C624081",
+    "center": "Mohali_Sector127_D (Punjab)",
+    "city": "Mohali",
+    "cityType": "Non-Metro",
+    "cluster": "Punjab"
+  },
+  {
+    "contractNo": "PB11DC4313",
+    "chassisNo": "MD9M2SGM26C624313",
+    "center": "Patiala_GurdarshanNagar_D (Punjab)",
+    "city": "Patiala",
+    "cityType": "Non-Metro",
+    "cluster": "Punjab"
+  },
+  {
+    "contractNo": "PB11DC4308",
+    "chassisNo": "MD9M2SGM26C624308",
+    "center": "Patiala_TransportNagar_D (Punjab)",
+    "city": "Patiala",
+    "cityType": "Non-Metro",
+    "cluster": "Punjab"
+  },
+  {
+    "contractNo": "PB72DC4312",
+    "chassisNo": "MD9M2SGM26C624312",
+    "center": "Patran_Kahangarh_D (Punjab)",
+    "city": "Patran",
+    "cityType": "Non-Metro",
+    "cluster": "Punjab"
+  },
+  {
+    "contractNo": "AP19DC4158",
+    "chassisNo": "MD9M2SGM26C624158",
+    "center": "Vijayawada_RTCColony_D (Andhra Pradesh)",
+    "city": "Vijayawada",
+    "cityType": "Non-Metro",
+    "cluster": "AP"
+  },
+  {
+    "contractNo": "AP19DC4147",
+    "chassisNo": "MD9M2SGM26C624147",
+    "center": "Vijayawada_Sitharamapuram_D (Andhra Pradesh)",
+    "city": "Vijayawada",
+    "cityType": "Non-Metro",
+    "cluster": "AP"
+  },
+  {
+    "contractNo": "AP19DC4145",
+    "chassisNo": "MD9M2SGM26C624145",
+    "center": "Vijayawada_Gollapudi_D (Andhra Pradesh)",
+    "city": "Vijayawada",
+    "cityType": "Non-Metro",
+    "cluster": "AP"
+  },
+  {
+    "contractNo": "AP19DC4148",
+    "chassisNo": "MD9M2SGM26C624148",
+    "center": "Vijayawada_PNTColony_D (Andhra Pradesh)",
+    "city": "Vijayawada",
+    "cityType": "Non-Metro",
+    "cluster": "AP"
+  },
+  {
+    "contractNo": "AP19DC4156",
+    "chassisNo": "MD9M2SGM26C624156",
+    "center": "Guntur_AutoNagar_D (Andhra Pradesh)",
+    "city": "Guntur",
+    "cityType": "Non-Metro",
+    "cluster": "AP"
+  },
+  {
+    "contractNo": "AP19DC4157",
+    "chassisNo": "MD9M2SGM26C624157",
+    "center": "Vuyyuru_SowbhagyaNagar_D (Andhra Pradesh)",
+    "city": "Vuyyuru",
+    "cityType": "Non-Metro",
+    "cluster": "AP"
+  },
+  {
+    "contractNo": "AP19DC4150",
+    "chassisNo": "MD9M2SGM26C624150",
+    "center": "Guntur_KVPColony_D (Andhra Pradesh)",
+    "city": "Guntur",
+    "cityType": "Non-Metro",
+    "cluster": "AP"
+  },
+  {
+    "contractNo": "AP19DC4149",
+    "chassisNo": "MD9M2SGM26C624149",
+    "center": "Guntur_Yerrabalem_D (Andhra Pradesh)",
+    "city": "Guntur",
+    "cityType": "Non-Metro",
+    "cluster": "AP"
+  },
+  {
+    "contractNo": "AP19DC4151",
+    "chassisNo": "MD9M2SGM26C624151",
+    "center": "Guntur_Vinayaknagar_D (Andhra Pradesh)",
+    "city": "Guntur",
+    "cityType": "Non-Metro",
+    "cluster": "AP"
+  },
+  {
+    "contractNo": "AP19DC4146",
+    "chassisNo": "MD9M2SGM26C624146",
+    "center": "Vijayawada_Kamineninagar_D (Andhra Pradesh)",
+    "city": "Vijayawada",
+    "cityType": "Non-Metro",
+    "cluster": "AP"
+  },
+  {
+    "contractNo": "HR55DC4169",
+    "chassisNo": "MD9M2SGM26C624169",
+    "center": "Gurgaon_Sec59_D (Haryana)",
+    "city": "Gurgaon",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "DL12DC4163",
+    "chassisNo": "MD9M2SGM26C624163",
+    "center": "Delhi_HariNagarExtn_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "MH03DC4045",
+    "chassisNo": "MD9M2SGM25M624045",
+    "center": "Mumbai_HanumanNagar_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "HR93DC4170",
+    "chassisNo": "MD9M2SGM26C624170",
+    "center": "Sohna_GahlotVihar_D (Haryana)",
+    "city": "Sohna",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "TN03AC4003",
+    "chassisNo": "MD9M2SGM26B624003",
+    "center": "Chennai_Puthagaram_D (Tamil Nadu)",
+    "city": "Chennai",
+    "cityType": "Metro",
+    "cluster": "Chennai"
+  },
+  {
+    "contractNo": "TN03AC4009",
+    "chassisNo": "MD9M2SGM26B624009",
+    "center": "Chennai_LingamNagar_D (Tamil Nadu)",
+    "city": "Chennai",
+    "cityType": "Metro",
+    "cluster": "Chennai"
+  },
+  {
+    "contractNo": "MH03DC4188",
+    "chassisNo": "MD9M2SGM26C624188",
+    "center": "Mumbai_BelapurSector11_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH03DC4189",
+    "chassisNo": "MD9M2SGM26C624189",
+    "center": "Jasai_Ulwe2_D (Maharashtra)",
+    "city": "Jasai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH03DC4205",
+    "chassisNo": "MD9M2SGM26C624205",
+    "center": "Mumbai_Upvan_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH03DC4216",
+    "chassisNo": "MD9M2SGM26C624216",
+    "center": "Mumbai_SuvarnaNagar_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH03DC4209",
+    "chassisNo": "MD9M2SGM26C624209",
+    "center": "Mumbai_SuvarnaNagar_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH03DC4202",
+    "chassisNo": "MD9M2SGM26C624202",
+    "center": "Mumbai_BandraWest3_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH03DC4212",
+    "chassisNo": "MD9M2SGM26C624212",
+    "center": "Mumbai_Uttan_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "TN03AC4015",
+    "chassisNo": "MD9M2SGM26B624015",
+    "center": "Chennai_Padianallur_D (Tamil Nadu)",
+    "city": "Chennai",
+    "cityType": "Metro",
+    "cluster": "Chennai"
+  },
+  {
+    "contractNo": "TN03AC4018",
+    "chassisNo": "MD9M2SGM26B624018",
+    "center": "Chennai_Nolambur_D (Tamil Nadu)",
+    "city": "Chennai",
+    "cityType": "Metro",
+    "cluster": "Chennai"
+  },
+  {
+    "contractNo": "TN04DC4006",
+    "chassisNo": "MD9M2SGM26B624006",
+    "center": "Chennai_Egattur_D (Tamil Nadu)",
+    "city": "Chennai",
+    "cityType": "Metro",
+    "cluster": "Chennai"
+  },
+  {
+    "contractNo": "TN03DC4017",
+    "chassisNo": "MD9M2SGM26B624017",
+    "center": "Chennai_Nadukuthagai_D (Tamil Nadu)",
+    "city": "Chennai",
+    "cityType": "Metro",
+    "cluster": "Chennai"
+  },
+  {
+    "contractNo": "TN04DC4007",
+    "chassisNo": "MD9M2SGM26B624007",
+    "center": "Chennai_Gopalapuram_D (Tamil Nadu)",
+    "city": "Chennai",
+    "cityType": "Metro",
+    "cluster": "Chennai"
+  },
+  {
+    "contractNo": "TN04DC4010",
+    "chassisNo": "MD9M2SGM26B624010",
+    "center": "Chennai_MuthialStrt_D (Tamil Nadu)",
+    "city": "Chennai",
+    "cityType": "Metro",
+    "cluster": "Chennai"
+  },
+  {
+    "contractNo": "TN04DC4014",
+    "chassisNo": "MD9M2SGM26B624014",
+    "center": "Chennai_VivekanandaNgr_D (Tamil Nadu)",
+    "city": "Chennai",
+    "cityType": "Metro",
+    "cluster": "Chennai"
+  },
+  {
+    "contractNo": "GJ09DC4003",
+    "chassisNo": "MD9M2SGM26C624003",
+    "center": "Ahmedabad_Maningar_D (Gujarat)",
+    "city": "Ahmedabad",
+    "cityType": "Metro",
+    "cluster": "Ahmedabad"
+  },
+  {
+    "contractNo": "GJ09DC4096",
+    "chassisNo": "MD9M2SGM26B624096",
+    "center": "Ahmedabad_VallabhaNagar_D (Gujarat)",
+    "city": "Ahmedabad",
+    "cityType": "Metro",
+    "cluster": "Ahmedabad"
+  },
+  {
+    "contractNo": "GJ09DC4016",
+    "chassisNo": "MD9M2SGM26C624016",
+    "center": "Ahmedabad_Ambawadi_D (Gujarat)",
+    "city": "Ahmedabad",
+    "cityType": "Metro",
+    "cluster": "Ahmedabad"
+  },
+  {
+    "contractNo": "GJ09DC4010",
+    "chassisNo": "MD9M2SGM26C624010",
+    "center": "Ahmedabad_GIDCNaroda_D (Gujarat)",
+    "city": "Ahmedabad",
+    "cityType": "Metro",
+    "cluster": "Ahmedabad"
+  },
+  {
+    "contractNo": "GJ09DC4002",
+    "chassisNo": "MD9M2SGM26C624002",
+    "center": "Ahmedabad_Bapunagar_D (Gujarat)",
+    "city": "Ahmedabad",
+    "cityType": "Metro",
+    "cluster": "Ahmedabad"
+  },
+  {
+    "contractNo": "MH43DC4195",
+    "chassisNo": "MD9M2SGM26C624195",
+    "center": "Mumbai_MulundWest_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH43DC4203",
+    "chassisNo": "MD9M2SGM26C624203",
+    "center": "Mumbai_UdyogNagar_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH43DC4197",
+    "chassisNo": "MD9M2SGM26C624197",
+    "center": "Mumbai_SuvarnaNagar_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH43DC4192",
+    "chassisNo": "MD9M2SGM26C624192",
+    "center": "Mumbai_Manjarli_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "HR51DC4262",
+    "chassisNo": "MD9M2SGM26C624262",
+    "center": "Faridabad_Sector32_D (Haryana)",
+    "city": "Faridabad",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "MH58 DC4190",
+    "chassisNo": "MD9M2SGM26C624190",
+    "center": "Mumbai_BhayandarWest_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH58DC4198",
+    "chassisNo": "MD9M2SGM26C624198",
+    "center": "Mumbai_VashiWard_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "TN04DC4020",
+    "chassisNo": "MD9M2SGM26B624020",
+    "center": "Chennai_Nanganallur_D (Tamil Nadu)",
+    "city": "Chennai",
+    "cityType": "Metro",
+    "cluster": "Chennai"
+  },
+  {
+    "contractNo": "TN04DC4011",
+    "chassisNo": "MD9M2SGM26B624011",
+    "center": "Chennai_Kovilpathagai_D (Tamil Nadu)",
+    "city": "Chennai",
+    "cityType": "Metro",
+    "cluster": "Chennai"
+  },
+  {
+    "contractNo": "TN04DC4008",
+    "chassisNo": "MD9M2SGM26B624008",
+    "center": "Chennai_Thirumudivakkam_D (Tamil Nadu)",
+    "city": "Chennai",
+    "cityType": "Metro",
+    "cluster": "Chennai"
+  },
+  {
+    "contractNo": "DL13DC4339",
+    "chassisNo": "MD9M2SGM26C624339",
+    "center": "Delhi_Mundka_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "DL13DC4340",
+    "chassisNo": "MD9M2SGM26C624340",
+    "center": "Delhi_Harkeshnagar1_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "DL14DC4342",
+    "chassisNo": "MD9M2SGM26C624342",
+    "center": "Delhi_Madangir_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "DL14DC4341",
+    "chassisNo": "MD9M2SGM26C624341",
+    "center": "Delhi_Sector19B_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "DL14DC4259",
+    "chassisNo": "MD9M2SGM26C624259",
+    "center": "Gurgaon_Kadipur (Haryana)",
+    "city": "Gurgaon",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "DL14DC4265",
+    "chassisNo": "MD9M2SGM26C624265",
+    "center": "Delhi_MalviyaNagar_NDC (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "KA02DC4045",
+    "chassisNo": "MD9M2SGM26B624045",
+    "center": "Bangalore_Rajajinagar1_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "UP16ST8625",
+    "chassisNo": "MD9M2SGM26C624015",
+    "center": "Varanasi_Shivdaspur_D (Uttar Pradesh)",
+    "city": "Varanasi",
+    "cityType": "Non-Metro",
+    "cluster": "Uttar Pradesh"
+  },
+  {
+    "contractNo": "UP16ST8626",
+    "chassisNo": "MD9M2SGM26C624007",
+    "center": "Varanasi_Dafi_D (Uttar Pradesh)",
+    "city": "Varanasi",
+    "cityType": "Non-Metro",
+    "cluster": "Uttar Pradesh"
+  },
+  {
+    "contractNo": "TN05DC4002",
+    "chassisNo": "MD9M2SGM26B624002",
+    "center": "Chennai_Nadukuthagai_D (Tamil Nadu)",
+    "city": "Chennai",
+    "cityType": "Metro",
+    "cluster": "Chennai"
+  },
+  {
+    "contractNo": "TN05DC4030",
+    "chassisNo": "MD9M2SGM26B624030",
+    "center": "Chennai_SrinivasanNgr_D (Tamil Nadu)",
+    "city": "Chennai",
+    "cityType": "Metro",
+    "cluster": "Chennai"
+  },
+  {
+    "contractNo": "PB11DC4310",
+    "chassisNo": "MD9M2SGM26C624310",
+    "center": "Rajpura_NavyugColony1_D (Punjab)",
+    "city": "Rajpura",
+    "cityType": "Non-Metro",
+    "cluster": "Punjab"
+  },
+  {
+    "contractNo": "PB72DC4306",
+    "chassisNo": "MD9M2SGM26C624306",
+    "center": "SirhindFatehgarh_DC (Punjab)",
+    "city": "SirhindFatehgarh",
+    "cityType": "Non-Metro",
+    "cluster": "Punjab"
+  },
+  {
+    "contractNo": "DL04DC4336",
+    "chassisNo": "MD9M2SGM26C624336",
+    "center": "Delhi_Mohammadpur (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "DL04DC4335",
+    "chassisNo": "MD9M2SGM26C624335",
+    "center": "Delhi_Sundervihar_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "PB70DC4176",
+    "chassisNo": "MD9M2SGM26C624076",
+    "center": "Zirakpur_Dhakoli_D (Punjab)",
+    "city": "Zirakpur",
+    "cityType": "Non-Metro",
+    "cluster": "Punjab"
+  },
+  {
+    "contractNo": "PB70DC4106",
+    "chassisNo": "MD9M2SGM26C624106",
+    "center": "Zirakpur_GreenVH_D (Punjab)",
+    "city": "Zirakpur",
+    "cityType": "Non-Metro",
+    "cluster": "Punjab"
+  },
+  {
+    "contractNo": "DL10DC4358",
+    "chassisNo": "MD9M2SGM26C624358",
+    "center": "Delhi_DwarkaSector3_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "HR72DC4337",
+    "chassisNo": "MD9M2SGM26C624337",
+    "center": "Gurgaon_MalibuTown_D (Haryana)",
+    "city": "Gurgaon",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "HR72DC4343",
+    "chassisNo": "MD9M2SGM26C624343",
+    "center": "Gurgaon_Central_D_15 (Haryana)",
+    "city": "Gurgaon",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "DL10DC4338",
+    "chassisNo": "MD9M2SGM26C624338",
+    "center": "Delhi_Sanoth1_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "PB70DC4086",
+    "chassisNo": "MD9M2SGM26C624086",
+    "center": "Zirakpur_GreenVH_D (Punjab)",
+    "city": "Zirakpur",
+    "cityType": "Non-Metro",
+    "cluster": "Punjab"
+  },
+  {
+    "contractNo": "PB70DC4079",
+    "chassisNo": "MD9M2SGM26C624079",
+    "center": "Zirakpur_TribuneColony_D (Punjab)",
+    "city": "Zirakpur",
+    "cityType": "Non-Metro",
+    "cluster": "Punjab"
+  },
+  {
+    "contractNo": "MH58DC4097",
+    "chassisNo": "MD9M2SGM26C624097",
+    "center": "Mumbai_PantNagar_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH58DC4023",
+    "chassisNo": "MD9M2SGM26C624023",
+    "center": "Mumbai_Nagpada_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH58DC4021",
+    "chassisNo": "MD9M2SGM26C624021",
+    "center": "Mumbai_Palaspe2_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH50DC4012",
+    "chassisNo": "MD9M2SGM25J624012",
+    "center": "Mumbai_Nerul1_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH50DC4120",
+    "chassisNo": "MD9M2SGM26C624120",
+    "center": "Mumbai_Anjurphata_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH50DC4049",
+    "chassisNo": "MD9M2SGM26C624049",
+    "center": "Mumbai_Kharwest_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH50DC4122",
+    "chassisNo": "MD9M2SGM26C624122",
+    "center": "Mumbai_SenNagar_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH50DC4050",
+    "chassisNo": "MD9M2SGM26C624050",
+    "center": "Mumbai_PaleGaon_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "GJ01DC4024",
+    "chassisNo": "MD9M2SGM26C624024",
+    "center": "Ahmedabad_Rakhiyal_D (Gujarat)",
+    "city": "Ahmedabad",
+    "cityType": "Metro",
+    "cluster": "Ahmedabad"
+  },
+  {
+    "contractNo": "GJ01DC4026",
+    "chassisNo": "MD9M2SGM26C624026",
+    "center": "Ahmedabad_ChndramoliSoc_D (Gujarat)",
+    "city": "Ahmedabad",
+    "cityType": "Metro",
+    "cluster": "Ahmedabad"
+  },
+  {
+    "contractNo": "GJ01DC4048",
+    "chassisNo": "MD9M2SGM26C624048",
+    "center": "Ahmedabad_Motera_D (Gujarat)",
+    "city": "Ahmedabad",
+    "cityType": "Metro",
+    "cluster": "Ahmedabad"
+  },
+  {
+    "contractNo": "GJ01DC4097",
+    "chassisNo": "MD9M2SGM26B624097",
+    "center": "Ahmedabad_GIDCNaroda_D (Gujarat)",
+    "city": "Ahmedabad",
+    "cityType": "Metro",
+    "cluster": "Ahmedabad"
+  },
+  {
+    "contractNo": "MH50DC4022",
+    "chassisNo": "MD9M2SGM26C624022",
+    "center": "Mumbai_KandivaliEast_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH50DC4047",
+    "chassisNo": "MD9M2SGM26C624047",
+    "center": "Jasai_JNPTNMsez_D (Maharashtra)",
+    "city": "Jasai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "HR55BD2559",
+    "chassisNo": "MD9M2SGM26C624307",
+    "center": "Chandigarh_Makhanmajra_D (Chandigarh)",
+    "city": "Chandigarh",
+    "cityType": "Non-Metro",
+    "cluster": "Punjab"
+  },
+  {
+    "contractNo": "MH50DC4061",
+    "chassisNo": "MD9M2SGM26C624061",
+    "center": "Mumbai_Mograpada_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH50DC4017",
+    "chassisNo": "MD9M2SGM26C624017",
+    "center": "Mumbai_Kalyan_DPP (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "DL10DC4264",
+    "chassisNo": "MD9M2SGM26C624264",
+    "center": "Gurgaon_Basai_D (Haryana)",
+    "city": "Gurgaon",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "KA05AQ4048",
+    "chassisNo": "MD9M2SGM26B624048",
+    "center": "Bangalore_HSR7thSector_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "DL10DC4344",
+    "chassisNo": "MD9M2SGM26C624344",
+    "center": "Delhi_AliVihar_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "HR03DC4332",
+    "chassisNo": "MD9M2SGM26C624332",
+    "center": "Gurgaon_Wazirabad_D (Haryana)",
+    "city": "Gurgaon",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "HR03DC4345",
+    "chassisNo": "MD9M2SGM26C624345",
+    "center": "Gurgaon_Kadipur (Haryana)",
+    "city": "Gurgaon",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "HR03DC4333",
+    "chassisNo": "MD9M2SGM26C624333",
+    "center": "Gurgaon_Kadipur (Haryana)",
+    "city": "Gurgaon",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "MH50DC4115",
+    "chassisNo": "MD9M2SGM26C624115",
+    "center": "Mumbai_ShantiVihar_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH50DC4123",
+    "chassisNo": "MD9M2SGM26C624123",
+    "center": "Thane_MajiwadaB_D (Maharashtra)",
+    "city": "Thane",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "UP03DC4349",
+    "chassisNo": "MD9M2SGM26C624349",
+    "center": "Noida_Sector-2_D (Uttar Pradesh)",
+    "city": "Noida",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "DL10DC4329",
+    "chassisNo": "MD9M2SGM26C624329",
+    "center": "Delhi_AliVihar_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "UP16DC4351",
+    "chassisNo": "MD9M2SGM26C624351",
+    "center": "Noida_Sector57_D (Uttar Pradesh)",
+    "city": "Noida",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "DL20DC4330",
+    "chassisNo": "MD9M2SGM26C624330",
+    "center": "Delhi_NarainaIndPhase2_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "DL20DC4331",
+    "chassisNo": "MD9M2SGM26C624331",
+    "center": "Delhi_Sundervihar_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "GJ10DC4020",
+    "chassisNo": "MD9M2SGM26C624020",
+    "center": "Ahmedabad_Rakhiyal_D (Gujarat)",
+    "city": "Ahmedabad",
+    "cityType": "Metro",
+    "cluster": "Ahmedabad"
+  },
+  {
+    "contractNo": "DL12DC4257",
+    "chassisNo": "MD9M2SGM26C624257",
+    "center": "Delhi_Deenpur_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "HR26DC4346",
+    "chassisNo": "MD9M2SGM26C624346",
+    "center": "Gurgaon_Hasanpur2_D (Haryana)",
+    "city": "Gurgaon",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "HR26DC4256",
+    "chassisNo": "MD9M2SGM26C624256",
+    "center": "Gurgaon_Sector4_D (Haryana)",
+    "city": "Gurgaon",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "UP26DC4328",
+    "chassisNo": "MD9M2SGM26C624328",
+    "center": "Noida_Salarpur_D (Uttar Pradesh)",
+    "city": "Noida",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "HR26DC4352",
+    "chassisNo": "MD9M2SGM26C624352",
+    "center": "Gurgaon_MalibuTown_D (Haryana)",
+    "city": "Gurgaon",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "HR26DC4334",
+    "chassisNo": "MD9M2SGM26C624334",
+    "center": "Gurgaon_Manesar_D (Haryana)",
+    "city": "Gurgaon",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "DL24AC4396",
+    "chassisNo": "MD9M2SGM26C624396",
+    "center": "Delhi_Sangamvihar1_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "DL24AC4393",
+    "chassisNo": "MD9M2SGM26C624393",
+    "center": "Gurgaon_VishnuGarden_D (Haryana)",
+    "city": "Gurgaon",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "DL24AC4395",
+    "chassisNo": "MD9M2SGM26C624395",
+    "center": "Gurgaon_VishnuGarden_D (Haryana)",
+    "city": "Gurgaon",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "HR04EC4194",
+    "chassisNo": "",
+    "center": "Faridabad_Sector2_L",
+    "city": "Faridabad",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "HR04EC4166",
+    "chassisNo": "",
+    "center": "Faridabad_Sector2_L",
+    "city": "Faridabad",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "HR38DC1572",
+    "chassisNo": "M67AF500M25K01572",
+    "center": "Faridabad_Badkhal_D (Haryana)",
+    "city": "Faridabad",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "DL21DC4394",
+    "chassisNo": "MD9M2SGM26C624394",
+    "center": "Delhi_PatelNagar1_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "KA41AC4235",
+    "chassisNo": "MD9M2SGM26C624235",
+    "center": "Bangalore_Anekal_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA41AC4232",
+    "chassisNo": "MD9M2SGM26C624232",
+    "center": "Bangalore_Koramangala2_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "DL21DC4353",
+    "chassisNo": "MD9M2SGM26C624353",
+    "center": "Delhi_Jahangirpuri_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "DL21DC4391",
+    "chassisNo": "MD9M2SGM26C624391",
+    "center": "Delhi_Mangolpuri_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "DL21DC4392",
+    "chassisNo": "MD9M2SGM260624392",
+    "center": "Delhi_RohiniSector2_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "HR10DC4322",
+    "chassisNo": "MD9M2SGM26C624322",
+    "center": "Gurgaon_Central_D_15 (Haryana)",
+    "city": "Gurgaon",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "HR10DC4260",
+    "chassisNo": "MD9M2SGM26C624260",
+    "center": "Gurgaon_Wazirabad_D (Haryana)",
+    "city": "Gurgaon",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "HR38DC4397",
+    "chassisNo": "MD9M2SGM26C624397",
+    "center": "Faridabad_PadamNagar_D (Haryana)",
+    "city": "Faridabad",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "HR38DC4400",
+    "chassisNo": "MD9M2SGM26C624400",
+    "center": "Faridabad_PadamNagar_D (Haryana)",
+    "city": "Faridabad",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "HR38DC4261",
+    "chassisNo": "MD9M2SGM26C624261",
+    "center": "Faridabad_Sector9_D (Haryana)",
+    "city": "Faridabad",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "HR38DC4399",
+    "chassisNo": "MD9M2SGM26C624399",
+    "center": "Faridabad_NIT3_D (Haryana)",
+    "city": "Faridabad",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "HR10DC4323",
+    "chassisNo": "MD9M2SGM26C624323",
+    "center": "Gurgaon_Sector18_D (Haryana)",
+    "city": "Gurgaon",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "DL21DC4321",
+    "chassisNo": "MD9M2SGM26C624321",
+    "center": "Delhi_Nehruvihar_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "HR10DC4004",
+    "chassisNo": "MD9M2SGM25D624004",
+    "center": "Gurgaon_SnehVihar1_D (Haryana)",
+    "city": "Gurgaon",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "HR38DC4398",
+    "chassisNo": "MD9M2SGM26C624398",
+    "center": "Faridabad_Sector9_D (Haryana)",
+    "city": "Faridabad",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "GJ18DC4204",
+    "chassisNo": "MD9M2SGM26C624204",
+    "center": "Gandhinagar_Kudasan_D (Gujarat)",
+    "city": "Gandhinagar",
+    "cityType": "Metro",
+    "cluster": "Gujarat"
+  },
+  {
+    "contractNo": "HR55BD9354",
+    "chassisNo": "MD9M2SGM26C624305",
+    "center": "Zirakpur_TribuneColony_D (Punjab)",
+    "city": "Zirakpur",
+    "cityType": "Non-Metro",
+    "cluster": "Gujarat"
+  },
+  {
+    "contractNo": "PB65DC4015",
+    "chassisNo": "MD9M2SGM26G624015",
+    "center": "Mohali_Mullanpur_D (Punjab)",
+    "city": "Mohali",
+    "cityType": "Non-Metro",
+    "cluster": "Punjab"
+  },
+  {
+    "contractNo": "GJ27DC4191",
+    "chassisNo": "MD9M2SGM26C624191",
+    "center": "Ahmedabad_Maninagar_D (Gujarat)",
+    "city": "Ahmedabad",
+    "cityType": "Metro",
+    "cluster": "Gujarat"
+  },
+  {
+    "contractNo": "HR26DC4318",
+    "chassisNo": "MD9M2SGM26C624318",
+    "center": "Gurgaon_Sector24_D (Haryana)",
+    "city": "Gurgaon",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "MH31DC4219",
+    "chassisNo": "MD9M2SGM26C624219",
+    "center": "Mumbai_Uttan_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH31DC4280",
+    "chassisNo": "MD9M2SGM26C624280",
+    "center": "Mumbai_EastDombivali_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "CH04DC4006",
+    "chassisNo": "MD9M2SGM26C624006",
+    "center": "Chandigarh_RaipurKhurd_D (Chandigarh)",
+    "city": "Chandigarh",
+    "cityType": "Metro",
+    "cluster": "Punjab"
+  },
+  {
+    "contractNo": "PB65DC4007",
+    "chassisNo": "MD9M2SGM26C624007",
+    "center": "DeraBassi_RamgarhRd_D (Punjab)",
+    "city": "DeraBassi",
+    "cityType": "Metro",
+    "cluster": "Punjab"
+  },
+  {
+    "contractNo": "CH04DC4011",
+    "chassisNo": "MD9M2SGM26C624011",
+    "center": "Chandigarh_Makhanmajra_D (Chandigarh)",
+    "city": "Chandigarh",
+    "cityType": "Metro",
+    "cluster": "Punjab"
+  },
+  {
+    "contractNo": "MH46DC4271",
+    "chassisNo": "MD9M2SGM26C624271",
+    "center": "Jasai_Ulwe2_D (Maharashtra)",
+    "city": "Jasai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH46DC4290",
+    "chassisNo": "MD9M2SGM26C624290",
+    "center": "Mumbai_Mirabhayandar_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH46DC4279",
+    "chassisNo": "MD9M2SGM26C624279",
+    "center": "Mumbai_PaleGaon_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "PB65DC4011",
+    "chassisNo": "MD9M2SGM26G624009",
+    "center": "Chandigarh_RaipurKhurd_D (Chandigarh)",
+    "city": "Chandigarh",
+    "cityType": "Non-Metro",
+    "cluster": "Punjab"
+  },
+  {
+    "contractNo": "HR10DC4018",
+    "chassisNo": "MD9M2SGM26G624018",
+    "center": "Gurgaon_Kadipur (Haryana)",
+    "city": "Gurgaon",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "HR10DC4019",
+    "chassisNo": "MD9M2SGM26G624019",
+    "center": "Gurgaon_Kadipur (Haryana)",
+    "city": "Gurgaon",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "UP03DC4016",
+    "chassisNo": "MD9M2SGM26G624016",
+    "center": "Ghaziabad_Sahibabad_D (Uttar Pradesh)",
+    "city": "Ghaziabad",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "UP03DC4020",
+    "chassisNo": "MD9M2SGM26G624020",
+    "center": "Ghaziabad_Sahibabad_D (Uttar Pradesh)",
+    "city": "Ghaziabad",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "GJ18DC4194",
+    "chassisNo": "MD9M2SGM26C624194",
+    "center": "Gandhinagar_Sector25_D (Gujarat)",
+    "city": "Gandhinagar",
+    "cityType": "Metro",
+    "cluster": "Gujarat"
+  },
+  {
+    "contractNo": "DL05DC4350",
+    "chassisNo": "MD9M2SGM26C624350",
+    "center": "Delhi_Nawada_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "UP03DC4067",
+    "chassisNo": "MD9M2SGM26C624067",
+    "center": "Ghaziabad_Maharajpur_D (Uttar Pradesh)",
+    "city": "Ghaziabad",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "UP03DC4324",
+    "chassisNo": "MD9M2SGM26C624324",
+    "center": "Ghaziabad_Maharajpur_D (Uttar Pradesh)",
+    "city": "Ghaziabad",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "UP03DC4317",
+    "chassisNo": "MD9M2SGM26C624317",
+    "center": "Ghaziabad_Indirapuram_D (Uttar Pradesh)",
+    "city": "Ghaziabad",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "MH46DC4289",
+    "chassisNo": "MD9M2SGM26C624289",
+    "center": "Mumbai_VasaiWest1_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH50DC4218",
+    "chassisNo": "MD9M2SGM26C624218",
+    "center": "Thane_PanchPakhdi_D (Maharashtra)",
+    "city": "Thane",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH46DC4272",
+    "chassisNo": "MD9M2SGM26C624272",
+    "center": "Mumbai_Kalbadevi1_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "HR10DC4347",
+    "chassisNo": "MD9M2SGM26C624347",
+    "center": "Gurgaon_Sector41_D (Haryana)",
+    "city": "Gurgaon",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "MH46DC4275",
+    "chassisNo": "MD9M2SGM26C624275",
+    "center": "Mumbai_Kasarvadavali_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "KA52DC4179",
+    "chassisNo": "MD9M2SGM26C624179",
+    "center": "Bangalore_Talaghatapura_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA52DC4069",
+    "chassisNo": "MD9M2SGM26G624069",
+    "center": "Bangalore_Narayanapura_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA52DC4217",
+    "chassisNo": "MD9M2SGM26C624217",
+    "center": "Ahmedabad_VallabhaNagar_D (Gujarat)",
+    "city": "Ahmedabad",
+    "cityType": "Metro",
+    "cluster": "Ahmedabad"
+  },
+  {
+    "contractNo": "KA52DC4067",
+    "chassisNo": "MD9M2SGM26G624067",
+    "center": "Bangalore_Gubbalala_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "MH50DC4286",
+    "chassisNo": "MD9M2SGM26C624286",
+    "center": "Mumbai_VashiAPMC_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH50DC4284",
+    "chassisNo": "MD9M2SGM26C624284",
+    "center": "Mumbai_Bhandup_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH50DC4252",
+    "chassisNo": "MD9M2SGM26C624252",
+    "center": "Ahmedabad_JantaNagar_D (Gujarat)",
+    "city": "Ahmedabad",
+    "cityType": "Metro",
+    "cluster": "Ahmedabad"
+  },
+  {
+    "contractNo": "KA52DC4407",
+    "chassisNo": "MD9M2SGM26C624407",
+    "center": "Bangalore_Kasavanahalli_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA52DC4068",
+    "chassisNo": "MD9M2SGM26G624068",
+    "center": "Bangalore_Chikabanavara_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA52DC4061",
+    "chassisNo": "MD9M2SGM26G624061",
+    "center": "Bangalore_Thanisandra2_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA52DC4404",
+    "chassisNo": "MD9M2SGM26C624404",
+    "center": "Bangalore_Kowdenahalli_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA52DC4403",
+    "chassisNo": "MD9M2SGM26C624403",
+    "center": "Bangalore_VivekanandaNagar_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "DL05DC4026",
+    "chassisNo": "MD9M2SGM26G624026",
+    "center": "Delhi_RohiniSector17_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "UP10DC4029",
+    "chassisNo": "MD9M2SGM26G624029",
+    "center": "Ghaziabad_LajpatNagar_D (Uttar Pradesh)",
+    "city": "Ghaziabad",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "MH50DC4278",
+    "chassisNo": "MD9M2SGM26C64278",
+    "center": "Mumbai_GokulNagar_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH50DC4281",
+    "chassisNo": "MD9M2SGM26C64281",
+    "center": "Mumbai_Kharvai_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH50DC4277",
+    "chassisNo": "MD9M2SGM26C64277",
+    "center": "Mumbai_WestAmbernath_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "PB65DC4010",
+    "chassisNo": "MD9M2SGM26G624010",
+    "center": "Mohali_Mullanpur_D (Punjab)",
+    "city": "Mohali",
+    "cityType": "Non-Metro",
+    "cluster": "Punjab"
+  },
+  {
+    "contractNo": "UP10DC4033",
+    "chassisNo": "MD9M2SGM26G624033",
+    "center": "Noida_Sector83_D (Uttar Pradesh)",
+    "city": "Noida",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "UP10DC4028",
+    "chassisNo": "MD9M2SGM26G624028",
+    "center": "Ghaziabad_PratapVihar_D (Uttar Pradesh)",
+    "city": "Ghaziabad",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "MH12DC4276",
+    "chassisNo": "MD9M2SGM26C624276",
+    "center": "Mumbai_BhandupWest_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Ahmedabad"
+  },
+  {
+    "contractNo": "MH12DC4285",
+    "chassisNo": "MD9M2SGM26C624285",
+    "center": "Mumbai_Amrutnagar_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Ahmedabad"
+  },
+  {
+    "contractNo": "DL21DC4022",
+    "chassisNo": "MD9M2SGM26G624022",
+    "center": "Delhi_ChhotialPalam_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "UP10DC4030",
+    "chassisNo": "MD9M2SGM26G624030",
+    "center": "Noida_Sector11_D (Uttar Pradesh)",
+    "city": "Noida",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "HR10DC4034",
+    "chassisNo": "MD9M2SGM26G624034",
+    "center": "Faridabad_NIT3_D (Haryana)",
+    "city": "Faridabad",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "UP10DC4032",
+    "chassisNo": "MD9M2SGM26G624032",
+    "center": "Noida_Sector67Bblock_D (Uttar Pradesh)",
+    "city": "Noida",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "GJ12DC4292",
+    "chassisNo": "MD9M2SGM26C624292",
+    "center": "Ahmedabad_Vishala_D (Gujarat)",
+    "city": "Ahmedabad",
+    "cityType": "Metro",
+    "cluster": "Ahmedabad"
+  },
+  {
+    "contractNo": "MH12DC4225",
+    "chassisNo": "MD9M2SGM26C624225",
+    "center": "Mumbai_Deonar1_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "GJ18DC4291",
+    "chassisNo": "MD9M2SGM26C624291",
+    "center": "Gandhinagar_Adalaj_D (Gujarat)",
+    "city": "Gandhinagar",
+    "cityType": "Metro",
+    "cluster": "Gujarat"
+  },
+  {
+    "contractNo": "MH50DC4274",
+    "chassisNo": "MD9M2SGM26C624274",
+    "center": "Jasai_Gavthan_D (Maharashtra)",
+    "city": "Jasai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "DL21DC4040",
+    "chassisNo": "MD9M2SGM26G624040",
+    "center": "Delhi_Khayala_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "HR38DC4036",
+    "chassisNo": "MD9M2SGM26G624036",
+    "center": "Faridabad_Sector32_D (Haryana)",
+    "city": "Faridabad",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "DL21DC4025",
+    "chassisNo": "MD9M2SGM26G624025",
+    "center": "Delhi_Sundervihar_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "DL21DC4021",
+    "chassisNo": "MD9M2SGM26G624021",
+    "center": "Delhi_MotiNagar_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "TN04DC4365",
+    "chassisNo": "MD9M2SGM26C624365",
+    "center": "Chennai_Potheri_D (Tamil Nadu)",
+    "city": "Chennai",
+    "cityType": "Metro",
+    "cluster": "Chennai"
+  },
+  {
+    "contractNo": "TN04DC4356",
+    "chassisNo": "MD9M2SGM26C624356",
+    "center": "Chennai_Guduvancheri_D (Tamil Nadu)",
+    "city": "Chennai",
+    "cityType": "Metro",
+    "cluster": "Chennai"
+  },
+  {
+    "contractNo": "TN04DC4355",
+    "chassisNo": "MD9M2SGM26C624355",
+    "center": "Chennai_Kavankarai_D (Tamil Nadu)",
+    "city": "Chennai",
+    "cityType": "Metro",
+    "cluster": "Chennai"
+  },
+  {
+    "contractNo": "TN04DC4368",
+    "chassisNo": "MD9M2SGM26C624368",
+    "center": "Chennai_Padianallur_D (Tamil Nadu)",
+    "city": "Chennai",
+    "cityType": "Metro",
+    "cluster": "Chennai"
+  },
+  {
+    "contractNo": "PB65DC4014",
+    "chassisNo": "MD9M2SGM26G624014",
+    "center": "Zirakpur_TribuneColony_D (Punjab)",
+    "city": "Zirakpur",
+    "cityType": "Non-Metro",
+    "cluster": "Punjab"
+  },
+  {
+    "contractNo": "PB65DC4008",
+    "chassisNo": "MD9M2SGM26G624008",
+    "center": "Mohali_Balongi_D (Punjab)",
+    "city": "Mohali",
+    "cityType": "Non-Metro",
+    "cluster": "Punjab"
+  },
+  {
+    "contractNo": "DL21DC4037",
+    "chassisNo": "MD9M2SGM26G624037",
+    "center": "Delhi_Gharoli_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "UP10DC4024",
+    "chassisNo": "MD9M2SGM26G624024",
+    "center": "Noida_Sector122_D (Uttar Pradesh)",
+    "city": "Noida",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "MH12DC4282",
+    "chassisNo": "MD9M2SGM26C624282",
+    "center": "Mumbai_Khadakpada_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "MH12DC4283",
+    "chassisNo": "MD9M2SGM26C624283",
+    "center": "Mumbai_Palidevad_D (Maharashtra)",
+    "city": "Mumbai",
+    "cityType": "Metro",
+    "cluster": "Mumbai"
+  },
+  {
+    "contractNo": "TN04DC4371",
+    "chassisNo": "MD9M2SGM26C624371",
+    "center": "Chennai_Nerkundram_D (Tamil Nadu)",
+    "city": "Chennai",
+    "cityType": "Metro",
+    "cluster": "Chennai"
+  },
+  {
+    "contractNo": "TN04DC4359",
+    "chassisNo": "MD9M2SGM26C624359",
+    "center": "Chennai_VenkateswaraNgr_D (Tamil Nadu)",
+    "city": "Chennai",
+    "cityType": "Metro",
+    "cluster": "Chennai"
+  },
+  {
+    "contractNo": "TN04DC4363",
+    "chassisNo": "MD9M2SGM26C624363",
+    "center": "Chennai_Mambakkam_D (Tamil Nadu)",
+    "city": "Chennai",
+    "cityType": "Metro",
+    "cluster": "Chennai"
+  },
+  {
+    "contractNo": "DL21DC4045",
+    "chassisNo": "MD9M2SGM26G624045",
+    "center": "Delhi_ShakurBasti_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "DL21DC4046",
+    "chassisNo": "MD9M2SGM26G624046",
+    "center": "Delhi_AshkVihr_D (Delhi)",
+    "city": "Delhi",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "DL21DC4044",
+    "chassisNo": "MD9M2SGM26G624044",
+    "center": "Gurgaon_Manesar_D (Haryana)",
+    "city": "Gurgaon",
+    "cityType": "Metro",
+    "cluster": "Delhi NCR"
+  },
+  {
+    "contractNo": "KA52DC4060",
+    "chassisNo": "MD9M2SGM26G624060",
+    "center": "Bangalore_RTNagar_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA52DC4406",
+    "chassisNo": "MD9M2SGM26C624406",
+    "center": "Bangalore_Chellikere_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA52DC4402",
+    "chassisNo": "MD9M2SGM26C624402",
+    "center": "Bangalore_BDALayout_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA21DC4066",
+    "chassisNo": "MD9M2SGM26G624066",
+    "center": "Bangalore_HSRLayout_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  },
+  {
+    "contractNo": "KA21DC4064",
+    "chassisNo": "MD9M2SGM26G624064",
+    "center": "Bangalore_WilsonGarden_D (Karnataka)",
+    "city": "Bangalore",
+    "cityType": "Metro",
+    "cluster": "Bangalore"
+  }
+]
