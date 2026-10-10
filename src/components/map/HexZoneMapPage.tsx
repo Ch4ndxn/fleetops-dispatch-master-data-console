@@ -86,6 +86,7 @@ interface Cluster {
   assignedTech: Technician | null;
   spareHubs: { lat: number; lng: number; hubIndex: number }[];
   color: string;
+  primaryDc: Center | null; // DC closest to cluster centroid — sitting location for idle tech
 }
 
 const coordCache = new Map<string, { lat: number; lng: number } | null>();
@@ -175,8 +176,9 @@ function kMeansClusters(cells: HexCell[], k: number): number[] {
 }
 
 // ─── Build cluster objects ─────────────────────────────────────────────────────
-function buildClusters(cells: HexCell[], techs: Technician[]): Cluster[] {
+function buildClusters(cells: HexCell[], techs: Technician[], allCenters: Center[] = []): Cluster[] {
   const activeTechs = techs.filter(t => t.status === 'Active');
+  const validCenters = allCenters.filter(c => c.latitude && c.longitude && !isNaN(c.latitude) && !isNaN(c.longitude));
   const usedTechIds = new Set<string>();
   const clusters: Cluster[] = [];
 
@@ -225,10 +227,32 @@ function buildClusters(cells: HexCell[], techs: Technician[]): Cluster[] {
       return { lat: offsetLat, lng: offsetLng, hubIndex: hi + 1 };
     });
 
+    // Primary DC: center closest to cluster centroid (from cells, fallback to all centers)
+    const clusterCenters = members.flatMap(c => c.centers);
+    const dcPool = clusterCenters.length > 0
+      ? clusterCenters.filter(c => c.latitude && c.longitude && !isNaN(c.latitude) && !isNaN(c.longitude))
+      : validCenters;
+    let primaryDc: Center | null = null;
+    if (dcPool.length > 0) {
+      primaryDc = dcPool.reduce((best, c) => {
+        const d = Math.pow(c.latitude - centLat, 2) + Math.pow(c.longitude - centLng, 2);
+        const db = Math.pow(best.latitude - centLat, 2) + Math.pow(best.longitude - centLng, 2);
+        return d < db ? c : best;
+      });
+    } else if (validCenters.length > 0) {
+      // No centers in hex cells yet — pick nearest from all centers
+      primaryDc = validCenters.reduce((best, c) => {
+        const d = Math.pow(c.latitude - centLat, 2) + Math.pow(c.longitude - centLng, 2);
+        const db = Math.pow(best.latitude - centLat, 2) + Math.pow(best.longitude - centLng, 2);
+        return d < db ? c : best;
+      });
+    }
+
     clusters.push({
       id: ci, cells: members, centLat, centLng,
       vehicleCount, assignedTech, spareHubs,
       color: CLUSTER_COLORS[ci % CLUSTER_COLORS.length],
+      primaryDc,
     });
   }
   return clusters;
@@ -1159,46 +1183,6 @@ export function HexZoneMapPage() {
   type BottomTab = 'roster' | 'sitting' | 'zones';
   const [bottomTab, setBottomTab] = useState<BottomTab>('roster');
 
-  // Sitting roster: techs with 0 open assigned tickets
-  const sittingTechs = useMemo(() => {
-    const activeTechList = allTechs.filter(t => t.status === 'Active');
-    const openAssigned = new Map<string, number>();
-    tickets.forEach(t => {
-      if (t.assignedTechnicianId && t.status !== 'Resolved' && t.status !== 'Closed' && !ignored.has(t.id)) {
-        openAssigned.set(t.assignedTechnicianId, (openAssigned.get(t.assignedTechnicianId) ?? 0) + 1);
-      }
-    });
-    return activeTechList
-      .map(t => ({ tech: t, openCases: openAssigned.get(t.id) ?? 0 }))
-      .filter(x => x.openCases === 0)
-      .sort((a, b) => (a.tech.zone || a.tech.city).localeCompare(b.tech.zone || b.tech.city));
-  }, [allTechs, tickets, ignored]);
-
-  function downloadSittingRoster() {
-    const now = new Date();
-    const dateStr = `${now.getDate().toString().padStart(2,'0')}-${(now.getMonth()+1).toString().padStart(2,'0')}-${now.getFullYear()}`;
-    const timeStr = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
-    const header = ['Employee ID', 'Name', 'Zone', 'City', 'Base Lat', 'Base Lng', 'Default DC', 'Status', 'Open Cases', 'As of'];
-    const rows = sittingTechs.map(({ tech }) => [
-      tech.employeeId,
-      tech.name,
-      tech.zone || '',
-      tech.city || '',
-      tech.startingLatitude ?? '',
-      tech.startingLongitude ?? '',
-      tech.defaultDc || '',
-      'SITTING',
-      '0',
-      `${dateStr} ${timeStr}`,
-    ]);
-    const csv = [header, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = `sitting-roster-${dateStr}.csv`; a.click();
-    URL.revokeObjectURL(url);
-    toast(`Downloaded sitting roster — ${sittingTechs.length} technicians`);
-  }
   type HexFilter = 'all' | 'open' | 'unassigned';
   const [hexFilter, setHexFilter] = useState<HexFilter>('open');
   const [activeClusterView, setActiveClusterView] = useState(true);
@@ -1312,7 +1296,7 @@ export function HexZoneMapPage() {
     return raw.map((cell, i) => ({ ...cell, clusterId: assignments[i] }));
   }, [filteredTickets, centers, allTechs]);
 
-  const clusters = useMemo(() => buildClusters(grid, allTechs), [grid, allTechs]);
+  const clusters = useMemo(() => buildClusters(grid, allTechs, centers), [grid, allTechs, centers]);
 
   // Merge roster overrides into clusters for display
   const clustersWithRoster = useMemo(() => clusters.map(cluster => {
@@ -1321,6 +1305,59 @@ export function HexZoneMapPage() {
     const tech = allTechs.find(t => t.id === overrideId) ?? null;
     return { ...cluster, assignedTech: tech, isManualAssignment: true };
   }), [clusters, clusterRoster, allTechs]);
+
+  // Sitting roster: techs with 0 open assigned tickets → sitting at their cluster's primary DC
+  const sittingTechs = useMemo(() => {
+    const activeTechList = allTechs.filter(t => t.status === 'Active');
+    const openAssigned = new Map<string, number>();
+    tickets.forEach(t => {
+      if (t.assignedTechnicianId && t.status !== 'Resolved' && t.status !== 'Closed' && !ignored.has(t.id)) {
+        openAssigned.set(t.assignedTechnicianId, (openAssigned.get(t.assignedTechnicianId) ?? 0) + 1);
+      }
+    });
+    const techCluster = new Map<string, typeof clustersWithRoster[number]>();
+    clustersWithRoster.forEach(c => { if (c.assignedTech) techCluster.set(c.assignedTech.id, c); });
+    return activeTechList
+      .map(t => {
+        const openCases = openAssigned.get(t.id) ?? 0;
+        const cluster = techCluster.get(t.id) ?? null;
+        const sittingDc = cluster?.primaryDc ?? null;
+        return { tech: t, openCases, cluster, sittingDc };
+      })
+      .filter(x => x.openCases === 0)
+      .sort((a, b) => {
+        const ca = a.cluster?.id ?? 99;
+        const cb = b.cluster?.id ?? 99;
+        return ca !== cb ? ca - cb : (a.tech.zone || a.tech.city).localeCompare(b.tech.zone || b.tech.city);
+      });
+  }, [allTechs, tickets, ignored, clustersWithRoster]);
+
+  function downloadSittingRoster() {
+    const now = new Date();
+    const dateStr = `${now.getDate().toString().padStart(2,'0')}-${(now.getMonth()+1).toString().padStart(2,'0')}-${now.getFullYear()}`;
+    const timeStr = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
+    const header = ['Employee ID', 'Name', 'Zone', 'City', 'Cluster', 'Sitting DC', 'DC Lat', 'DC Lng', 'Status', 'Open Cases', 'As of'];
+    const rows = sittingTechs.map(({ tech, cluster, sittingDc }) => [
+      tech.employeeId,
+      tech.name,
+      tech.zone || '',
+      tech.city || '',
+      cluster ? `C${cluster.id + 1}` : '',
+      sittingDc ? sittingDc.name.replace(/_D$/, '') : '',
+      sittingDc ? sittingDc.latitude : '',
+      sittingDc ? sittingDc.longitude : '',
+      'SITTING',
+      '0',
+      `${dateStr} ${timeStr}`,
+    ]);
+    const csv = [header, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `sitting-roster-${dateStr}.csv`; a.click();
+    URL.revokeObjectURL(url);
+    toast(`Downloaded sitting roster — ${sittingTechs.length} technicians`);
+  }
 
   // Find cluster for selected cell (use roster-overridden version so ZonePanel shows manual tech)
   const selectedCluster = useMemo(() =>
@@ -1763,7 +1800,7 @@ export function HexZoneMapPage() {
           <table className="w-full text-xs">
             <thead className="bg-slate-50">
               <tr>
-                {['Cluster', 'Color', 'Vehicles', 'Open Tickets', 'Assign Technician', 'Zone/City', 'Spare Hubs', 'Hexes'].map(h => (
+                {['Cluster', 'Color', 'Vehicles', 'Open Tickets', 'Assign Technician', 'Sitting DC', 'Zone/City', 'Spare Hubs', 'Hexes'].map(h => (
                   <th key={h} className="text-left px-4 py-2.5 font-semibold text-slate-500 uppercase tracking-wide text-[10px]">{h}</th>
                 ))}
               </tr>
@@ -1802,6 +1839,14 @@ export function HexZoneMapPage() {
                           <option key={t.id} value={t.id}>{t.name} · {t.employeeId} · {t.zone || t.city}</option>
                         ))}
                       </select>
+                    </td>
+                    <td className="px-4 py-2.5">
+                      {cluster.primaryDc ? (
+                        <div>
+                          <div className="font-semibold text-slate-800 text-[11px]">{cluster.primaryDc.name.replace(/_D$/, '')}</div>
+                          {cluster.primaryDc.notes && <div className="text-[10px] text-slate-400 truncate max-w-[140px]">{cluster.primaryDc.notes}</div>}
+                        </div>
+                      ) : <span className="text-slate-300 text-[11px] italic">No DC</span>}
                     </td>
                     <td className="px-4 py-2.5 text-slate-500 text-[11px]">
                       {cluster.assignedTech?.zone || cluster.assignedTech?.city || '—'}
@@ -1868,24 +1913,39 @@ export function HexZoneMapPage() {
               <table className="w-full text-xs">
                 <thead className="bg-amber-50">
                   <tr>
-                    {['Employee ID', 'Name', 'Zone / Base', 'City', 'Coordinates', 'Default DC', 'Status'].map(h => (
+                    {['Employee ID', 'Name', 'Zone', 'City', 'Cluster', 'Sitting DC', 'DC Location', 'Status'].map(h => (
                       <th key={h} className="text-left px-4 py-2.5 font-semibold text-amber-700 uppercase tracking-wide text-[10px]">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {sittingTechs.map(({ tech }) => (
+                  {sittingTechs.map(({ tech, cluster, sittingDc }) => (
                     <tr key={tech.id} className="hover:bg-amber-50/50 transition-colors">
                       <td className="px-4 py-3 font-mono font-bold text-slate-700 text-[11px]">{tech.employeeId}</td>
                       <td className="px-4 py-3 font-semibold text-slate-900">{tech.name}</td>
                       <td className="px-4 py-3 text-slate-600 text-[11px]">{tech.zone || '—'}</td>
                       <td className="px-4 py-3 text-slate-500 text-[11px]">{tech.city || '—'}</td>
+                      <td className="px-4 py-3">
+                        {cluster ? (
+                          <span className="flex items-center gap-1.5">
+                            <span className="w-2.5 h-2.5 rounded-xs inline-block shrink-0" style={{ background: cluster.color }} />
+                            <span className="text-[11px] font-bold text-slate-700">C{cluster.id + 1}</span>
+                          </span>
+                        ) : <span className="text-slate-300 text-[11px]">—</span>}
+                      </td>
+                      <td className="px-4 py-3">
+                        {sittingDc ? (
+                          <div>
+                            <div className="font-semibold text-slate-900 text-[11px]">{sittingDc.name.replace(/_D$/, '')}</div>
+                            {sittingDc.notes && <div className="text-[10px] text-slate-400 truncate max-w-[160px]">{sittingDc.notes}</div>}
+                          </div>
+                        ) : <span className="text-slate-300 text-[11px] italic">No DC in cluster</span>}
+                      </td>
                       <td className="px-4 py-3 text-slate-400 text-[11px] font-mono">
-                        {tech.startingLatitude && tech.startingLongitude
-                          ? `${tech.startingLatitude.toFixed(4)}, ${tech.startingLongitude.toFixed(4)}`
+                        {sittingDc
+                          ? `${sittingDc.latitude.toFixed(4)}, ${sittingDc.longitude.toFixed(4)}`
                           : '—'}
                       </td>
-                      <td className="px-4 py-3 text-slate-500 text-[11px]">{tech.defaultDc || '—'}</td>
                       <td className="px-4 py-3">
                         <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-200">
                           SITTING
