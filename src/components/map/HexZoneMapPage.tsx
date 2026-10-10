@@ -1650,20 +1650,22 @@ export function HexZoneMapPage() {
       layersRef.current.push(m);
     });
 
-    // Spare vehicle hub markers (diamond ◆)
+    // Spare vehicle hub markers (diamond ◆) — numbered globally across all clusters
     if (activeLayers.has('spareHubs')) {
+      let globalHubNum = 0;
       clusters.forEach(cluster => {
         cluster.spareHubs.forEach(hub => {
+          globalHubNum++;
           const icon = L.divIcon({
             className: '',
             html: `<div style="display:flex;flex-direction:column;align-items:center;">
               <div style="width:18px;height:18px;background:${cluster.color};transform:rotate(45deg);border:2px solid white;box-shadow:0 2px 5px rgba(0,0,0,.4);"></div>
-              <div style="font-size:9px;font-weight:700;color:${cluster.color};background:white;border-radius:3px;padding:0 3px;margin-top:2px;border:1px solid ${cluster.color};white-space:nowrap;">HUB ${hub.hubIndex}</div>
+              <div style="font-size:9px;font-weight:700;color:${cluster.color};background:white;border-radius:3px;padding:0 3px;margin-top:2px;border:1px solid ${cluster.color};white-space:nowrap;">HUB ${globalHubNum}</div>
             </div>`,
             iconSize: [36, 36], iconAnchor: [18, 9],
           });
           const m = L.marker([hub.lat, hub.lng], { icon }).addTo(map);
-          m.bindTooltip(`Cluster ${cluster.id + 1} · Spare Hub ${hub.hubIndex}\n~${Math.round(cluster.vehicleCount / cluster.spareHubs.length)} vehicles/hub`, { permanent: false, direction: 'top' });
+          m.bindTooltip(`Hub ${globalHubNum} · Cluster ${cluster.id + 1} · ~${Math.round(cluster.vehicleCount / cluster.spareHubs.length)} vehicles`, { permanent: false, direction: 'top' });
           layersRef.current.push(m);
         });
       });
@@ -1756,7 +1758,7 @@ export function HexZoneMapPage() {
   const totalHubs = clusters.reduce((s, c) => s + c.spareHubs.length, 0);
 
   const LAYER_CONFIG: { id: MapLayer; label: string; color: string; activeColor: string }[] = [
-    { id: 'clusters',      label: '12 Clusters',    color: 'border-slate-200 text-slate-600', activeColor: 'bg-purple-600 border-purple-600 text-white' },
+    { id: 'clusters',      label: `${selectedRegion.clusters} Clusters`,    color: 'border-slate-200 text-slate-600', activeColor: 'bg-purple-600 border-purple-600 text-white' },
     { id: 'openTickets',   label: 'Open Tickets',   color: 'border-slate-200 text-slate-600', activeColor: 'bg-orange-500 border-orange-500 text-white' },
     { id: 'spareHubs',     label: 'Spare Hubs ◆',  color: 'border-slate-200 text-slate-600', activeColor: 'bg-teal-600 border-teal-600 text-white' },
     { id: 'techBases',     label: 'Tech Bases 🔧',  color: 'border-slate-200 text-slate-600', activeColor: 'bg-blue-600 border-blue-600 text-white' },
