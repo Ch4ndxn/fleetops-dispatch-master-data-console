@@ -603,28 +603,74 @@ function drawDCMarkers(techAssignment) {
   });
 }
 
+// Decode a Google-encoded polyline (OSRM uses this format for geometry)
+function decodePolyline(encoded) {
+  const pts = [];
+  let idx = 0, lat = 0, lng = 0;
+  while (idx < encoded.length) {
+    let b, shift = 0, result = 0;
+    do { b = encoded.charCodeAt(idx++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+    lat += (result & 1) ? ~(result >> 1) : result >> 1;
+    shift = 0; result = 0;
+    do { b = encoded.charCodeAt(idx++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+    lng += (result & 1) ? ~(result >> 1) : result >> 1;
+    pts.push([lat / 1e5, lng / 1e5]);
+  }
+  return pts;
+}
+
+// Fetch road geometry from OSRM for a sequence of waypoints
+// Returns array of [lat, lng] forming the road path
+async function fetchRoadRoute(waypoints) {
+  if (waypoints.length < 2) return waypoints.map(w => [w.lat, w.lon]);
+  // OSRM public API: coordinates as lng,lat pairs separated by ;
+  const coords = waypoints.map(w => `${w.lon},${w.lat}`).join(';');
+  const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=polyline`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`OSRM ${res.status}`);
+    const data = await res.json();
+    if (data.code !== 'Ok' || !data.routes || !data.routes[0]) throw new Error('No route');
+    return decodePolyline(data.routes[0].geometry);
+  } catch(e) {
+    console.warn('[FleetOps] OSRM routing failed, falling back to straight line:', e.message);
+    // Fallback: straight lines between waypoints
+    return waypoints.map(w => [w.lat, w.lon]);
+  }
+}
+
 function drawRoutes(techAssignment) {
   routeLayer.clearLayers();
-  
+
   techAssignment.techs.forEach(tech => {
     if(!tech.route || tech.route.length < 2) return;
-    const coords = tech.route.map(dc => [dc.lat, dc.lon]);
-    const line = L.polyline(coords, {
-      color: tech.color, weight: 2.5, opacity: .75, dashArray: '6 4'
-    });
-    routeLayer.addLayer(line);
-    
-    // Numbered stop markers on route
+
+    // Draw stop markers immediately (no async needed)
     tech.route.forEach((dc, idx) => {
       const tks = TICKETS_BY_DC[dc.c] || [];
-      const hasTk = tks.length > 0;
-      if(!hasTk) return; // Only mark DCs with tickets in route labels
+      if(tks.length === 0) return;
       const icon = L.divIcon({
         className:'',
         html:`<div style="position:absolute;top:-10px;left:8px;background:${tech.color};color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:10px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.3)">T${tech.id}-${idx+1}</div>`,
         iconSize:[1,1], iconAnchor:[0,0]
       });
-      routeLayer.addLayer(L.marker([dc.lat,dc.lon],{icon}));
+      routeLayer.addLayer(L.marker([dc.lat, dc.lon], {icon}));
+    });
+
+    // Draw a dashed straight-line placeholder while road route loads
+    const straightCoords = tech.route.map(dc => [dc.lat, dc.lon]);
+    const placeholder = L.polyline(straightCoords, {
+      color: tech.color, weight: 1.5, opacity: 0.35, dashArray: '3 6'
+    });
+    routeLayer.addLayer(placeholder);
+
+    // Fetch real road geometry and replace placeholder
+    fetchRoadRoute(tech.route).then(roadCoords => {
+      routeLayer.removeLayer(placeholder);
+      const roadLine = L.polyline(roadCoords, {
+        color: tech.color, weight: 3, opacity: 0.85
+      });
+      routeLayer.addLayer(roadLine);
     });
   });
 }
