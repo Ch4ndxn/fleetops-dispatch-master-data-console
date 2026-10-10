@@ -1306,30 +1306,30 @@ export function HexZoneMapPage() {
     return { ...cluster, assignedTech: tech, isManualAssignment: true };
   }), [clusters, clusterRoster, allTechs]);
 
-  // Sitting roster: techs with 0 open assigned tickets → sitting at their cluster's primary DC
+  // Sitting roster: only cluster-assigned techs with 0 open tickets → sitting at their cluster's primary DC
   const sittingTechs = useMemo(() => {
-    const activeTechList = allTechs.filter(t => t.status === 'Active');
     const openAssigned = new Map<string, number>();
     tickets.forEach(t => {
       if (t.assignedTechnicianId && t.status !== 'Resolved' && t.status !== 'Closed' && !ignored.has(t.id)) {
         openAssigned.set(t.assignedTechnicianId, (openAssigned.get(t.assignedTechnicianId) ?? 0) + 1);
       }
     });
-    const techCluster = new Map<string, typeof clustersWithRoster[number]>();
-    clustersWithRoster.forEach(c => { if (c.assignedTech) techCluster.set(c.assignedTech.id, c); });
-    return activeTechList
-      .map(t => {
-        const openCases = openAssigned.get(t.id) ?? 0;
-        const cluster = techCluster.get(t.id) ?? null;
-        const sittingDc = cluster?.primaryDc ?? null;
-        return { tech: t, openCases, cluster, sittingDc };
-      })
-      .filter(x => x.openCases === 0)
-      .sort((a, b) => {
-        const ca = a.cluster?.id ?? 99;
-        const cb = b.cluster?.id ?? 99;
-        return ca !== cb ? ca - cb : (a.tech.zone || a.tech.city).localeCompare(b.tech.zone || b.tech.city);
-      });
+    // Only consider techs that are explicitly assigned to a cluster
+    const results: { tech: Technician; openCases: number; cluster: typeof clustersWithRoster[number]; sittingDc: Center | null }[] = [];
+    clustersWithRoster.forEach(cluster => {
+      if (!cluster.assignedTech) return;
+      const tech = cluster.assignedTech;
+      if (tech.status !== 'Active') return;
+      const openCases = openAssigned.get(tech.id) ?? 0;
+      if (openCases > 0) return; // tech is busy — not sitting
+      results.push({ tech, openCases, cluster, sittingDc: cluster.primaryDc ?? null });
+    });
+    return results.sort((a, b) => {
+      // Group by DC first, then cluster id
+      const da = a.sittingDc?.name ?? 'zzz';
+      const db = b.sittingDc?.name ?? 'zzz';
+      return da !== db ? da.localeCompare(db) : a.cluster.id - b.cluster.id;
+    });
   }, [allTechs, tickets, ignored, clustersWithRoster]);
 
   function downloadSittingRoster() {
@@ -1905,58 +1905,86 @@ export function HexZoneMapPage() {
           {sittingTechs.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center text-slate-400">
               <CheckCircle2 className="w-8 h-8 mb-2 text-emerald-300" />
-              <div className="text-sm font-semibold text-slate-500">All technicians have active cases</div>
-              <div className="text-xs mt-1">No sitting technicians right now</div>
+              <div className="text-sm font-semibold text-slate-500">All assigned technicians have active cases</div>
+              <div className="text-xs mt-1">Assign technicians to clusters in the Cluster Roster tab</div>
             </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead className="bg-amber-50">
-                  <tr>
-                    {['Employee ID', 'Name', 'Zone', 'City', 'Cluster', 'Sitting DC', 'DC Location', 'Status'].map(h => (
-                      <th key={h} className="text-left px-4 py-2.5 font-semibold text-amber-700 uppercase tracking-wide text-[10px]">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {sittingTechs.map(({ tech, cluster, sittingDc }) => (
-                    <tr key={tech.id} className="hover:bg-amber-50/50 transition-colors">
-                      <td className="px-4 py-3 font-mono font-bold text-slate-700 text-[11px]">{tech.employeeId}</td>
-                      <td className="px-4 py-3 font-semibold text-slate-900">{tech.name}</td>
-                      <td className="px-4 py-3 text-slate-600 text-[11px]">{tech.zone || '—'}</td>
-                      <td className="px-4 py-3 text-slate-500 text-[11px]">{tech.city || '—'}</td>
-                      <td className="px-4 py-3">
-                        {cluster ? (
-                          <span className="flex items-center gap-1.5">
-                            <span className="w-2.5 h-2.5 rounded-xs inline-block shrink-0" style={{ background: cluster.color }} />
-                            <span className="text-[11px] font-bold text-slate-700">C{cluster.id + 1}</span>
-                          </span>
-                        ) : <span className="text-slate-300 text-[11px]">—</span>}
-                      </td>
-                      <td className="px-4 py-3">
-                        {sittingDc ? (
-                          <div>
-                            <div className="font-semibold text-slate-900 text-[11px]">{sittingDc.name.replace(/_D$/, '')}</div>
-                            {sittingDc.notes && <div className="text-[10px] text-slate-400 truncate max-w-[160px]">{sittingDc.notes}</div>}
-                          </div>
-                        ) : <span className="text-slate-300 text-[11px] italic">No DC in cluster</span>}
-                      </td>
-                      <td className="px-4 py-3 text-slate-400 text-[11px] font-mono">
-                        {sittingDc
-                          ? `${sittingDc.latitude.toFixed(4)}, ${sittingDc.longitude.toFixed(4)}`
-                          : '—'}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-200">
-                          SITTING
-                        </span>
-                      </td>
+          ) : (() => {
+            // Group by DC
+            const dcGroups = new Map<string, typeof sittingTechs>();
+            sittingTechs.forEach(row => {
+              const key = row.sittingDc?.id ?? '__no_dc__';
+              if (!dcGroups.has(key)) dcGroups.set(key, []);
+              dcGroups.get(key)!.push(row);
+            });
+            return (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead className="bg-amber-50">
+                    <tr>
+                      {['Sitting DC', 'DC Location', 'Technician', 'Emp ID', 'Zone / City', 'Cluster', 'Alert'].map(h => (
+                        <th key={h} className="text-left px-4 py-2.5 font-semibold text-amber-700 uppercase tracking-wide text-[10px]">{h}</th>
+                      ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {Array.from(dcGroups.entries()).flatMap(([, rows], gi) =>
+                      rows.map(({ tech, cluster, sittingDc }, ri) => {
+                        const overcrowded = rows.length > 1;
+                        const isFirst = ri === 0;
+                        return (
+                          <tr key={tech.id} className={`transition-colors ${overcrowded ? 'bg-red-50/40 hover:bg-red-50' : 'hover:bg-amber-50/40'} ${gi % 2 === 0 && !overcrowded ? 'bg-white' : ''}`}>
+                            {/* DC name — show only on first row of group */}
+                            <td className="px-4 py-3">
+                              {isFirst ? (
+                                <div>
+                                  <div className={`font-bold text-[12px] ${overcrowded ? 'text-red-700' : 'text-slate-800'}`}>
+                                    {sittingDc ? sittingDc.name.replace(/_D$/, '') : <span className="italic text-slate-300">No DC</span>}
+                                  </div>
+                                  {sittingDc?.notes && <div className="text-[10px] text-slate-400 truncate max-w-[160px]">{sittingDc.notes}</div>}
+                                  {overcrowded && (
+                                    <div className="mt-0.5 text-[10px] font-bold text-red-600">{rows.length} techs here</div>
+                                  )}
+                                </div>
+                              ) : (
+                                <div className="pl-3 border-l-2 border-slate-200 text-slate-300 text-[10px] italic">↳ same DC</div>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-slate-400 text-[11px] font-mono">
+                              {isFirst && sittingDc ? `${sittingDc.latitude.toFixed(4)}, ${sittingDc.longitude.toFixed(4)}` : ''}
+                            </td>
+                            <td className="px-4 py-3 font-semibold text-slate-900">{tech.name}</td>
+                            <td className="px-4 py-3 font-mono text-slate-600 text-[11px]">{tech.employeeId}</td>
+                            <td className="px-4 py-3 text-slate-500 text-[11px]">{tech.zone || tech.city || '—'}</td>
+                            <td className="px-4 py-3">
+                              <span className="flex items-center gap-1.5">
+                                <span className="w-2.5 h-2.5 rounded-sm inline-block shrink-0" style={{ background: cluster.color }} />
+                                <span className="text-[11px] font-bold text-slate-700">C{cluster.id + 1}</span>
+                              </span>
+                            </td>
+                            <td className="px-4 py-3">
+                              {overcrowded && isFirst ? (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700 border border-red-300">
+                                  ⚠ REDEPLOY {rows.length - 1}
+                                </span>
+                              ) : overcrowded ? (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 text-orange-700 border border-orange-200">
+                                  EXCESS
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-200">
+                                  SITTING
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            );
+          })()}
           <div className="px-4 py-2.5 border-t border-slate-100 bg-slate-50 text-[11px] text-slate-400">
             As of {new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' })} IST
             · Active technicians only · Resolved and closed tickets excluded from case count
