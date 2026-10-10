@@ -53,7 +53,7 @@ function buildPlannerData() {
   const allTickets = getTickets();
   const ignoredCount = allTickets.filter(t => t.ignoreForRouting && t.status !== 'Resolved' && t.status !== 'Closed').length;
   const relevant = allTickets.filter(t => !t.ignoreForRouting).filter(t =>
-    (t.status !== 'Resolved' && t.status !== 'Closed') || (t.updatedAt ? localDate(new Date(t.updatedAt)) === T : false));
+    t.status !== 'Resolved' && t.status !== 'Closed');
   let unroutable = 0;
   const ticketStatus: Record<string, PlannerStatus> = {};
   const assignments: Record<string, string> = {}; // ticketId → technician id, from the ticket itself
