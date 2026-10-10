@@ -12,6 +12,23 @@ export default defineConfig(() => {
         '@': path.resolve(fileURLToPath(import.meta.url), '..'),
       },
     },
+    // Rolldown (Vite 8) can produce TDZ errors with CJS packages that use
+    // `exports = module.exports = function(){}` self-reference pattern.
+    // Force pre-bundling these packages through esbuild to avoid the issue.
+    optimizeDeps: {
+      include: ['groq-sdk'],
+    },
+    build: {
+      // Keep groq-sdk out of the Rolldown chunking step to prevent
+      // "Cannot access before initialization" runtime errors.
+      rollupOptions: {
+        output: {
+          manualChunks: (id: string) => {
+            if (id.includes('groq-sdk')) return 'groq-vendor';
+          },
+        },
+      },
+    },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       // Do not modify—file watching is disabled to prevent flickering during agent edits.
