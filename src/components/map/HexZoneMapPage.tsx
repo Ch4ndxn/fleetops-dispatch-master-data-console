@@ -256,32 +256,62 @@ function buildGrid(tickets: Ticket[], centers: Center[], techs: Technician[], bb
   return cells;
 }
 
-// ─── K-means clustering (weighted by vehicle density) ─────────────────────────
+// ─── K-means clustering anchored to DC locations ──────────────────────────────
+// Seeds centroids using actual DC (center) positions inside active cells,
+// so clusters always form around where DCs actually exist — not empty map areas.
+// Uses k-means++ style seeding: pick seeds that are maximally spread apart
+// among DC-bearing cells, weighted by vehicle density.
 function kMeansClusters(cells: HexCell[], k: number = NUM_CLUSTERS): number[] {
   const activeCells = cells.filter(c => c.vehicleCount > 0 || c.tickets.length > 0 || c.centers.length > 0);
   if (activeCells.length === 0) return cells.map(() => 0);
 
-  // Seed centroids: spread evenly across bounding box
-  const lats = activeCells.map(c => c.cLat);
-  const lngs = activeCells.map(c => c.cLng);
-  const minLat = Math.min(...lats), maxLat = Math.max(...lats);
-  const minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
+  // Collect candidate seed points: prefer cells that actually contain DCs, then any active cell
+  const dcCells = activeCells.filter(c => c.centers.length > 0);
+  const seedPool = dcCells.length >= k ? dcCells : activeCells;
 
-  let centroids: { lat: number; lng: number }[] = Array.from({ length: k }, (_, i) => ({
-    lat: minLat + (maxLat - minLat) * (i % 4) / 3,
-    lng: minLng + (maxLng - minLng) * Math.floor(i / 4) / (Math.ceil(k / 4) - 1 || 1),
-  }));
+  // k-means++ seeding: first seed = highest-vehicle-density DC cell;
+  // each subsequent seed = cell farthest (weighted) from existing seeds
+  const seeds: { lat: number; lng: number }[] = [];
+  const poolSorted = [...seedPool].sort((a, b) => b.vehicleCount - a.vehicleCount);
 
-  // Nudge apart any exact duplicates
-  centroids = centroids.map((c, i) => ({ lat: c.lat + i * 0.0001, lng: c.lng + i * 0.0001 }));
+  // First seed: highest density
+  seeds.push({ lat: poolSorted[0].cLat, lng: poolSorted[0].cLng });
+
+  for (let s = 1; s < Math.min(k, seedPool.length); s++) {
+    // For each candidate, compute min distance² to any existing seed
+    const withDist = poolSorted.map(c => {
+      const minD2 = seeds.reduce((m, seed) => {
+        const d = Math.pow(c.cLat - seed.lat, 2) + Math.pow(c.cLng - seed.lng, 2);
+        return Math.min(m, d);
+      }, Infinity);
+      // Weight by distance AND vehicle density so dense far-apart areas win
+      return { c, score: minD2 * (c.vehicleCount + 1) };
+    });
+    withDist.sort((a, b) => b.score - a.score);
+    seeds.push({ lat: withDist[0].c.cLat, lng: withDist[0].c.cLng });
+  }
+
+  // If we have fewer DCs than k, pad with evenly spread active cells
+  if (seeds.length < k) {
+    const remaining = activeCells.filter(c =>
+      !seeds.some(s => s.lat === c.cLat && s.lng === c.cLng)
+    );
+    for (let i = 0; i < remaining.length && seeds.length < k; i += Math.ceil(remaining.length / (k - seeds.length))) {
+      seeds.push({ lat: remaining[i].cLat, lng: remaining[i].cLng });
+    }
+  }
+
+  let centroids: { lat: number; lng: number }[] = seeds.slice(0, k);
+  // Tiny nudge to ensure no exact duplicates
+  centroids = centroids.map((c, i) => ({ lat: c.lat + i * 0.00001, lng: c.lng + i * 0.00001 }));
 
   const assignments = new Array(cells.length).fill(0);
   let changed = true;
   let iters = 0;
 
-  while (changed && iters < 30) {
+  while (changed && iters < 40) {
     changed = false; iters++;
-    // Assign each active cell to nearest centroid (weight: vehicle count + 1)
+    // Assign each active cell to nearest centroid
     cells.forEach((cell, idx) => {
       let best = 0, bestDist = Infinity;
       centroids.forEach((c, ci) => {
@@ -290,14 +320,15 @@ function kMeansClusters(cells: HexCell[], k: number = NUM_CLUSTERS): number[] {
       });
       if (assignments[idx] !== best) { assignments[idx] = best; changed = true; }
     });
-    // Recompute centroids (weighted by vehicleCount)
-    centroids = centroids.map((_, ci) => {
+    // Recompute centroids weighted by vehicle density + DC presence
+    centroids = centroids.map((prev, ci) => {
       const members = cells.filter((_, idx) => assignments[idx] === ci);
-      if (members.length === 0) return centroids[ci];
-      const totalW = members.reduce((s, c) => s + c.vehicleCount + 1, 0);
+      if (members.length === 0) return prev;
+      // Weight: vehicle count + 2× bonus for cells with DCs (geo constraint)
+      const totalW = members.reduce((s, c) => s + c.vehicleCount + 1 + (c.centers.length > 0 ? 2 : 0), 0);
       return {
-        lat: members.reduce((s, c) => s + c.cLat * (c.vehicleCount + 1), 0) / totalW,
-        lng: members.reduce((s, c) => s + c.cLng * (c.vehicleCount + 1), 0) / totalW,
+        lat: members.reduce((s, c) => s + c.cLat * (c.vehicleCount + 1 + (c.centers.length > 0 ? 2 : 0)), 0) / totalW,
+        lng: members.reduce((s, c) => s + c.cLng * (c.vehicleCount + 1 + (c.centers.length > 0 ? 2 : 0)), 0) / totalW,
       };
     });
   }
@@ -305,13 +336,13 @@ function kMeansClusters(cells: HexCell[], k: number = NUM_CLUSTERS): number[] {
 }
 
 // ─── Build cluster objects ─────────────────────────────────────────────────────
-function buildClusters(cells: HexCell[], techs: Technician[], allCenters: Center[] = []): Cluster[] {
+function buildClusters(cells: HexCell[], techs: Technician[], allCenters: Center[] = [], k: number = NUM_CLUSTERS): Cluster[] {
   const activeTechs = techs.filter(t => t.status === 'Active');
   const validCenters = allCenters.filter(c => c.latitude && c.longitude && !isNaN(c.latitude) && !isNaN(c.longitude));
   const usedTechIds = new Set<string>();
   const clusters: Cluster[] = [];
 
-  for (let ci = 0; ci < NUM_CLUSTERS; ci++) {
+  for (let ci = 0; ci < k; ci++) {
     const members = cells.filter(c => c.clusterId === ci);
     if (members.length === 0) continue;
 
@@ -1435,7 +1466,7 @@ export function HexZoneMapPage() {
     return raw.map((cell, i) => ({ ...cell, clusterId: assignments[i] }));
   }, [filteredTickets, centers, allTechs, selectedRegion]);
 
-  const clusters = useMemo(() => buildClusters(grid, allTechs, centers), [grid, allTechs, centers]);
+  const clusters = useMemo(() => buildClusters(grid, allTechs, centers, selectedRegion.clusters), [grid, allTechs, centers, selectedRegion.clusters]);
 
   // Merge roster overrides into clusters for display
   const clustersWithRoster = useMemo(() => clusters.map(cluster => {
