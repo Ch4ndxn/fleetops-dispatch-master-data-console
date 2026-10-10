@@ -692,7 +692,7 @@ function buildRoster(techAssignment) {
     const displayName = tech.name || `Tech ${tech.id}`;
     return `<span class="hex-chip ${active?'active':''}" style="color:${tech.color};border-color:${tech.color};background:${tech.color}18;" onclick="focusTech(${tech.id})">
       <span class="hex-dot" style="background:${tech.color}"></span>
-      ${displayName} (${tech.tickets.length}🎫)
+      ${displayName} (${tech.tickets.filter(tk=>(ticketStatus[tk.ticket]||{}).status!=='closed').length}🎫)
     </span>`;
   }).join('');
   
@@ -770,7 +770,7 @@ function buildRoster(techAssignment) {
             }</div>
           <div class="tech-meta">
             <span>📍 ${tech.route?.length || 0} stops</span>
-            <span>🎫 ${tech.tickets.length} tickets</span>
+            <span>🎫 ${tech.tickets.filter(tk=>(ticketStatus[tk.ticket]||{}).status!=='closed').length} tickets</span>
             ${tech.routeStats ? `<span>🛣 ${tech.routeStats.totalKm} km</span>` : ''}
             ${tech.routeStats ? `<span>⏱ ${Math.round(tech.routeStats.totalMin/60*10)/10}h</span>` : ''}
           </div>
@@ -845,7 +845,8 @@ function rebuild() {
   
   // Summary
   const totalDCsAssigned = assignment.techs.reduce((s,t)=>s+t.dcs.length,0);
-  const totalTickets = assignment.techs.reduce((s,t)=>s+t.tickets.length,0);
+  // Only count tickets not yet closed in the planner tracker
+  const totalTickets = assignment.techs.reduce((s,t)=>s+t.tickets.filter(tk=>(ticketStatus[tk.ticket]||{}).status!=='closed').length,0);
   const ticketDCCount = ACTIVE_DCS.length || 1;
   const coverage = Math.round(totalDCsAssigned / ticketDCCount * 100);
   document.getElementById('sg-assigned').textContent = totalDCsAssigned;
