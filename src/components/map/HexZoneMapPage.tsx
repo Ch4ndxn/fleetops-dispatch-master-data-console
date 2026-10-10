@@ -1699,6 +1699,40 @@ export function HexZoneMapPage() {
 
     // Technician route lines + stop markers
     if (activeLayers.has('techRoutes')) {
+      // OSRM road-routing helpers (same pattern as LiveMapViewer / MapTab)
+      function decodePolylineHz(encoded: string): [number, number][] {
+        const pts: [number, number][] = [];
+        let idx = 0, lat = 0, lng = 0;
+        while (idx < encoded.length) {
+          let b, shift = 0, result = 0;
+          do { b = encoded.charCodeAt(idx++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+          lat += result & 1 ? ~(result >> 1) : result >> 1;
+          shift = 0; result = 0;
+          do { b = encoded.charCodeAt(idx++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+          lng += result & 1 ? ~(result >> 1) : result >> 1;
+          pts.push([lat / 1e5, lng / 1e5]);
+        }
+        return pts;
+      }
+      async function fetchRoadRouteHz(coords: [number, number][]): Promise<[number, number][]> {
+        const waypoints = coords.map(([lat, lng]) => `${lng},${lat}`).join(';');
+        const servers = [
+          `https://router.project-osrm.org/route/v1/driving/${waypoints}?overview=full&geometries=polyline`,
+          `https://routing.openstreetmap.de/routed-car/route/v1/driving/${waypoints}?overview=full&geometries=polyline`,
+        ];
+        for (const url of servers) {
+          try {
+            const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+            if (!res.ok) continue;
+            const data = await res.json();
+            if (data.routes?.[0]?.geometry) return decodePolylineHz(data.routes[0].geometry);
+          } catch { /* try next */ }
+        }
+        return coords;
+      }
+
+      const hexRouteFetch: { coords: [number, number][]; color: string; placeholder: L.Polyline; plan: typeof routePlans[0]; sortedStops: typeof routePlans[0]['stops'] }[] = [];
+
       routePlans.forEach((plan, planIdx) => {
         const color = CLUSTER_COLORS[planIdx % CLUSTER_COLORS.length];
         // Build coordinate list: start point → stops in order
@@ -1713,22 +1747,23 @@ export function HexZoneMapPage() {
           }
         });
         if (coords.length >= 2) {
-          const line = L.polyline(coords, {
+          // Dashed placeholder — replaced progressively with real road geometry
+          const placeholder = L.polyline(coords, {
             color,
-            weight: 2.5,
-            opacity: 0.85,
-            dashArray: '6 4',
+            weight: 1.5,
+            opacity: 0.35,
+            dashArray: '3 8',
           }).addTo(map);
-          line.bindTooltip(`${plan.technicianName} · ${plan.stops.length} stops`, { permanent: false, direction: 'top' });
-          line.on('click', () => {
-            // Find hex cell for first stop
+          placeholder.bindTooltip(`${plan.technicianName} · ${plan.stops.length} stops`, { permanent: false, direction: 'top' });
+          placeholder.on('click', () => {
             if (sortedStops.length > 0) {
               const firstStop = sortedStops[0];
               const cell = grid.find(cell => isInsideHex(firstStop.latitude, firstStop.longitude, cell.cLat, cell.cLng));
               if (cell) setSelectedCell(cell);
             }
           });
-          layersRef.current.push(line);
+          layersRef.current.push(placeholder);
+          hexRouteFetch.push({ coords, color, placeholder, plan, sortedStops });
         }
         // Numbered stop circle markers
         sortedStops.forEach(stop => {
@@ -1747,6 +1782,31 @@ export function HexZoneMapPage() {
           layersRef.current.push(sm);
         });
       });
+
+      // Fetch real road routes sequentially (300 ms stagger) to avoid OSRM rate limits
+      (async () => {
+        for (let i = 0; i < hexRouteFetch.length; i++) {
+          if (!mapRef.current) break;
+          if (i > 0) await new Promise<void>(r => setTimeout(r, 300));
+          const { coords, color, placeholder, plan } = hexRouteFetch[i];
+          try {
+            const road = await fetchRoadRouteHz(coords);
+            if (!mapRef.current) break;
+            placeholder.remove();
+            const solidLine = L.polyline(road, { color, weight: 2.5, opacity: 0.85 }).addTo(map);
+            solidLine.bindTooltip(`${plan.technicianName} · ${plan.stops.length} stops`, { permanent: false, direction: 'top' });
+            solidLine.on('click', () => {
+              const sortedStops = [...plan.stops].sort((a, b) => a.stopOrder - b.stopOrder);
+              if (sortedStops.length > 0) {
+                const firstStop = sortedStops[0];
+                const cell = grid.find(c => isInsideHex(firstStop.latitude, firstStop.longitude, c.cLat, c.cLng));
+                if (cell) setSelectedCell(cell);
+              }
+            });
+            layersRef.current.push(solidLine);
+          } catch { /* placeholder stays — acceptable */ }
+        }
+      })();
     }
 
     return () => {
