@@ -29,6 +29,7 @@ const STORAGE_KEYS = {
   ROUTES: 'fleetops_routes_v2',
   VISIT_LOGS: 'fleetops_visit_logs_v1',
   DB_LOADED: 'fleetops_db_loaded',
+  CLUSTER_ROSTER: 'fleetops_cluster_roster_v1',
 };
 
 // ─────────────────────────────────────────────────────────────────
@@ -725,6 +726,18 @@ export function getVisitLogsForTicket(ticketId: string): VisitLog[] {
 }
 export function getVisitLogsForTech(technicianId: string): VisitLog[] {
   return getVisitLogs().filter(l => l.technicianId === technicianId);
+}
+
+// ─────────────────────────────────────────────────────────────────
+// CLUSTER ROSTER  (manual tech-per-cluster overrides)
+// Maps clusterId (number, as string key) → technicianId
+// ─────────────────────────────────────────────────────────────────
+export function getClusterRoster(): Record<string, string> {
+  return lsGet<Record<string, string>>(STORAGE_KEYS.CLUSTER_ROSTER, {});
+}
+export function saveClusterRoster(roster: Record<string, string>): void {
+  lsSet(STORAGE_KEYS.CLUSTER_ROSTER, roster);
+  // no notify() — cluster roster changes don't need to re-trigger ticket/center listeners
 }
 
 // ─────────────────────────────────────────────────────────────────

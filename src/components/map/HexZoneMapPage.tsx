@@ -18,6 +18,7 @@ import {
   getRoutePlans, saveRoutePlans,
   subscribeToDataChanges,
   getIgnoredTicketIds, setTicketsIgnored,
+  getClusterRoster, saveClusterRoster,
 } from '../../services/storage';
 import { planBalancedRoutes, BalancedPlanConstraints, BalancedPlanResult } from '../../services/routeOptimizer';
 import { Ticket, Technician, Center, TechnicianRoutePlan, RouteStop } from '../../types';
@@ -1128,6 +1129,31 @@ export function HexZoneMapPage() {
   // Route planner drawer state
   const [plannerOpen, setPlannerOpen] = useState(false);
 
+  // Cluster roster: manual override of auto-assigned techs per cluster
+  // Record<string, string>: clusterId (as string) → technicianId
+  const [clusterRoster, setClusterRoster] = useState<Record<string, string>>(() => getClusterRoster());
+  const [rosterSaved, setRosterSaved] = useState(false);
+
+  function handleRosterChange(clusterId: number, techId: string) {
+    setClusterRoster(prev => {
+      const next = { ...prev };
+      if (techId) next[String(clusterId)] = techId;
+      else delete next[String(clusterId)];
+      return next;
+    });
+    setRosterSaved(false);
+  }
+  function handleSaveRoster() {
+    saveClusterRoster(clusterRoster);
+    setRosterSaved(true);
+    toast('Cluster roster saved');
+    setTimeout(() => setRosterSaved(false), 3000);
+  }
+  function handleResetRoster() {
+    setClusterRoster({});
+    saveClusterRoster({});
+    toast('Roster reset to auto-assign');
+  }
   type HexFilter = 'all' | 'open' | 'unassigned';
   const [hexFilter, setHexFilter] = useState<HexFilter>('open');
   const [activeClusterView, setActiveClusterView] = useState(true);
@@ -1243,10 +1269,18 @@ export function HexZoneMapPage() {
 
   const clusters = useMemo(() => buildClusters(grid, allTechs), [grid, allTechs]);
 
-  // Find cluster for selected cell
+  // Merge roster overrides into clusters for display
+  const clustersWithRoster = useMemo(() => clusters.map(cluster => {
+    const overrideId = clusterRoster[String(cluster.id)];
+    if (!overrideId) return cluster;
+    const tech = allTechs.find(t => t.id === overrideId) ?? null;
+    return { ...cluster, assignedTech: tech, isManualAssignment: true };
+  }), [clusters, clusterRoster, allTechs]);
+
+  // Find cluster for selected cell (use roster-overridden version so ZonePanel shows manual tech)
   const selectedCluster = useMemo(() =>
-    selectedCell ? clusters.find(c => c.cells.some(cc => cc.key === selectedCell.key)) ?? null : null,
-    [selectedCell, clusters]
+    selectedCell ? clustersWithRoster.find(c => c.cells.some(cc => cc.key === selectedCell.key)) ?? null : null,
+    [selectedCell, clustersWithRoster]
   );
 
   // ── Draw map ──
@@ -1274,8 +1308,8 @@ export function HexZoneMapPage() {
         layersRef.current.push(poly);
       });
 
-      // Cluster centroid labels (cluster ID + assigned tech name)
-      clusters.forEach(cluster => {
+      // Cluster centroid labels (cluster ID + assigned tech name, roster-overridden)
+      clustersWithRoster.forEach(cluster => {
         const icon = L.divIcon({
           className: '',
           html: `<div style="background:${cluster.color};color:white;font-size:9px;font-weight:800;padding:2px 5px;border-radius:10px;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.4);border:1.5px solid white;opacity:0.9;">
@@ -1587,7 +1621,7 @@ export function HexZoneMapPage() {
           <div className="pt-1 mt-1 border-t border-slate-100">
             <div className="text-[10px] font-semibold text-slate-400 uppercase mb-1">Clusters (C1–C{NUM_CLUSTERS})</div>
             <div className="grid grid-cols-4 gap-1">
-              {clusters.slice(0, 12).map(c => (
+              {clustersWithRoster.slice(0, 12).map(c => (
                 <div key={c.id} className="flex items-center gap-0.5">
                   <span className="w-2.5 h-2.5 rounded-xs inline-block shrink-0" style={{ background: c.color }} />
                   <span className="text-[9px] text-slate-500">C{c.id + 1}</span>
@@ -1636,29 +1670,50 @@ export function HexZoneMapPage() {
         onToast={toast}
       />
 
-      {/* Cluster assignment table */}
+      {/* Cluster Roster (assignment table with manual override) */}
       <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
         <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-2">
           <Diamond className="w-4 h-4 text-teal-600" />
-          <span className="text-sm font-semibold text-slate-800">Cluster Assignments</span>
-          <span className="text-xs text-slate-400 ml-1">— {NUM_CLUSTERS} zones · 1 technician each · spare hubs every 20 vehicles</span>
+          <span className="text-sm font-semibold text-slate-800">Cluster Roster</span>
+          <span className="text-xs text-slate-400 ml-1">— {NUM_CLUSTERS} zones · manually assign technicians below</span>
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              onClick={handleResetRoster}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors"
+            >
+              Reset to Auto
+            </button>
+            <button
+              onClick={handleSaveRoster}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${rosterSaved ? 'bg-emerald-600 text-white border border-emerald-600' : 'bg-blue-600 hover:bg-blue-700 text-white border border-blue-600'}`}
+            >
+              {rosterSaved ? '✓ Saved' : 'Save Roster'}
+            </button>
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead className="bg-slate-50">
               <tr>
-                {['Cluster', 'Color', 'Vehicles', 'Open Tickets', 'Assigned Technician', 'Zone/City', 'Spare Hubs', 'Hexes'].map(h => (
+                {['Cluster', 'Color', 'Vehicles', 'Open Tickets', 'Assign Technician', 'Zone/City', 'Spare Hubs', 'Hexes'].map(h => (
                   <th key={h} className="text-left px-4 py-2.5 font-semibold text-slate-500 uppercase tracking-wide text-[10px]">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {clusters.map(cluster => {
+              {clustersWithRoster.map(cluster => {
                 const openInCluster = cluster.cells.reduce((s, c) =>
                   s + c.tickets.filter(t => !ignored.has(t.id) && t.status !== 'Resolved' && t.status !== 'Closed').length, 0);
+                const hasManualOverride = Boolean(clusterRoster[String(cluster.id)]);
+                const activeTechList = allTechs.filter(t => t.status === 'Active');
                 return (
-                  <tr key={cluster.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-4 py-2.5 font-bold text-slate-700">C{cluster.id + 1}</td>
+                  <tr key={cluster.id} className={`transition-colors ${hasManualOverride ? 'bg-indigo-50/40 hover:bg-indigo-50' : 'hover:bg-slate-50'}`}>
+                    <td className="px-4 py-2.5 font-bold text-slate-700">
+                      <span>C{cluster.id + 1}</span>
+                      {hasManualOverride && (
+                        <span className="ml-1.5 text-[9px] font-bold text-indigo-600 bg-indigo-100 px-1.5 py-0.5 rounded-full">MANUAL</span>
+                      )}
+                    </td>
                     <td className="px-4 py-2.5">
                       <span className="w-4 h-4 rounded inline-block border border-white shadow-xs" style={{ background: cluster.color }} />
                     </td>
@@ -1668,13 +1723,17 @@ export function HexZoneMapPage() {
                         <span className="text-blue-700 font-semibold">{openInCluster}</span>
                       ) : <span className="text-emerald-600 text-[11px]">✓ clear</span>}
                     </td>
-                    <td className="px-4 py-2.5">
-                      {cluster.assignedTech ? (
-                        <div>
-                          <div className="font-semibold text-slate-900">{cluster.assignedTech.name}</div>
-                          <div className="text-[10px] text-slate-400">{cluster.assignedTech.employeeId} · {cluster.assignedTech.specialisation}</div>
-                        </div>
-                      ) : <span className="text-slate-400 italic">No tech available</span>}
+                    <td className="px-3 py-2">
+                      <select
+                        value={clusterRoster[String(cluster.id)] ?? cluster.assignedTech?.id ?? ''}
+                        onChange={e => handleRosterChange(cluster.id, e.target.value)}
+                        className={`text-xs border rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[200px] ${hasManualOverride ? 'border-indigo-300 bg-indigo-50 text-indigo-900 font-semibold' : 'border-slate-200 bg-white text-slate-700'}`}
+                      >
+                        <option value="">— Auto ({cluster.assignedTech?.name ?? 'none'}) —</option>
+                        {activeTechList.map(t => (
+                          <option key={t.id} value={t.id}>{t.name} · {t.employeeId} · {t.zone || t.city}</option>
+                        ))}
+                      </select>
                     </td>
                     <td className="px-4 py-2.5 text-slate-500 text-[11px]">
                       {cluster.assignedTech?.zone || cluster.assignedTech?.city || '—'}
@@ -1692,6 +1751,19 @@ export function HexZoneMapPage() {
               })}
             </tbody>
           </table>
+        </div>
+        <div className="px-4 py-2.5 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
+          <span className="text-[11px] text-slate-400">
+            {Object.keys(clusterRoster).length > 0
+              ? `${Object.keys(clusterRoster).length} manual override${Object.keys(clusterRoster).length > 1 ? 's' : ''} · rest auto-assigned`
+              : 'All clusters auto-assigned by proximity and zone'}
+          </span>
+          <button
+            onClick={handleSaveRoster}
+            className={`px-3 py-1 rounded text-xs font-bold transition-colors ${rosterSaved ? 'text-emerald-600' : 'text-blue-600 hover:underline'}`}
+          >
+            {rosterSaved ? '✓ Roster saved' : 'Save changes'}
+          </button>
         </div>
       </div>
 
@@ -1724,7 +1796,7 @@ export function HexZoneMapPage() {
                   const ign  = cell.tickets.filter(t => ignored.has(t.id));
                   const una  = open.filter(t => !t.assignedTechnicianId).length;
                   const top  = (['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] as const).find(p => open.some(t => t.priority === p));
-                  const cCluster = clusters.find(c => c.id === cell.clusterId);
+                  const cCluster = clustersWithRoster.find(c => c.id === cell.clusterId);
                   return (
                     <tr key={cell.key} onClick={() => setSelectedCell(cell)} className="hover:bg-blue-50 cursor-pointer transition-colors">
                       <td className="px-4 py-2.5 font-mono text-slate-500 text-[11px]">{cell.key}</td>
