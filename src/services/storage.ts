@@ -491,6 +491,26 @@ export function deleteTicket(id: string): void {
   deleteFromDb('tickets', id);
 }
 
+/** Remove all Resolved/Closed tickets from localStorage AND Supabase in one shot. */
+export async function clearResolvedTickets(): Promise<{ removed: number; error?: string }> {
+  const all = getTickets();
+  const kept = all.filter(t => t.status !== 'Resolved' && t.status !== 'Closed');
+  const removedIds = all.filter(t => t.status === 'Resolved' || t.status === 'Closed').map(t => t.id);
+  // Update local store immediately
+  lsSet(STORAGE_KEYS.TICKETS, kept);
+  notify();
+  if (removedIds.length === 0) return { removed: 0 };
+  // Direct bulk delete in Supabase (single round-trip)
+  if (isDbEnabled()) {
+    const { error } = await supabase!.from('tickets').delete().in('status', ['Resolved', 'Closed']);
+    if (error) {
+      console.error('[FleetOps] clearResolvedTickets:', error.message);
+      return { removed: removedIds.length, error: error.message };
+    }
+  }
+  return { removed: removedIds.length };
+}
+
 // ─────────────────────────────────────────────────────────────────
 // ATTENDANCE  (synchronous)
 // ─────────────────────────────────────────────────────────────────

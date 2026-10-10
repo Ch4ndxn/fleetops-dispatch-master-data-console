@@ -5,7 +5,7 @@ import {
   ChevronLeft, ChevronRight, AlertCircle, Clock, CheckCircle2, User, Filter
 } from 'lucide-react';
 import { Ticket, TicketStatus, TicketPriority, Technician, Center } from '../../types';
-import { getTickets, saveTickets, getTechnicians, getCenters, newId, subscribeToDataChanges } from '../../services/storage';
+import { getTickets, saveTickets, getTechnicians, getCenters, newId, subscribeToDataChanges, clearResolvedTickets } from '../../services/storage';
 import { generateCSV, downloadCSV } from '../../services/csvParser';
 
 interface Props {
@@ -284,16 +284,17 @@ export const TicketsPage: React.FC<Props> = ({ onOpenUploadModal }) => {
     closeModal();
   };
 
-  const handleClearOld = () => {
+  const [clearing, setClearing] = useState(false);
+  const handleClearOld = async () => {
     if (!clearOldConfirm) { setClearOldConfirm(true); return; }
-    const kept = tickets.filter(t => t.status !== 'Resolved' && t.status !== 'Closed');
-    const removed = tickets.length - kept.length;
-    persist(kept);
+    setClearing(true);
+    const { removed, error } = await clearResolvedTickets();
+    setTickets(getTickets());
+    setClearing(false);
     setClearOldConfirm(false);
     setPage(1);
-    // brief toast via title flicker — no toast system here
     const prev = document.title;
-    document.title = `✓ Cleared ${removed} tickets`;
+    document.title = error ? `⚠ DB error — local cleared` : `✓ Cleared ${removed} tickets`;
     setTimeout(() => { document.title = prev; }, 2500);
   };
 
@@ -365,7 +366,7 @@ export const TicketsPage: React.FC<Props> = ({ onOpenUploadModal }) => {
               <div className="flex items-center gap-1.5 bg-rose-50 border border-rose-200 rounded-lg px-3 py-1.5">
                 <AlertCircle size={13} className="text-rose-500 shrink-0" />
                 <span className="text-xs text-rose-700">Delete {stats.resolved} resolved/closed?</span>
-                <button onClick={handleClearOld} className="px-2 py-0.5 bg-rose-600 text-white text-xs rounded hover:bg-rose-700 transition-colors">Yes, clear</button>
+                <button onClick={handleClearOld} disabled={clearing} className="px-2 py-0.5 bg-rose-600 text-white text-xs rounded hover:bg-rose-700 transition-colors disabled:opacity-50">{clearing ? 'Clearing…' : 'Yes, clear'}</button>
                 <button onClick={() => setClearOldConfirm(false)} className="px-2 py-0.5 border border-rose-300 text-rose-600 text-xs rounded hover:bg-rose-50 transition-colors">Cancel</button>
               </div>
             ) : (
