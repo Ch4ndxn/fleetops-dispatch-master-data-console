@@ -138,6 +138,11 @@ function openWhatsApp(text: string) {
 }
 
 // ─── Default constraints ──────────────────────────────────────────────────────
+const TECH_ROUTE_COLORS = [
+  '#2563eb', '#16a34a', '#d97706', '#9333ea',
+  '#dc2626', '#0891b2', '#c026d3', '#ea580c',
+];
+
 const DEFAULT_CONSTRAINTS: BalancedPlanConstraints = {
   maxStopsPerTech: 8,
   maxKmPerTech: 80,
@@ -814,7 +819,7 @@ export const RoutePlannerPage: React.FC = () => {
   };
 
   // ── Tracker helpers ────────────────────────────────────────────────────────
-  const mapHeight = fullMap ? '600px' : '450px';
+  const mapHeight = fullMap ? '680px' : '500px';
 
   // ── render ────────────────────────────────────────────────────────────────
   return (
@@ -896,10 +901,12 @@ export const RoutePlannerPage: React.FC = () => {
           <button
             onClick={handlePlanRoutes}
             disabled={isOptimizing}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white rounded-lg text-xs font-bold tracking-wide shadow-sm transition-colors flex items-center gap-1.5"
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white rounded-lg text-xs font-bold tracking-wide shadow-sm transition-colors flex items-center gap-1.5 min-w-[110px] justify-center"
           >
-            <Compass className="w-3.5 h-3.5" />
-            {isOptimizing ? 'Planning…' : 'AUTO-PLAN'}
+            {isOptimizing
+              ? <><div className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Planning…</>
+              : <><Compass className="w-3.5 h-3.5" /> AUTO-PLAN</>
+            }
           </button>
 
           <button
@@ -1094,22 +1101,22 @@ export const RoutePlannerPage: React.FC = () => {
 
       {/* Stats bar — horizontally scrollable on mobile */}
       <div className="overflow-x-auto pb-1">
-        <div className="flex gap-3 min-w-max lg:min-w-0 lg:grid lg:grid-cols-7">
+        <div className="flex gap-2.5 min-w-max lg:min-w-0 lg:grid lg:grid-cols-7">
           {[
-            { label: 'Active Techs', value: activeTechs, color: 'text-slate-900', icon: <Navigation className="w-3.5 h-3.5 text-slate-500" /> },
-            { label: 'Total Stops', value: totalStops, color: 'text-blue-600', icon: <MapPin className="w-3.5 h-3.5 text-blue-500" /> },
-            { label: 'Unassigned', value: unassignedTicketsRaw.length, color: 'text-amber-600', icon: <AlertCircle className="w-3.5 h-3.5 text-amber-500" /> },
-            { label: 'Total Distance', value: `${totalKm} km`, color: 'text-slate-900', icon: <Compass className="w-3.5 h-3.5 text-slate-500" /> },
-            { label: 'Avg Stops/Tech', value: avgStopsPerTech, color: 'text-slate-700', icon: <Layers className="w-3.5 h-3.5 text-slate-400" /> },
-            { label: 'Plan Status', value: planStatus, color: planStatus === 'All Confirmed' ? 'text-emerald-600' : 'text-amber-600', icon: <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> },
-            { label: 'Coverage', value: `${coveragePct}%`, color: coveragePct >= 80 ? 'text-emerald-600' : coveragePct >= 50 ? 'text-amber-600' : 'text-rose-600', icon: <Clock className="w-3.5 h-3.5 text-slate-400" /> }
+            { label: 'Active Techs', value: activeTechs, color: 'text-slate-900', bg: 'bg-blue-50', icon: <Navigation className="w-3.5 h-3.5 text-blue-600" /> },
+            { label: 'Total Stops', value: totalStops, color: 'text-blue-700', bg: 'bg-blue-50', icon: <MapPin className="w-3.5 h-3.5 text-blue-600" /> },
+            { label: 'Unassigned', value: unassignedTicketsRaw.length, color: unassignedTicketsRaw.length > 0 ? 'text-amber-700' : 'text-emerald-700', bg: unassignedTicketsRaw.length > 0 ? 'bg-amber-50' : 'bg-emerald-50', icon: <AlertCircle className={`w-3.5 h-3.5 ${unassignedTicketsRaw.length > 0 ? 'text-amber-500' : 'text-emerald-500'}`} /> },
+            { label: 'Total Distance', value: `${totalKm} km`, color: 'text-slate-900', bg: 'bg-slate-50', icon: <Compass className="w-3.5 h-3.5 text-slate-600" /> },
+            { label: 'Avg Stops/Tech', value: avgStopsPerTech, color: 'text-indigo-700', bg: 'bg-indigo-50', icon: <Layers className="w-3.5 h-3.5 text-indigo-500" /> },
+            { label: 'Plan Status', value: planStatus, color: planStatus === 'All Confirmed' ? 'text-emerald-700' : 'text-amber-700', bg: planStatus === 'All Confirmed' ? 'bg-emerald-50' : 'bg-amber-50', icon: <CheckCircle2 className={`w-3.5 h-3.5 ${planStatus === 'All Confirmed' ? 'text-emerald-500' : 'text-amber-500'}`} /> },
+            { label: 'Coverage', value: `${coveragePct}%`, color: coveragePct >= 80 ? 'text-emerald-700' : coveragePct >= 50 ? 'text-amber-700' : 'text-rose-700', bg: coveragePct >= 80 ? 'bg-emerald-50' : coveragePct >= 50 ? 'bg-amber-50' : 'bg-rose-50', icon: <Clock className={`w-3.5 h-3.5 ${coveragePct >= 80 ? 'text-emerald-500' : coveragePct >= 50 ? 'text-amber-500' : 'text-rose-500'}`} /> }
           ].map(stat => (
-            <div key={stat.label} className="bg-white px-3 py-2.5 rounded-xl border border-slate-200 shadow-2xs min-w-[110px] lg:min-w-0 flex items-center gap-2.5">
-              <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-slate-100`}>
+            <div key={stat.label} className="bg-white px-3 py-2.5 rounded-xl border border-slate-200 shadow-2xs min-w-[118px] lg:min-w-0 flex items-center gap-2.5 hover:border-slate-300 transition-colors">
+              <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${stat.bg}`}>
                 {stat.icon}
               </div>
-              <div>
-                <div className={`text-sm font-bold leading-none ${stat.color}`}>{stat.value}</div>
+              <div className="min-w-0">
+                <div className={`text-sm font-bold leading-none truncate ${stat.color}`}>{stat.value}</div>
                 <div className="text-[10px] text-slate-400 mt-0.5 whitespace-nowrap">{stat.label}</div>
               </div>
             </div>
@@ -1155,13 +1162,19 @@ export const RoutePlannerPage: React.FC = () => {
           {/* Cards */}
           {routePlans.length === 0 ? (
             <div className="bg-white rounded-xl border-2 border-dashed border-slate-200 p-12 text-center space-y-4">
-              <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto">
-                <Navigation className="w-8 h-8 text-slate-400" />
+              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto transition-colors ${isOptimizing ? 'bg-blue-100' : 'bg-slate-100'}`}>
+                {isOptimizing
+                  ? <div className="w-8 h-8 border-[3px] border-blue-200 border-t-blue-600 rounded-full animate-spin" />
+                  : <Navigation className="w-8 h-8 text-slate-400" />
+                }
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-800">No Routes Generated Yet</h3>
+                <h3 className="text-sm font-bold text-slate-800">{isOptimizing ? 'Optimizing Routes…' : 'No Routes Generated Yet'}</h3>
                 <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">
-                  Hit <strong className="text-blue-600">AUTO-PLAN ROUTES</strong> to run the geospatial optimizer across all active technicians.
+                  {isOptimizing
+                    ? 'Running geospatial optimizer across all active technicians and tickets.'
+                    : <>Hit <strong className="text-blue-600">AUTO-PLAN</strong> to run the geospatial optimizer across all active technicians.</>
+                  }
                 </p>
               </div>
               <button
@@ -1186,6 +1199,7 @@ export const RoutePlannerPage: React.FC = () => {
                 const isAddOpen = addStopOpen[plan.technicianId] ?? false;
                 const isCardConfirmed = confirmedCards.has(plan.technicianId);
 
+                const techColor = TECH_ROUTE_COLORS[routePlans.findIndex(p => p.technicianId === plan.technicianId) % TECH_ROUTE_COLORS.length];
                 return (
                   <div
                     key={plan.technicianId}
@@ -1194,13 +1208,11 @@ export const RoutePlannerPage: React.FC = () => {
                         ? 'border-emerald-400 ring-1 ring-emerald-200'
                         : isSelected
                         ? 'border-blue-500 ring-2 ring-blue-500/20'
-                        : 'border-slate-200'
+                        : 'border-slate-200 hover:border-slate-300'
                     }`}
                   >
-                    {/* Confirmed top stripe */}
-                    {isCardConfirmed && (
-                      <div className="h-0.5 bg-emerald-500 w-full" />
-                    )}
+                    {/* Colored top stripe matching route color */}
+                    <div className="h-0.5 w-full" style={{ background: isCardConfirmed ? '#10b981' : techColor }} />
                     {/* Card header */}
                     <div
                       className="flex items-center justify-between p-4 cursor-pointer"
@@ -1209,10 +1221,8 @@ export const RoutePlannerPage: React.FC = () => {
                         if (!isExpanded) toggleCard(plan.technicianId);
                       }}
                     >
-                      {/* Initials avatar */}
-                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 mr-3 ${
-                        isCardConfirmed ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'
-                      }`}>
+                      {/* Initials avatar with route color */}
+                      <div className="w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 mr-3 text-white" style={{ background: isCardConfirmed ? '#10b981' : techColor }}>
                         {plan.technicianName.split(' ').map((n: string) => n[0]).slice(0, 2).join('')}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -1606,31 +1616,40 @@ export const RoutePlannerPage: React.FC = () => {
         </div>
 
         {/* ── RIGHT COLUMN: Map + Unassigned panel ──────────────────────── */}
-        <div className="lg:w-[420px] shrink-0 space-y-4">
+        <div className="lg:w-[460px] xl:w-[500px] shrink-0 space-y-4">
 
           {/* Map */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
-              <span className="flex items-center gap-1.5">
-                <Layers className="w-4 h-4 text-blue-600" />
-                Delhi NCR Routing Map
-              </span>
+          <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center shrink-0">
+                  <Layers className="w-3.5 h-3.5 text-white" />
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-slate-800">Delhi NCR Routing Map</div>
+                  <div className="text-[10px] text-slate-400">
+                    {routePlans.length > 0
+                      ? `${routePlans.length} route${routePlans.length !== 1 ? 's' : ''} · ${totalStops} stops`
+                      : 'No routes yet'}
+                  </div>
+                </div>
+              </div>
               <div className="flex items-center gap-2">
                 {selectedTechId && (
                   <button
                     onClick={() => setSelectedTechId(undefined)}
-                    className="text-blue-600 hover:underline text-[11px]"
+                    className="px-2.5 py-1 text-[11px] font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
                   >
                     Show all
                   </button>
                 )}
                 <button
                   onClick={() => setFullMap(v => !v)}
-                  title={fullMap ? 'Collapse map' : 'Full map'}
-                  className="flex items-center gap-1 text-slate-500 hover:text-slate-800 transition-colors"
+                  title={fullMap ? 'Collapse map' : 'Expand map'}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-semibold text-slate-600 bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors"
                 >
-                  <Maximize2 className="w-3.5 h-3.5" />
-                  <span className="text-[11px]">{fullMap ? 'Collapse' : 'Full Map'}</span>
+                  <Maximize2 className="w-3 h-3" />
+                  {fullMap ? 'Collapse' : 'Expand'}
                 </button>
               </div>
             </div>
