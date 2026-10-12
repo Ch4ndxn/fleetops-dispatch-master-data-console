@@ -136,8 +136,23 @@ export const LiveMapViewer: React.FC<Props> = ({
       mapInstanceRef.current = null;
     }
 
+    // Derive initial center from the cities of the loaded technicians/centers,
+    // so the map opens on the right city (Mumbai, Delhi, etc.) before fitBounds fires.
+    const CITY_CENTERS: Record<string, [number, number]> = {
+      mumbai: [19.10, 72.95], thane: [19.22, 72.98], bhiwandi: [19.30, 73.06],
+      delhi: [28.58, 77.22], gurugram: [28.45, 77.03], noida: [28.57, 77.32],
+      faridabad: [28.41, 77.31], ghaziabad: [28.67, 77.44],
+      bangalore: [12.97, 77.59], bengaluru: [12.97, 77.59],
+      pune: [18.52, 73.86], hyderabad: [17.44, 78.50], chennai: [13.08, 80.20],
+      ahmedabad: [23.02, 72.57], surat: [21.17, 72.83], jaipur: [26.91, 75.79],
+    };
+    const cityKey = (technicians[0]?.city ?? centers[0]?.city ?? '').toLowerCase();
+    const initialCenter: [number, number] =
+      CITY_CENTERS[cityKey] ??
+      (centers[0] ? [centers[0].latitude, centers[0].longitude] : [28.58, 77.22]);
+
     const map = L.map(mapContainerRef.current, {
-      center: [28.58, 77.22],
+      center: initialCenter,
       zoom: 11,
       zoomControl: true
     });

@@ -220,8 +220,19 @@ export const MapTab: React.FC<MapTabProps> = ({
       mapInstanceRef.current = null;
     }
 
+    const CITY_CENTERS: Record<string, [number, number]> = {
+      mumbai: [19.10, 72.95], thane: [19.22, 72.98], bhiwandi: [19.30, 73.06],
+      delhi: [28.58, 77.22], gurugram: [28.45, 77.03], noida: [28.57, 77.32],
+      faridabad: [28.41, 77.31], bangalore: [12.97, 77.59], bengaluru: [12.97, 77.59],
+      pune: [18.52, 73.86], hyderabad: [17.44, 78.50], chennai: [13.08, 80.20],
+    };
+    const cityKey = (technicians[0]?.city ?? centers[0]?.city ?? '').toLowerCase();
+    const initialCenter: [number, number] =
+      CITY_CENTERS[cityKey] ??
+      (centers[0] ? [centers[0].latitude, centers[0].longitude] : [28.58, 77.22]);
+
     const map = L.map(mapRef.current, {
-      center: [28.58, 77.22],
+      center: initialCenter,
       zoom: 11,
       zoomControl: true,
     });

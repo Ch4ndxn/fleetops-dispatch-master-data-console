@@ -510,7 +510,14 @@ function LeafletMapView({ plans }: { plans: TechnicianRoutePlan[] }) {
       const L = (window as any).L;
       if (!mapRef.current) return;
 
-      const map = L.map(mapRef.current, { zoomControl: true }).setView([28.55, 77.25], 11);
+      // Derive initial center from stop coordinates so map opens on the right city
+      const allStopCoords = plans.flatMap(p => p.stops.map(s => [s.latitude, s.longitude] as [number,number])).filter(([a,b]) => a && b);
+      const initialCenter: [number, number] = allStopCoords.length > 0
+        ? [allStopCoords.reduce((s,c) => s+c[0], 0)/allStopCoords.length,
+           allStopCoords.reduce((s,c) => s+c[1], 0)/allStopCoords.length]
+        : [28.55, 77.25];
+
+      const map = L.map(mapRef.current, { zoomControl: true }).setView(initialCenter, 11);
       mapInstance.current = map;
 
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
