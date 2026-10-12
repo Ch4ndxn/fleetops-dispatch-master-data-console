@@ -341,19 +341,51 @@ export const LiveMapViewer: React.FC<Props> = ({
       const routedTechIds = new Set(routePlans.map(p => p.technicianId));
       technicians.filter(t => !routedTechIds.has(t.id)).forEach(t => {
         if (!t.startingLatitude || !t.startingLongitude) return;
+        bounds.extend([t.startingLatitude, t.startingLongitude]);
+        const initials = t.name.split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase();
+        const firstName = t.name.split(' ')[0];
+        const statusColor = t.status === 'Active' ? '#16a34a' : t.status === 'On Leave' ? '#d97706' : '#94a3b8';
         const techIcon = L.divIcon({
           className: '',
-          html: `<div style="background:#94a3b8;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,0.25);color:#fff;font-size:9px;font-weight:700;font-family:sans-serif;">🔧</div>`,
-          iconSize: [22, 22],
-          iconAnchor: [11, 11]
+          html: `
+            <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
+              <div style="
+                background:#475569;
+                width:30px;height:30px;border-radius:50%;
+                display:flex;align-items:center;justify-content:center;
+                border:2.5px solid #fff;
+                box-shadow:0 2px 8px rgba(0,0,0,0.35);
+                color:#fff;font-size:11px;font-weight:700;font-family:sans-serif;
+              ">${initials}</div>
+              <div style="
+                background:rgba(255,255,255,0.95);
+                color:#1e293b;
+                font-size:9px;font-weight:600;font-family:sans-serif;
+                padding:1px 4px;border-radius:3px;
+                box-shadow:0 1px 3px rgba(0,0,0,0.2);
+                white-space:nowrap;max-width:64px;overflow:hidden;text-overflow:ellipsis;
+              ">${firstName}</div>
+            </div>`,
+          iconSize: [66, 48],
+          iconAnchor: [33, 30]
         });
         L.marker([t.startingLatitude, t.startingLongitude], { icon: techIcon })
           .addTo(map)
           .bindPopup(`
-            <div style="font-family:sans-serif;font-size:12px">
-              <strong style="color:#475569">${t.name}</strong> (${t.employeeId})<br/>
-              <span style="color:#94a3b8">No route assigned</span>
-            </div>`);
+            <div style="font-family:sans-serif;font-size:12px;min-width:190px">
+              <div style="font-weight:700;font-size:13px;color:#0f172a;margin-bottom:2px">🔧 ${t.name}</div>
+              <div style="color:#64748b;font-size:11px;margin-bottom:6px">${t.employeeId}</div>
+              <table style="width:100%;border-collapse:collapse;font-size:11px">
+                <tr><td style="color:#64748b;padding:1px 0;width:70px">City</td><td style="color:#334155;font-weight:600">${t.city}</td></tr>
+                <tr><td style="color:#64748b;padding:1px 0">Zone</td><td style="color:#334155">${t.zone || 'General Zone'}</td></tr>
+                <tr><td style="color:#64748b;padding:1px 0">Role</td><td style="color:#334155">${t.role}</td></tr>
+                <tr><td style="color:#64748b;padding:1px 0">Coords</td><td style="color:#94a3b8;font-size:10px">${t.startingLatitude?.toFixed(4)}, ${t.startingLongitude?.toFixed(4)}</td></tr>
+                <tr><td style="color:#64748b;padding:1px 0">Status</td><td>
+                  <span style="font-weight:600;color:${statusColor}">${t.status}</span>
+                  <span style="color:#94a3b8;font-size:10px;margin-left:4px">· No route assigned</span>
+                </td></tr>
+              </table>
+            </div>`, { maxWidth: 240 });
       });
     }
 

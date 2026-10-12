@@ -45,12 +45,30 @@ const CITY_COLORS: Record<string, string> = {
 
 const getCityColor = (city: string) => CITY_COLORS[city.toLowerCase()] ?? '#64748b';
 
-function createTechIcon(color: string): L.DivIcon {
+function createTechIcon(color: string, name: string): L.DivIcon {
+  const initials = name.split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase();
+  const firstName = name.split(' ')[0];
   return L.divIcon({
     className: '',
-    html: `<div style="width:12px;height:12px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.4);"></div>`,
-    iconSize: [12, 12],
-    iconAnchor: [6, 6],
+    html: `
+      <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
+        <div style="
+          width:28px;height:28px;border-radius:50%;
+          background:${color};border:2.5px solid #fff;
+          box-shadow:0 2px 7px rgba(0,0,0,0.35);
+          display:flex;align-items:center;justify-content:center;
+          color:#fff;font-size:11px;font-weight:700;font-family:sans-serif;
+        ">${initials}</div>
+        <div style="
+          background:rgba(255,255,255,0.95);color:#1e293b;
+          font-size:9px;font-weight:600;font-family:sans-serif;
+          padding:1px 4px;border-radius:3px;
+          box-shadow:0 1px 3px rgba(0,0,0,0.2);
+          white-space:nowrap;max-width:60px;overflow:hidden;text-overflow:ellipsis;
+        ">${firstName}</div>
+      </div>`,
+    iconSize: [64, 46],
+    iconAnchor: [32, 28],
   });
 }
 
@@ -83,17 +101,22 @@ const PanIndiaTechMap: React.FC<{ technicians: Technician[] }> = ({ technicians 
       if (!tech.startingLatitude || !tech.startingLongitude) return;
       const color = getCityColor(tech.city);
       const marker = L.marker([tech.startingLatitude, tech.startingLongitude], {
-        icon: createTechIcon(color),
+        icon: createTechIcon(color, tech.name),
       }) as any;
       marker._isTechMarker = true;
+      const statusColor = tech.status === 'Active' ? '#16a34a' : tech.status === 'On Leave' ? '#d97706' : '#94a3b8';
       marker.bindPopup(
-        `<div style="font-size:12px;min-width:160px">
-          <div style="font-weight:700;color:#0f172a">${tech.name}</div>
-          <div style="color:#64748b;font-size:11px">${tech.employeeId}</div>
-          <div style="margin-top:4px;color:#475569">${tech.city} · ${tech.zone || 'General Zone'}</div>
-          <div style="color:${tech.status === 'Active' ? '#16a34a' : '#d97706'};font-weight:600;font-size:11px;margin-top:2px">${tech.status}</div>
+        `<div style="font-family:sans-serif;font-size:12px;min-width:190px">
+          <div style="font-weight:700;font-size:13px;color:#0f172a;margin-bottom:2px">🔧 ${tech.name}</div>
+          <div style="color:#64748b;font-size:11px;margin-bottom:6px">${tech.employeeId}</div>
+          <table style="width:100%;border-collapse:collapse;font-size:11px">
+            <tr><td style="color:#64748b;padding:1px 0;width:70px">City</td><td style="color:#334155;font-weight:600">${tech.city}</td></tr>
+            <tr><td style="color:#64748b;padding:1px 0">Zone</td><td style="color:#334155">${tech.zone || 'General Zone'}</td></tr>
+            <tr><td style="color:#64748b;padding:1px 0">Lat / Lng</td><td style="color:#94a3b8;font-size:10px">${tech.startingLatitude?.toFixed(4)}, ${tech.startingLongitude?.toFixed(4)}</td></tr>
+            <tr><td style="color:#64748b;padding:1px 0">Status</td><td style="font-weight:600;color:${statusColor}">${tech.status}</td></tr>
+          </table>
         </div>`,
-        { maxWidth: 220 }
+        { maxWidth: 240 }
       );
       marker.addTo(map);
     });
