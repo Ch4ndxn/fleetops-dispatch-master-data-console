@@ -65,6 +65,35 @@ export const OverviewPage: React.FC<Props> = ({
     return tickets.filter(t => (t.priority === 'CRITICAL' || t.priority === 'HIGH') && t.status !== 'Resolved' && t.status !== 'Closed');
   }, [tickets]);
 
+  // City breakdown for pan-India view
+  const cityBreakdown = useMemo(() => {
+    const cityMap: Record<string, { total: number; active: number; color: string }> = {};
+    const CITY_PALETTE: Record<string, string> = {
+      delhi: '#2563eb', 'delhi ncr': '#2563eb',
+      gurugram: '#2563eb', noida: '#2563eb', faridabad: '#2563eb', ghaziabad: '#2563eb',
+      mumbai: '#16a34a', thane: '#16a34a', bhiwandi: '#16a34a',
+      bangalore: '#d97706', bengaluru: '#d97706',
+      pune: '#9333ea', hyderabad: '#dc2626', chennai: '#0891b2',
+      ahmedabad: '#c026d3', surat: '#ea580c', jaipur: '#14b8a6',
+    };
+    // Group cities: normalize NCR cities → "Delhi NCR", Mumbai area → "Mumbai"
+    const normalize = (city: string): string => {
+      const l = city.toLowerCase();
+      if (['delhi', 'delhi ncr', 'gurugram', 'noida', 'faridabad', 'ghaziabad'].includes(l)) return 'Delhi NCR';
+      if (['mumbai', 'thane', 'bhiwandi'].includes(l)) return 'Mumbai';
+      if (['bangalore', 'bengaluru'].includes(l)) return 'Bangalore';
+      return city;
+    };
+    technicians.forEach(t => {
+      const key = normalize(t.city);
+      const rawColor = CITY_PALETTE[t.city.toLowerCase()] ?? '#64748b';
+      if (!cityMap[key]) cityMap[key] = { total: 0, active: 0, color: rawColor };
+      cityMap[key].total++;
+      if (t.status === 'Active') cityMap[key].active++;
+    });
+    return Object.entries(cityMap).sort((a, b) => b[1].total - a[1].total);
+  }, [technicians]);
+
   // Operational metrics
   const activeTechsCount = technicians.filter(t => t.status === 'Active').length;
   const presentTechsCount = attendance.filter(a => a.date === today && (a.status === 'Present' || a.status === 'Half-Day')).length;
@@ -145,6 +174,50 @@ export const OverviewPage: React.FC<Props> = ({
           <div className="text-[11px] text-slate-500 mt-1">
             {routePlans.length > 0 ? `${routePlans.reduce((acc, p) => acc + p.stops.length, 0)} stops sequenced` : 'Click Quick Action to plan'}
           </div>
+        </div>
+      </div>
+
+      {/* Pan-India Fleet Coverage */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-2xs p-5">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+          <div>
+            <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wide flex items-center gap-2">
+              <Layers className="w-4 h-4 text-blue-600" />
+              PAN-INDIA TECHNICIAN COVERAGE
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Technicians by city · {technicians.length} total · {activeTechsCount} active
+            </p>
+          </div>
+          <button
+            onClick={() => onNavigate('TECHNICIAN MANAGEMENT')}
+            className="flex items-center gap-1 text-[11px] text-blue-600 hover:text-blue-800 font-semibold"
+          >
+            View Map <ArrowRight className="w-3 h-3" />
+          </button>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+          {cityBreakdown.map(([city, data]) => (
+            <div
+              key={city}
+              onClick={() => onNavigate('TECHNICIAN MANAGEMENT')}
+              className="p-3 rounded-lg border border-slate-100 hover:border-slate-200 hover:shadow-sm cursor-pointer transition-all bg-slate-50/60 group"
+            >
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: data.color }} />
+                <div className="text-[11px] font-bold text-slate-700 truncate group-hover:text-blue-700 transition-colors">{city}</div>
+              </div>
+              <div className="text-xl font-bold" style={{ color: data.color }}>{data.total}</div>
+              <div className="text-[10px] text-slate-500 mt-0.5">
+                <span className="text-emerald-600 font-semibold">{data.active}</span> active
+              </div>
+            </div>
+          ))}
+          {cityBreakdown.length === 0 && (
+            <div className="col-span-full text-center text-xs text-slate-400 py-4">
+              No technicians loaded yet.
+            </div>
+          )}
         </div>
       </div>
 

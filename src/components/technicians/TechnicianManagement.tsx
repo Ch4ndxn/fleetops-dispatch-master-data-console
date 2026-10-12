@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { Technician } from '../../types';
 import { getTechnicians, deleteTechnician, upsertTechnician, subscribeToDataChanges } from '../../services/storage';
 import { AddEditTechnicianModal } from './AddEditTechnicianModal';
@@ -15,9 +15,117 @@ import {
   Trash2,
   Phone,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Globe
 } from 'lucide-react';
 import { localDate } from '../../lib/date';
+import * as L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+
+// City color palette for map markers
+const CITY_COLORS: Record<string, string> = {
+  delhi: '#2563eb',
+  'delhi ncr': '#2563eb',
+  gurugram: '#2563eb',
+  noida: '#2563eb',
+  faridabad: '#2563eb',
+  ghaziabad: '#2563eb',
+  mumbai: '#16a34a',
+  thane: '#16a34a',
+  bhiwandi: '#16a34a',
+  bangalore: '#d97706',
+  bengaluru: '#d97706',
+  pune: '#9333ea',
+  hyderabad: '#dc2626',
+  chennai: '#0891b2',
+  ahmedabad: '#c026d3',
+  surat: '#ea580c',
+  jaipur: '#14b8a6',
+};
+
+const getCityColor = (city: string) => CITY_COLORS[city.toLowerCase()] ?? '#64748b';
+
+function createTechIcon(color: string): L.DivIcon {
+  return L.divIcon({
+    className: '',
+    html: `<div style="width:12px;height:12px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.4);"></div>`,
+    iconSize: [12, 12],
+    iconAnchor: [6, 6],
+  });
+}
+
+const PanIndiaTechMap: React.FC<{ technicians: Technician[] }> = ({ technicians }) => {
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
+
+  useEffect(() => {
+    if (!mapRef.current || mapInstanceRef.current) return;
+    const map = L.map(mapRef.current, { zoomControl: true }).setView([22.5, 78.0], 5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors',
+      maxZoom: 18,
+    }).addTo(map);
+    mapInstanceRef.current = map;
+    return () => {
+      mapInstanceRef.current?.remove();
+      mapInstanceRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    // Remove existing tech markers layer
+    map.eachLayer(layer => {
+      if ((layer as any)._isTechMarker) map.removeLayer(layer);
+    });
+    technicians.forEach(tech => {
+      if (!tech.startingLatitude || !tech.startingLongitude) return;
+      const color = getCityColor(tech.city);
+      const marker = L.marker([tech.startingLatitude, tech.startingLongitude], {
+        icon: createTechIcon(color),
+      }) as any;
+      marker._isTechMarker = true;
+      marker.bindPopup(
+        `<div style="font-size:12px;min-width:160px">
+          <div style="font-weight:700;color:#0f172a">${tech.name}</div>
+          <div style="color:#64748b;font-size:11px">${tech.employeeId}</div>
+          <div style="margin-top:4px;color:#475569">${tech.city} · ${tech.zone || 'General Zone'}</div>
+          <div style="color:${tech.status === 'Active' ? '#16a34a' : '#d97706'};font-weight:600;font-size:11px;margin-top:2px">${tech.status}</div>
+        </div>`,
+        { maxWidth: 220 }
+      );
+      marker.addTo(map);
+    });
+  }, [technicians]);
+
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center shrink-0">
+            <Globe className="w-3.5 h-3.5 text-white" />
+          </div>
+          <div>
+            <div className="text-xs font-bold text-slate-800">Pan-India Technician Map</div>
+            <div className="text-[10px] text-slate-400">
+              {technicians.filter(t => t.startingLatitude).length} technicians pinned · click marker for details
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap justify-end">
+          {Object.entries({ 'Delhi NCR': '#2563eb', 'Mumbai': '#16a34a', 'Bangalore': '#d97706', 'Pune': '#9333ea', 'Others': '#64748b' }).map(([city, color]) => (
+            <div key={city} className="flex items-center gap-1">
+              <div className="w-2.5 h-2.5 rounded-full border border-white shadow-sm" style={{ background: color }} />
+              <span className="text-[10px] text-slate-500">{city}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div ref={mapRef} style={{ height: '380px', width: '100%' }} />
+    </div>
+  );
+};
 
 interface Props {
   onOpenUploadModal: (type: 'TECHNICIAN_CSV') => void;
@@ -250,6 +358,9 @@ export const TechnicianManagement: React.FC<Props> = ({ onOpenUploadModal }) => 
           </select>
         </div>
       </div>
+
+      {/* Pan-India Technician Map */}
+      <PanIndiaTechMap technicians={technicians} />
 
       {/* Technicians Data Table */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
