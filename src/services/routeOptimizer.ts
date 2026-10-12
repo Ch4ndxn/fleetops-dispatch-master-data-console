@@ -74,9 +74,10 @@ export function planTodayRoutes(): TechnicianRoutePlan[] {
     centerMap.set(c.name.trim().toLowerCase(), c);
   });
 
-  // Filter available technicians: Active + have coordinates
+  // Filter available technicians: Active + have coordinates + not excluded from routing
   const techsWithCoords = technicians.filter(t =>
-    t.status === 'Active' && t.startingLatitude !== undefined && t.startingLongitude !== undefined
+    t.status === 'Active' && !t.excludeFromRouting &&
+    t.startingLatitude !== undefined && t.startingLongitude !== undefined
   );
 
   const attendanceFiltered = techsWithCoords.filter(t => {
@@ -244,9 +245,9 @@ export function planBalancedRoutes(constraints: BalancedPlanConstraints): Balanc
     if (c.normalizedName) centerMap.set(c.normalizedName, c);
   });
 
-  // Available techs: Active + Present/unmarked + have coordinates
+  // Available techs: Active + not excluded from routing + Present/unmarked + have coordinates
   const techsWithCoords = technicians.filter(t =>
-    t.status === 'Active' && t.startingLatitude && t.startingLongitude
+    t.status === 'Active' && !t.excludeFromRouting && t.startingLatitude && t.startingLongitude
   );
 
   const attendanceFilteredTechs = techsWithCoords.filter(t => {

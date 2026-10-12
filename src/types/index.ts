@@ -20,6 +20,8 @@ export interface Technician {
   startingLatitude?: number;
   startingLongitude?: number;
   defaultDc?: string;
+  /** When true, this technician is skipped by the route optimizer entirely */
+  excludeFromRouting?: boolean;
   createdAt: string;
   updatedAt: string;
 }
