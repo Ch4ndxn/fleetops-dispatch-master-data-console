@@ -23,7 +23,9 @@ import {
 import {
   planBalancedRoutes,
   BalancedPlanConstraints,
-  calculateDistanceKm
+  calculateDistanceKm,
+  CITY_PRESETS,
+  normaliseCityToPreset,
 } from '../../services/routeOptimizer';
 import { LiveMapViewer } from '../map/LiveMapViewer';
 import {
@@ -143,6 +145,28 @@ const TECH_ROUTE_COLORS = [
   '#dc2626', '#0891b2', '#c026d3', '#ea580c',
 ];
 
+const CITY_DOT: Record<string, string> = {
+  'Delhi NCR': '#2563eb',
+  'Mumbai': '#16a34a',
+  'Bangalore': '#d97706',
+  'Pune': '#9333ea',
+  'Hyderabad': '#dc2626',
+  'Chennai': '#0891b2',
+};
+
+function detectDominantCityForRoute(): string {
+  const techs = getTechnicians().filter(t => t.status === 'Active' && !t.excludeFromRouting);
+  if (techs.length === 0) return 'Delhi NCR';
+  const counts: Record<string, number> = {};
+  techs.forEach(t => { const key = normaliseCityToPreset(t.city); counts[key] = (counts[key] || 0) + 1; });
+  return Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
+}
+
+function constraintsForCity(city: string): Partial<BalancedPlanConstraints> {
+  const p = CITY_PRESETS[city] || CITY_PRESETS['Delhi NCR'];
+  return { maxStopsPerTech: p.maxStopsPerTech, maxKmPerTech: p.maxKmPerTech, shiftStartHour: p.shiftStartHour, shiftEndHour: p.shiftEndHour };
+}
+
 const DEFAULT_CONSTRAINTS: BalancedPlanConstraints = {
   maxStopsPerTech: 8,
   maxKmPerTech: 80,
@@ -166,7 +190,13 @@ export const RoutePlannerPage: React.FC = () => {
 
   // Filter/search state
   const [cityFilter, setCityFilter] = useState<string>('ALL');
+  const [selectedRoutingCity, setSelectedRoutingCity] = useState<string>(() => detectDominantCityForRoute());
   const [searchQuery, setSearchQuery] = useState('');
+
+  const handleCityChange = (city: string) => {
+    setSelectedRoutingCity(city);
+    setConstraints(prev => ({ ...prev, ...constraintsForCity(city) }));
+  };
 
   // Expand/collapse per-card state
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
@@ -373,7 +403,7 @@ export const RoutePlannerPage: React.FC = () => {
   const handlePlanRoutes = () => {
     setIsOptimizing(true);
     setTimeout(() => {
-      const result = planBalancedRoutes(constraints);
+      const result = planBalancedRoutes({ ...constraints, cityFilter: selectedRoutingCity });
       saveRoutePlans(result.plans);
       setRoutePlans(result.plans);
       setAllTickets(getTickets());
@@ -890,9 +920,36 @@ export const RoutePlannerPage: React.FC = () => {
             <Compass className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="text-base font-bold text-slate-900 tracking-tight leading-none">NCR Route Planner</h1>
-            <p className="text-[11px] text-slate-500 mt-0.5">Geospatial optimizer · Delhi NCR Fleet Dispatch</p>
+            <h1 className="text-base font-bold text-slate-900 tracking-tight leading-none">{selectedRoutingCity} Route Planner</h1>
+            <p className="text-[11px] text-slate-500 mt-0.5">Geospatial optimizer · {selectedRoutingCity} Fleet Dispatch</p>
           </div>
+        </div>
+
+        {/* City routing pills */}
+        <div className="flex flex-wrap gap-1.5 items-center">
+          {Object.keys(CITY_PRESETS).map(city => {
+            const techCount = getTechnicians().filter(t =>
+              t.status === 'Active' && !t.excludeFromRouting && normaliseCityToPreset(t.city) === city
+            ).length;
+            if (techCount === 0) return null;
+            const isSelected = selectedRoutingCity === city;
+            return (
+              <button
+                key={city}
+                onClick={() => handleCityChange(city)}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-semibold border transition-all ${
+                  isSelected
+                    ? 'text-white border-transparent shadow-sm'
+                    : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300 hover:text-slate-700'
+                }`}
+                style={isSelected ? { background: CITY_DOT[city] || '#2563eb' } : {}}
+              >
+                <span className="w-1.5 h-1.5 rounded-full" style={{ background: isSelected ? '#fff' : (CITY_DOT[city] || '#94a3b8') }} />
+                {city}
+                <span className={`text-[10px] ${isSelected ? 'opacity-75' : 'text-slate-400'}`}>{techCount}</span>
+              </button>
+            );
+          })}
         </div>
 
         {/* Action buttons */}
