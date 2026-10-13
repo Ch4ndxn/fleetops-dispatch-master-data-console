@@ -360,9 +360,12 @@ export function planBalancedRoutes(constraints: BalancedPlanConstraints): Balanc
     return true;
   });
 
-  // If attendance filtering leaves ≤1 tech, fall back to all Active techs with coords
-  // (attendance data may not be marked yet for today)
-  const availableTechs = attendanceFilteredTechs.length >= 2
+  // Only fall back to unfiltered list if NO attendance records exist for today at all
+  // (i.e. attendance hasn't been marked yet). If records exist but everyone is absent, respect that.
+  const todayHasAnyAttendance = techsWithCoords.some(t =>
+    attendance.some(a => a.employeeId.toUpperCase() === t.employeeId.toUpperCase() && a.date === today)
+  );
+  const availableTechs = todayHasAnyAttendance
     ? attendanceFilteredTechs
     : techsWithCoords;
 
