@@ -1171,6 +1171,34 @@ Optimize within constraints.`;
         </div>
       </div>
 
+      {/* ── Mobile city strip ────────────────────────────────────── */}
+      <div className="lg:hidden flex items-center gap-1.5 px-3 py-2 bg-white border-b border-slate-100 shrink-0 overflow-x-auto">
+        {Object.keys(CITY_PRESETS).map(city => {
+          const CITY_DOT: Record<string, string> = {
+            'Delhi NCR': '#2563eb', 'Mumbai': '#16a34a', 'Bangalore': '#d97706',
+            'Pune': '#9333ea', 'Hyderabad': '#dc2626', 'Chennai': '#0891b2',
+          };
+          const techCount = getTechnicians().filter(t =>
+            t.status === 'Active' && !t.excludeFromRouting && normaliseCityToPreset(t.city) === city
+          ).length;
+          if (techCount === 0) return null;
+          const isSelected = selectedCity === city;
+          return (
+            <button
+              key={city}
+              onClick={() => handleCityChange(city)}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold border whitespace-nowrap transition-all ${
+                isSelected ? 'text-white border-transparent' : 'bg-white text-slate-500 border-slate-200'
+              }`}
+              style={isSelected ? { background: CITY_DOT[city] || '#2563eb' } : {}}
+            >
+              <span className="w-1.5 h-1.5 rounded-full" style={{ background: isSelected ? '#fff' : (CITY_DOT[city] || '#64748b') }} />
+              {city} <span className="opacity-70">{techCount}</span>
+            </button>
+          );
+        })}
+      </div>
+
       {/* ── Mobile mode tabs ─────────────────────────────────────── */}
       <div className="lg:hidden flex items-center gap-1 px-3 py-2 bg-white border-b border-slate-100 shrink-0 overflow-x-auto">
         {([
@@ -1354,8 +1382,41 @@ Optimize within constraints.`;
               <Navigation className="w-4 h-4 text-blue-600" />
               Smart Route Planner
             </h1>
-            <p className="text-[10px] text-slate-400">Multi-mode dispatch console · Delhi NCR EV Fleet</p>
+            <p className="text-[10px] text-slate-400">Multi-mode dispatch console · city-aware routing</p>
           </div>
+
+          {/* ── City pill selector ─────────────────────────────── */}
+          <div className="flex items-center gap-1 flex-wrap">
+            {Object.keys(CITY_PRESETS).map(city => {
+              const CITY_DOT: Record<string, string> = {
+                'Delhi NCR': '#2563eb', 'Mumbai': '#16a34a', 'Bangalore': '#d97706',
+                'Pune': '#9333ea', 'Hyderabad': '#dc2626', 'Chennai': '#0891b2',
+              };
+              const techCount = getTechnicians().filter(t =>
+                t.status === 'Active' && !t.excludeFromRouting && normaliseCityToPreset(t.city) === city
+              ).length;
+              if (techCount === 0) return null; // hide cities with no techs
+              const isSelected = selectedCity === city;
+              return (
+                <button
+                  key={city}
+                  onClick={() => handleCityChange(city)}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-semibold border transition-all ${
+                    isSelected
+                      ? 'text-white border-transparent shadow-sm'
+                      : 'bg-white text-slate-500 border-slate-200 hover:border-slate-400 hover:text-slate-700'
+                  }`}
+                  style={isSelected ? { background: CITY_DOT[city] || '#2563eb', borderColor: 'transparent' } : {}}
+                  title={`${CITY_PRESETS[city].maxStopsPerTech} stops · ${CITY_PRESETS[city].maxKmPerTech} km/tech`}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: isSelected ? '#fff' : (CITY_DOT[city] || '#64748b') }} />
+                  {city}
+                  <span className={`text-[10px] ${isSelected ? 'opacity-75' : 'text-slate-400'}`}>{techCount}</span>
+                </button>
+              );
+            })}
+          </div>
+
           <div className="flex items-center gap-2 flex-wrap">
             {phase === 'done' && (
               <>
