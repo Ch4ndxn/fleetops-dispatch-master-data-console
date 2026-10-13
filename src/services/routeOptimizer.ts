@@ -200,8 +200,106 @@ export interface BalancedPlanConstraints {
   skillMatch: boolean;
   shiftStartHour: number;   // e.g. 9
   shiftEndHour: number;     // e.g. 18
+  /** When set, only technicians whose city matches are included */
+  cityFilter?: string;
   /** Ticket IDs to skip entirely — user excluded them from the plan */
   excludedTicketIds?: Set<string>;
+}
+
+// ─── Per-city routing constraint presets ─────────────────────────────────────
+// Tuned to fleet density, road conditions, and team size per city.
+export interface CityConstraintPreset {
+  label: string;
+  maxStopsPerTech: number;
+  maxKmPerTech: number;
+  shiftStartHour: number;
+  shiftEndHour: number;
+  /** Detour factor for road routing (straight-line × factor) */
+  detourFactor: number;
+  /** Base city traffic speed km/h */
+  baseSpeedKmh: number;
+  congestionMultiplierPeak: number;
+}
+
+export const CITY_PRESETS: Record<string, CityConstraintPreset> = {
+  // Delhi NCR — large team (16 techs), dense EV deployment, heavy traffic
+  'Delhi NCR': {
+    label: 'Delhi NCR',
+    maxStopsPerTech: 6,
+    maxKmPerTech: 60,
+    shiftStartHour: 9,
+    shiftEndHour: 18,
+    detourFactor: 1.35,
+    baseSpeedKmh: 22,
+    congestionMultiplierPeak: 1.6,
+  },
+  // Mumbai — mid team (7 techs), sprawl + suburban rail zones
+  'Mumbai': {
+    label: 'Mumbai',
+    maxStopsPerTech: 5,
+    maxKmPerTech: 50,
+    shiftStartHour: 9,
+    shiftEndHour: 18,
+    detourFactor: 1.4,
+    baseSpeedKmh: 20,
+    congestionMultiplierPeak: 1.7,
+  },
+  // Bangalore — small team (3 techs), notorious traffic
+  'Bangalore': {
+    label: 'Bangalore',
+    maxStopsPerTech: 4,
+    maxKmPerTech: 45,
+    shiftStartHour: 9,
+    shiftEndHour: 18,
+    detourFactor: 1.45,
+    baseSpeedKmh: 18,
+    congestionMultiplierPeak: 1.8,
+  },
+  // Pune — default mid-size
+  'Pune': {
+    label: 'Pune',
+    maxStopsPerTech: 6,
+    maxKmPerTech: 55,
+    shiftStartHour: 9,
+    shiftEndHour: 18,
+    detourFactor: 1.3,
+    baseSpeedKmh: 24,
+    congestionMultiplierPeak: 1.4,
+  },
+  // Hyderabad
+  'Hyderabad': {
+    label: 'Hyderabad',
+    maxStopsPerTech: 6,
+    maxKmPerTech: 60,
+    shiftStartHour: 9,
+    shiftEndHour: 18,
+    detourFactor: 1.3,
+    baseSpeedKmh: 24,
+    congestionMultiplierPeak: 1.4,
+  },
+  // Chennai
+  'Chennai': {
+    label: 'Chennai',
+    maxStopsPerTech: 6,
+    maxKmPerTech: 60,
+    shiftStartHour: 9,
+    shiftEndHour: 18,
+    detourFactor: 1.3,
+    baseSpeedKmh: 24,
+    congestionMultiplierPeak: 1.4,
+  },
+};
+
+/** Normalise any city string to a preset key */
+export function normaliseCityToPreset(city: string): string {
+  const c = city.trim().toLowerCase();
+  if (['delhi', 'gurugram', 'gurgaon', 'noida', 'faridabad', 'ghaziabad', 'ncr', 'delhi ncr'].some(k => c.includes(k))) return 'Delhi NCR';
+  if (['mumbai', 'thane', 'bhiwandi', 'navi mumbai'].some(k => c.includes(k))) return 'Mumbai';
+  if (['bangalore', 'bengaluru'].some(k => c.includes(k))) return 'Bangalore';
+  if (c.includes('pune')) return 'Pune';
+  if (c.includes('hyderabad')) return 'Hyderabad';
+  if (c.includes('chennai')) return 'Chennai';
+  return 'Delhi NCR'; // safe default
 }
 
 export interface BalancedPlanResult {
@@ -246,9 +344,12 @@ export function planBalancedRoutes(constraints: BalancedPlanConstraints): Balanc
   });
 
   // Available techs: Active + not excluded from routing + Present/unmarked + have coordinates
-  const techsWithCoords = technicians.filter(t =>
-    t.status === 'Active' && !t.excludeFromRouting && t.startingLatitude && t.startingLongitude
-  );
+  const techsWithCoords = technicians.filter(t => {
+    if (t.status !== 'Active' || t.excludeFromRouting) return false;
+    if (!t.startingLatitude || !t.startingLongitude) return false;
+    if (constraints.cityFilter && normaliseCityToPreset(t.city) !== constraints.cityFilter) return false;
+    return true;
+  });
 
   const attendanceFilteredTechs = techsWithCoords.filter(t => {
     const att = attendance.find(

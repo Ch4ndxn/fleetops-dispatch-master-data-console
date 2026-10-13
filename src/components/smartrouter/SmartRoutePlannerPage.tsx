@@ -12,7 +12,7 @@ import {
   getTechnicians, getCenters, getTickets, getAttendance,
   saveRoutePlans, saveTickets,
 } from '../../services/storage';
-import { planBalancedRoutes, calculateDistanceKm } from '../../services/routeOptimizer';
+import { planBalancedRoutes, calculateDistanceKm, CITY_PRESETS, normaliseCityToPreset, CityConstraintPreset } from '../../services/routeOptimizer';
 import Groq from 'groq-sdk';
 import {
   BrainCircuit, Zap, Map as MapIcon, List, Sliders, RefreshCw,
@@ -713,16 +713,50 @@ export const SmartRoutePlannerPage: React.FC = () => {
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const [constraints, setConstraints] = useState<Constraints>({
-    maxStops: 8,
-    maxKm: 80,
-    priorityFilter: 'all',
-    customPriorities: ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'],
-    shiftStart: '09:00',
-    shiftEnd: '18:00',
-    skillMatch: false,
-    avoidReassignment: false,
-  });
+  // ── City-aware auto constraints ──────────────────────────────────
+  // Detect dominant city from active technicians on first render
+  const detectDominantCity = (): string => {
+    const techs = getTechnicians().filter(t => t.status === 'Active' && !t.excludeFromRouting);
+    if (techs.length === 0) return 'Delhi NCR';
+    const counts: Record<string, number> = {};
+    techs.forEach(t => {
+      const key = normaliseCityToPreset(t.city);
+      counts[key] = (counts[key] || 0) + 1;
+    });
+    return Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
+  };
+
+  const [selectedCity, setSelectedCity] = useState<string>(() => detectDominantCity());
+
+  const getConstraintsForCity = (city: string): Partial<Constraints> => {
+    const p: CityConstraintPreset = CITY_PRESETS[city] || CITY_PRESETS['Delhi NCR'];
+    return {
+      maxStops: p.maxStopsPerTech,
+      maxKm: p.maxKmPerTech,
+      shiftStart: `${String(p.shiftStartHour).padStart(2,'0')}:00`,
+      shiftEnd: `${String(p.shiftEndHour).padStart(2,'0')}:00`,
+    };
+  };
+
+  const [constraints, setConstraints] = useState<Constraints>(() => ({
+    ...{
+      maxStops: 8,
+      maxKm: 80,
+      priorityFilter: 'all' as const,
+      customPriorities: ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'],
+      shiftStart: '09:00',
+      shiftEnd: '18:00',
+      skillMatch: false,
+      avoidReassignment: false,
+    },
+    ...getConstraintsForCity(detectDominantCity()),
+  }));
+
+  // When city changes, auto-update constraints to city preset
+  const handleCityChange = (city: string) => {
+    setSelectedCity(city);
+    setConstraints(prev => ({ ...prev, ...getConstraintsForCity(city) }));
+  };
 
   useEffect(() => {
     if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
@@ -766,6 +800,7 @@ export const SmartRoutePlannerPage: React.FC = () => {
       skillMatch:      constraints.skillMatch,
       shiftStartHour:  isNaN(startH) ? 9  : startH,
       shiftEndHour:    isNaN(endH)   ? 18 : endH,
+      cityFilter:      selectedCity,
       excludedTicketIds: excludedIds,
     });
 
@@ -1194,6 +1229,43 @@ Optimize within constraints.`;
             </button>
           </div>
           <p className="text-[10px] text-slate-400">Limits applied to each route</p>
+        </div>
+
+        {/* ── City selector — auto-loads preset constraints ── */}
+        <div className="px-4 py-3 border-b border-slate-800">
+          <label className="text-[11px] font-semibold text-slate-400 block mb-1.5">City / Region</label>
+          <div className="grid grid-cols-2 gap-1.5">
+            {Object.keys(CITY_PRESETS).map(city => {
+              const techCount = getTechnicians().filter(t =>
+                t.status === 'Active' && !t.excludeFromRouting && normaliseCityToPreset(t.city) === city
+              ).length;
+              const isSelected = selectedCity === city;
+              const CITY_DOT: Record<string, string> = {
+                'Delhi NCR': '#2563eb', 'Mumbai': '#16a34a', 'Bangalore': '#d97706',
+                'Pune': '#9333ea', 'Hyderabad': '#dc2626', 'Chennai': '#0891b2',
+              };
+              return (
+                <button
+                  key={city}
+                  onClick={() => handleCityChange(city)}
+                  className={`text-left px-2.5 py-2 rounded-lg border text-[11px] transition-all ${
+                    isSelected
+                      ? 'border-blue-500 bg-blue-500/10 text-white'
+                      : 'border-slate-700 bg-slate-800 text-slate-400 hover:border-slate-500 hover:text-slate-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: CITY_DOT[city] || '#64748b' }} />
+                    <span className="font-semibold truncate">{city}</span>
+                  </div>
+                  <div className="text-[10px] opacity-60 pl-3.5">
+                    {techCount} tech{techCount !== 1 ? 's' : ''} · {CITY_PRESETS[city].maxStopsPerTech} stops · {CITY_PRESETS[city].maxKmPerTech} km
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-[10px] text-slate-500 mt-2">Selecting a city auto-sets constraints and filters technicians.</p>
         </div>
 
         <div className="px-4 py-4 space-y-4 border-b border-slate-800">
