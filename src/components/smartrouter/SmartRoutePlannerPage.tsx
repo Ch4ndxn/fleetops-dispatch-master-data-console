@@ -4,13 +4,13 @@
  * Constraint panel · Live metrics · Leaflet map · Per-tech drag-to-reorder cards
  * AI re-optimize via Gemini (Groq fallback) · CSV / WhatsApp / JSON export
  */
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   TechnicianRoutePlan, RouteStop, Ticket,
 } from '../../types';
 import {
   getTechnicians, getCenters, getTickets, getAttendance,
-  saveRoutePlans, saveTickets,
+  saveRoutePlans, saveTickets, subscribeToDataChanges,
 } from '../../services/storage';
 import { planBalancedRoutes, calculateDistanceKm, CITY_PRESETS, normaliseCityToPreset, CityConstraintPreset } from '../../services/routeOptimizer';
 import { PlanSelectionPanel } from '../routing/PlanSelectionPanel';
@@ -238,7 +238,7 @@ function Slider({ label, min, max, value, onChange, unit }: {
 }
 
 // ─── Live metrics bar ─────────────────────────────────────────────
-function MetricsBar({ plans, unrouted, streaming, kmSaved, balanceScore, timeSavedMins, shiftStartHour }: {
+function MetricsBar({ plans, unrouted, streaming, kmSaved, balanceScore, timeSavedMins, shiftStartHour, allOpenCount }: {
   plans: TechnicianRoutePlan[];
   unrouted: Ticket[];
   streaming: boolean;
@@ -246,11 +246,12 @@ function MetricsBar({ plans, unrouted, streaming, kmSaved, balanceScore, timeSav
   balanceScore: number;
   timeSavedMins: number;
   shiftStartHour: number;
+  allOpenCount: number;
 }) {
   const totalKm = Math.round(plans.reduce((a, p) => a + p.totalDistanceKm, 0) * 10) / 10;
   const totalStops = plans.reduce((a, p) => a + p.stops.length, 0);
   const avgStops = plans.length ? (totalStops / plans.length).toFixed(1) : '—';
-  const allOpen = getTickets().filter(t => t.status !== 'Resolved' && t.status !== 'Closed').length;
+  const allOpen = allOpenCount;
   const coveragePct = allOpen > 0 ? Math.round((totalStops / allOpen) * 100) : 0;
   const maxMins = Math.max(...plans.map(p => p.totalEstimatedMins), 0);
   const shiftStartMins = shiftStartHour * 60 + 30;
@@ -695,6 +696,17 @@ function ExcludedPanel({ tickets, onRestore }: {
 
 // ─── Main page ───────────────────────────────────────────────────
 export const SmartRoutePlannerPage: React.FC = () => {
+  // ── Cached storage state (avoid repeated localStorage parses on every render) ──
+  const [cachedTechnicians, setCachedTechnicians] = useState(() => getTechnicians());
+  const [cachedTickets, setCachedTickets]         = useState(() => getTickets());
+  const [cachedCenters, setCachedCenters]         = useState(() => getCenters());
+
+  useEffect(() => subscribeToDataChanges(() => {
+    setCachedTechnicians(getTechnicians());
+    setCachedTickets(getTickets());
+    setCachedCenters(getCenters());
+  }), []);
+
   const [mode, setMode] = useState<PlanningMode>('auto');
   const [view, setView] = useState<ViewMode>('cards');
   const [phase, setPhase] = useState<'idle' | 'building' | 'ai' | 'done' | 'error'>('idle');
@@ -715,19 +727,33 @@ export const SmartRoutePlannerPage: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // ── City-aware auto constraints ──────────────────────────────────
-  // Detect dominant city from active technicians on first render
+  // Detect dominant city — uses cachedTechnicians (already in state)
   const detectDominantCity = (): string => {
-    const techs = getTechnicians().filter(t => t.status === 'Active' && !t.excludeFromRouting);
+    const techs = cachedTechnicians.filter(t => t.status === 'Active' && !t.excludeFromRouting);
     if (techs.length === 0) return 'Delhi NCR';
     const counts: Record<string, number> = {};
-    techs.forEach(t => {
-      const key = normaliseCityToPreset(t.city);
-      counts[key] = (counts[key] || 0) + 1;
-    });
+    techs.forEach(t => { const key = normaliseCityToPreset(t.city); counts[key] = (counts[key] || 0) + 1; });
     return Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
   };
 
   const [selectedCity, setSelectedCity] = useState<string>(() => detectDominantCity());
+
+  // Memoised derived data — no localStorage calls on every render
+  const cityTechCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    cachedTechnicians.forEach(t => {
+      if (t.status !== 'Active' || t.excludeFromRouting) return;
+      if (!t.startingLatitude || !t.startingLongitude) return;
+      const key = normaliseCityToPreset(t.city);
+      counts[key] = (counts[key] || 0) + 1;
+    });
+    return counts;
+  }, [cachedTechnicians]);
+
+  const allOpenCount = useMemo(
+    () => cachedTickets.filter(t => t.status !== 'Resolved' && t.status !== 'Closed').length,
+    [cachedTickets]
+  );
 
   const getConstraintsForCity = (city: string): Partial<Constraints> => {
     const p: CityConstraintPreset = CITY_PRESETS[city] || CITY_PRESETS['Delhi NCR'];
@@ -1179,9 +1205,7 @@ Optimize within constraints.`;
             'Delhi NCR': '#2563eb', 'Mumbai': '#16a34a', 'Bangalore': '#d97706',
             'Pune': '#9333ea', 'Hyderabad': '#dc2626', 'Chennai': '#0891b2',
           };
-          const techCount = getTechnicians().filter(t =>
-            t.status === 'Active' && !t.excludeFromRouting && normaliseCityToPreset(t.city) === city
-          ).length;
+          const techCount = cityTechCounts[city] ?? 0;
           if (techCount === 0) return null;
           const isSelected = selectedCity === city;
           return (
@@ -1228,7 +1252,7 @@ Optimize within constraints.`;
       {/* ── Mobile metrics ───────────────────────────────────────── */}
       {phase === 'done' && (
         <div className="lg:hidden px-3 py-2 bg-slate-50 border-b border-slate-100 shrink-0 overflow-x-auto">
-          <MetricsBar plans={plans} unrouted={unrouted} streaming={aiStreamActive} kmSaved={kmSaved} balanceScore={balanceScore} timeSavedMins={timeSavedMins} shiftStartHour={parseInt(constraints.shiftStart.split(':')[0]) || 9} />
+          <MetricsBar plans={plans} unrouted={unrouted} streaming={aiStreamActive} kmSaved={kmSaved} balanceScore={balanceScore} timeSavedMins={timeSavedMins} shiftStartHour={parseInt(constraints.shiftStart.split(':')[0]) || 9} allOpenCount={allOpenCount} />
         </div>
       )}
 
@@ -1265,9 +1289,7 @@ Optimize within constraints.`;
           <label className="text-[11px] font-semibold text-slate-400 block mb-1.5">City / Region</label>
           <div className="grid grid-cols-2 gap-1.5">
             {Object.keys(CITY_PRESETS).map(city => {
-              const techCount = getTechnicians().filter(t =>
-                t.status === 'Active' && !t.excludeFromRouting && normaliseCityToPreset(t.city) === city
-              ).length;
+              const techCount = cityTechCounts[city] ?? 0;
               const isSelected = selectedCity === city;
               const CITY_DOT: Record<string, string> = {
                 'Delhi NCR': '#2563eb', 'Mumbai': '#16a34a', 'Bangalore': '#d97706',
@@ -1393,9 +1415,7 @@ Optimize within constraints.`;
                 'Delhi NCR': '#2563eb', 'Mumbai': '#16a34a', 'Bangalore': '#d97706',
                 'Pune': '#9333ea', 'Hyderabad': '#dc2626', 'Chennai': '#0891b2',
               };
-              const techCount = getTechnicians().filter(t =>
-                t.status === 'Active' && !t.excludeFromRouting && normaliseCityToPreset(t.city) === city
-              ).length;
+              const techCount = cityTechCounts[city] ?? 0;
               if (techCount === 0) return null; // hide cities with no techs
               const isSelected = selectedCity === city;
               return (
@@ -1493,6 +1513,7 @@ Optimize within constraints.`;
               balanceScore={balanceScore}
               timeSavedMins={timeSavedMins}
               shiftStartHour={parseInt(constraints.shiftStart.split(':')[0]) || 9}
+              allOpenCount={allOpenCount}
             />
           </div>
         )}

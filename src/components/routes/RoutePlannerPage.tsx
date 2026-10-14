@@ -376,6 +376,18 @@ export const RoutePlannerPage: React.FC = () => {
   const totalStops = routePlans.reduce((a, p) => a + p.stops.length, 0);
   const totalKm = Math.round(routePlans.reduce((a, p) => a + p.totalDistanceKm, 0) * 10) / 10;
   const activeTechs = routePlans.length;
+  // Per-city tech counts for city pills — memoised so no localStorage parse on every render
+  const cityTechCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    technicians.forEach(t => {
+      if (!t.status || t.status !== 'Active' || t.excludeFromRouting) return;
+      if (!t.startingLatitude || !t.startingLongitude) return;
+      const key = normaliseCityToPreset(t.city);
+      counts[key] = (counts[key] || 0) + 1;
+    });
+    return counts;
+  }, [technicians]);
+
   // Total eligible techs in the selected routing city (Active + not excluded + have coordinates)
   const eligibleTechsCount = technicians.filter(t =>
     t.status === 'Active' && !t.excludeFromRouting &&
@@ -936,9 +948,7 @@ export const RoutePlannerPage: React.FC = () => {
         {/* City routing pills */}
         <div className="flex flex-wrap gap-1.5 items-center">
           {Object.keys(CITY_PRESETS).map(city => {
-            const techCount = getTechnicians().filter(t =>
-              t.status === 'Active' && !t.excludeFromRouting && normaliseCityToPreset(t.city) === city
-            ).length;
+            const techCount = cityTechCounts[city] ?? 0;
             if (techCount === 0) return null;
             const isSelected = selectedRoutingCity === city;
             return (
