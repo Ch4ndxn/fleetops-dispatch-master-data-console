@@ -41,28 +41,69 @@ import {
   BrainCircuit
 } from 'lucide-react';
 
+
+// ── Robust page loading ─────────────────────────────────────────
+// After a new deploy, an already-open app asks for old page files that no longer
+// exist (404) and the page would go blank. Reload once to pick up the new version.
+function lazyPage<T extends React.ComponentType<any>>(load: () => Promise<{ default: T }>) { // eslint-disable-line @typescript-eslint/no-explicit-any
+  return lazy(async () => {
+    try {
+      const mod = await load();
+      sessionStorage.removeItem('fo_chunk_reload');
+      return mod;
+    } catch (err) {
+      if (!sessionStorage.getItem('fo_chunk_reload')) {
+        sessionStorage.setItem('fo_chunk_reload', '1');
+        window.location.reload();
+        return new Promise<{ default: T }>(() => {}); // wait for the reload
+      }
+      throw err;
+    }
+  });
+}
+
+/** Shows a message instead of a blank screen if a page fails to load or crashes. */
+class PageErrorBoundary extends React.Component<{ children: React.ReactNode; resetKey: string }, { error: Error | null }> {
+  state = { error: null as Error | null };
+  static getDerivedStateFromError(error: Error) { return { error }; }
+  componentDidCatch(error: Error) { console.error('[FleetOps] Page error:', error); }
+  componentDidUpdate(prev: { resetKey: string }) { if (prev.resetKey !== this.props.resetKey && this.state.error) this.setState({ error: null }); }
+  render() {
+    if (!this.state.error) return this.props.children;
+    return (
+      <div className="m-6 p-5 rounded-xl border border-amber-200 bg-amber-50 text-sm text-amber-900 max-w-xl">
+        <div className="font-bold mb-1">This page couldn't load</div>
+        <div className="mb-3 text-xs">A new version of the app may have been released. Reloading usually fixes it. Your data is safe.</div>
+        <div className="mb-3 text-[11px] font-mono text-amber-700 break-all">{this.state.error.message}</div>
+        <button onClick={() => { sessionStorage.removeItem('fo_chunk_reload'); window.location.reload(); }}
+          className="px-3 py-1.5 rounded-lg bg-amber-600 text-white text-xs font-semibold hover:bg-amber-700">Reload app</button>
+      </div>
+    );
+  }
+}
+
 // Pages load on first visit (was one 1.1 MB bundle with every page)
-const AttendancePage = lazy(() => import('./components/attendance/AttendancePage').then(m => ({ default: m.AttendancePage })));
-const ActiveCasesPage = lazy(() => import('./components/tickets/ActiveCasesPage').then(m => ({ default: m.ActiveCasesPage })));
-const RoutePlannerPage = lazy(() => import('./components/routes/RoutePlannerPage').then(m => ({ default: m.RoutePlannerPage })));
-const TicketAssignmentPage = lazy(() => import('./components/tickets/TicketAssignmentPage').then(m => ({ default: m.TicketAssignmentPage })));
-const LiveTrackingPage = lazy(() => import('./components/tracking/LiveTrackingPage').then(m => ({ default: m.LiveTrackingPage })));
-const TechnicianPerformancePage = lazy(() => import('./components/performance/TechnicianPerformancePage').then(m => ({ default: m.TechnicianPerformancePage })));
-const TechnicianManagement = lazy(() => import('./components/technicians/TechnicianManagement').then(m => ({ default: m.TechnicianManagement })));
-const CenterManagement = lazy(() => import('./components/centers/CenterManagement').then(m => ({ default: m.CenterManagement })));
-const ImportDataPage = lazy(() => import('./components/importer/ImportDataPage').then(m => ({ default: m.ImportDataPage })));
-const ImportHistoryPage = lazy(() => import('./components/history/ImportHistoryPage').then(m => ({ default: m.ImportHistoryPage })));
-const SettingsPage = lazy(() => import('./components/settings/SettingsPage').then(m => ({ default: m.SettingsPage })));
-const ConnectionStatusPage = lazy(() => import('./components/connections/ConnectionStatusPage').then(m => ({ default: m.ConnectionStatusPage })));
-const HexZoneMapPage = lazy(() => import('./components/map/HexZoneMapPage').then(m => ({ default: m.HexZoneMapPage })));
-const RosterPage = lazy(() => import('./components/roster/RosterPage').then(m => ({ default: m.RosterPage })));
-const PlannerPage = lazy(() => import('./components/planner/PlannerPage').then(m => ({ default: m.PlannerPage })));
-const VehiclesPage = lazy(() => import('./components/vehicles/VehiclesPage').then(m => ({ default: m.VehiclesPage })));
-const TicketsPage = lazy(() => import('./components/tickets/TicketsPage').then(m => ({ default: m.TicketsPage })));
-const AiAssistantPage = lazy(() => import('./components/ai/AiAssistantPage').then(m => ({ default: m.AiAssistantPage })));
-const AiRoutePlannerPage = lazy(() => import('./components/airouter/AiRoutePlannerPage').then(m => ({ default: m.AiRoutePlannerPage })));
-const CityRoutesPage = lazy(() => import('./components/cityroutes/CityRoutesPage').then(m => ({ default: m.CityRoutesPage })));
-const SmartRoutePlannerPage = lazy(() => import('./components/smartrouter/SmartRoutePlannerPage').then(m => ({ default: m.SmartRoutePlannerPage })));
+const AttendancePage = lazyPage(() => import('./components/attendance/AttendancePage').then(m => ({ default: m.AttendancePage })));
+const ActiveCasesPage = lazyPage(() => import('./components/tickets/ActiveCasesPage').then(m => ({ default: m.ActiveCasesPage })));
+const RoutePlannerPage = lazyPage(() => import('./components/routes/RoutePlannerPage').then(m => ({ default: m.RoutePlannerPage })));
+const TicketAssignmentPage = lazyPage(() => import('./components/tickets/TicketAssignmentPage').then(m => ({ default: m.TicketAssignmentPage })));
+const LiveTrackingPage = lazyPage(() => import('./components/tracking/LiveTrackingPage').then(m => ({ default: m.LiveTrackingPage })));
+const TechnicianPerformancePage = lazyPage(() => import('./components/performance/TechnicianPerformancePage').then(m => ({ default: m.TechnicianPerformancePage })));
+const TechnicianManagement = lazyPage(() => import('./components/technicians/TechnicianManagement').then(m => ({ default: m.TechnicianManagement })));
+const CenterManagement = lazyPage(() => import('./components/centers/CenterManagement').then(m => ({ default: m.CenterManagement })));
+const ImportDataPage = lazyPage(() => import('./components/importer/ImportDataPage').then(m => ({ default: m.ImportDataPage })));
+const ImportHistoryPage = lazyPage(() => import('./components/history/ImportHistoryPage').then(m => ({ default: m.ImportHistoryPage })));
+const SettingsPage = lazyPage(() => import('./components/settings/SettingsPage').then(m => ({ default: m.SettingsPage })));
+const ConnectionStatusPage = lazyPage(() => import('./components/connections/ConnectionStatusPage').then(m => ({ default: m.ConnectionStatusPage })));
+const HexZoneMapPage = lazyPage(() => import('./components/map/HexZoneMapPage').then(m => ({ default: m.HexZoneMapPage })));
+const RosterPage = lazyPage(() => import('./components/roster/RosterPage').then(m => ({ default: m.RosterPage })));
+const PlannerPage = lazyPage(() => import('./components/planner/PlannerPage').then(m => ({ default: m.PlannerPage })));
+const VehiclesPage = lazyPage(() => import('./components/vehicles/VehiclesPage').then(m => ({ default: m.VehiclesPage })));
+const TicketsPage = lazyPage(() => import('./components/tickets/TicketsPage').then(m => ({ default: m.TicketsPage })));
+const AiAssistantPage = lazyPage(() => import('./components/ai/AiAssistantPage').then(m => ({ default: m.AiAssistantPage })));
+const AiRoutePlannerPage = lazyPage(() => import('./components/airouter/AiRoutePlannerPage').then(m => ({ default: m.AiRoutePlannerPage })));
+const CityRoutesPage = lazyPage(() => import('./components/cityroutes/CityRoutesPage').then(m => ({ default: m.CityRoutesPage })));
+const SmartRoutePlannerPage = lazyPage(() => import('./components/smartrouter/SmartRoutePlannerPage').then(m => ({ default: m.SmartRoutePlannerPage })));
 
 type NavTab =
   | 'OVERVIEW'
@@ -313,6 +354,7 @@ export default function App() {
 
         {/* Page Content Viewport */}
         <main className={`flex-1 overflow-hidden ${activeTab === 'PLANNER' || activeTab === 'AI ASSISTANT' || activeTab === 'AI ROUTE' || activeTab === 'SMART ROUTE' ? '' : 'overflow-y-auto p-4 sm:p-6 lg:p-8'}`}>
+          <PageErrorBoundary resetKey={activeTab}>
           <Suspense fallback={<div className="p-8 text-sm text-slate-400">Loading…</div>}>
           {activeTab === 'OVERVIEW' && (
             <OverviewPage
@@ -406,6 +448,7 @@ export default function App() {
             <VehiclesPage />
           )}
                   </Suspense>
+          </PageErrorBoundary>
         </main>
       </div>
 
