@@ -10,10 +10,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import * as L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Building2, Download, MapPin, Play, Save, Users, X, AlertTriangle } from 'lucide-react';
+import { Building2, Download, MapPin, Play, Save, Users, X, AlertTriangle, ChevronDown, ChevronRight, SlidersHorizontal } from 'lucide-react';
 import {
   getCenters, getTechnicians, getTickets, getAttendance, getRoutePlans, saveRoutePlans, saveTickets,
-  subscribeToDataChanges,
+  saveTechnicians, setTicketsIgnored, subscribeToDataChanges,
 } from '../../services/storage';
 import { planBalancedRoutes, normaliseCityToPreset, CITY_PRESETS } from '../../services/routeOptimizer';
 import type { Ticket, TechnicianRoutePlan, Technician } from '../../types';
@@ -36,7 +36,7 @@ const presetParams = (city: string): Params => {
   const p = CITY_PRESETS[city];
   return p ? { maxStops: p.maxStopsPerTech, maxKm: p.maxKmPerTech, shiftStart: p.shiftStartHour, shiftEnd: p.shiftEndHour } : DEFAULT_PARAMS;
 };
-interface Draft { plans: TechnicianRoutePlan[]; unrouted: Ticket[]; createdAt: string }
+interface Draft { plans: TechnicianRoutePlan[]; unrouted: Ticket[]; createdAt: string; selectionSig: string }
 
 export function CityRoutesPage() {
   const [, setTick] = useState(0);
@@ -92,6 +92,23 @@ export function CityRoutesPage() {
   const cityTechIds = new Set(techs.filter(t => cityKey(t.city) === city).map(t => t.id));
   const draft = drafts[city];
 
+  // ── Plan selection: which tickets and technicians take part (shared Ignore / Exclude flags) ──
+  const selTickets = tickets.filter(t => isOpen(t) && ticketCity(t) === city)
+    .sort((a, b) => a.ticketId.localeCompare(b.ticketId)); // fixed order: rows never jump when ticked
+  const selTechs = techs.filter(t => t.status === 'Active' && t.startingLatitude != null && t.startingLongitude != null && cityKey(t.city) === city)
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const includedTickets = selTickets.filter(t => !t.ignoreForRouting);
+  const includedTechs = selTechs.filter(t => !t.excludeFromRouting && !absentToday.has(t.employeeId.toUpperCase()));
+  const selectionSig = includedTickets.map(t => t.id).join(',') + '|' + includedTechs.map(t => t.id).join(',');
+  const [selOpen, setSelOpen] = useState(true);
+
+  const setTicketIncluded = (ids: string[], include: boolean) => setTicketsIgnored(ids, !include);
+  const setTechIncluded = (ids: string[], include: boolean) => {
+    const set = new Set(ids);
+    const now = new Date().toISOString();
+    saveTechnicians(getTechnicians().map(t => (set.has(t.id) && Boolean(t.excludeFromRouting) === include ? { ...t, excludeFromRouting: !include, updatedAt: now } : t)));
+  };
+
   // Current state = saved/assigned routes of this city's technicians (live from tickets)
   const currentPlans = getRoutePlans().filter(p => cityTechIds.has(p.technicianId));
   const plans = draft ? draft.plans : currentPlans;
@@ -109,7 +126,7 @@ export function CityRoutesPage() {
       priorityFilter: 'all', skillMatch: false, shiftStartHour: params.shiftStart, shiftEndHour: params.shiftEnd,
     });
     const used = r.plans.filter(p => p.stops.length > 0);
-    setDrafts(d => ({ ...d, [city]: { plans: used, unrouted: r.unrouted, createdAt: new Date().toISOString() } }));
+    setDrafts(d => ({ ...d, [city]: { plans: used, unrouted: r.unrouted, createdAt: new Date().toISOString(), selectionSig } }));
     showToast(`${city}: ${used.reduce((a, p) => a + p.stops.length, 0)} tickets planned across ${used.length} technicians — review, then Save & assign`);
   };
 
@@ -224,6 +241,51 @@ export function CityRoutesPage() {
                 <Download className="w-3.5 h-3.5" /> Roster CSV
               </button>
             </div>
+          </div>
+
+          {/* Plan selection */}
+          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+            <button onClick={() => setSelOpen(o => !o)} className="w-full px-4 py-3 flex items-center gap-2 text-left hover:bg-slate-50">
+              {selOpen ? <ChevronDown className="w-4 h-4 text-slate-400" /> : <ChevronRight className="w-4 h-4 text-slate-400" />}
+              <SlidersHorizontal className="w-4 h-4 text-blue-600" />
+              <span className="text-sm font-bold text-slate-900">Select what to plan</span>
+              <span className="text-xs text-slate-500">
+                {includedTickets.length}/{selTickets.length} tickets · {includedTechs.length}/{selTechs.length} technicians
+              </span>
+              {draft && draft.selectionSig !== selectionSig && (
+                <span className="ml-auto text-[11px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-700">Selection changed — optimise again</span>
+              )}
+            </button>
+            {selOpen && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 border-t border-slate-100">
+                <SelectList
+                  title="Tickets"
+                  hint="Untick to ignore a ticket for routing (same as Ignore in Active Cases)"
+                  items={selTickets.map(t => ({
+                    id: t.id, checked: !t.ignoreForRouting,
+                    primary: t.ticketId, badge: t.priority, badgeClass: PRIORITY_STYLE[t.priority] ?? PRIORITY_STYLE.LOW,
+                    secondary: `${t.centerName}${t.assignedTechnicianName ? ` · → ${t.assignedTechnicianName}` : ''}`,
+                    note: t.status !== 'Open' && t.status !== 'Assigned' ? t.status : undefined,
+                  }))}
+                  onToggle={(id, on) => setTicketIncluded([id], on)}
+                  onAll={on => setTicketIncluded(selTickets.map(t => t.id), on)}
+                />
+                <SelectList
+                  title="Technicians"
+                  hint="Untick to leave a technician out of routing (same as the Technicians page toggle)"
+                  items={selTechs.map(t => {
+                    const absent = absentToday.has(t.employeeId.toUpperCase());
+                    return {
+                      id: t.id, checked: !t.excludeFromRouting,
+                      primary: t.name, secondary: `${t.employeeId} · ${t.zone || t.city}`,
+                      note: absent ? 'Absent today' : undefined, disabledReason: absent ? 'Marked absent today — change attendance to include' : undefined,
+                    };
+                  })}
+                  onToggle={(id, on) => setTechIncluded([id], on)}
+                  onAll={on => setTechIncluded(selTechs.map(t => t.id), on)}
+                />
+              </div>
+            )}
           </div>
 
           {/* Notices */}
@@ -409,6 +471,56 @@ function CityMap({ city, plans, techs, centers, colorOf }: {
         <span className="ml-auto flex items-center gap-1 font-normal text-slate-400"><Users className="w-3 h-3" /> bases · numbered stops · ✓ resolved</span>
       </div>
       <div ref={el} style={{ height: 'min(70vh, 620px)' }} />
+    </div>
+  );
+}
+
+// ── Checkbox list used by "Select what to plan" ──────────────────
+interface SelectItem {
+  id: string; checked: boolean; primary: string; secondary: string;
+  badge?: string; badgeClass?: string; note?: string; disabledReason?: string;
+}
+function SelectList({ title, hint, items, onToggle, onAll }: {
+  title: string; hint: string; items: SelectItem[];
+  onToggle: (id: string, on: boolean) => void; onAll: (on: boolean) => void;
+}) {
+  const [q, setQ] = useState('');
+  const shown = items.filter(i => !q || `${i.primary} ${i.secondary}`.toLowerCase().includes(q.toLowerCase()));
+  const on = items.filter(i => i.checked).length;
+  return (
+    <div className="p-4 lg:first:border-r border-slate-100 min-w-0">
+      <div className="flex items-center gap-2 mb-1">
+        <span className="text-xs font-bold text-slate-800">{title}</span>
+        <span className="text-[11px] text-slate-500">{on} of {items.length} included</span>
+        <div className="ml-auto flex gap-1">
+          <button onClick={() => onAll(true)} className="text-[11px] font-semibold text-blue-600 hover:underline px-1">All</button>
+          <button onClick={() => onAll(false)} className="text-[11px] font-semibold text-slate-500 hover:underline px-1">None</button>
+        </div>
+      </div>
+      <p className="text-[10px] text-slate-400 mb-2">{hint}</p>
+      {items.length > 6 && (
+        <input value={q} onChange={e => setQ(e.target.value)} placeholder={`Search ${title.toLowerCase()}…`}
+          className="w-full mb-2 px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+      )}
+      <ul className="max-h-64 overflow-y-auto divide-y divide-slate-50 border border-slate-100 rounded-lg">
+        {shown.map(i => (
+          <li key={i.id}>
+            <label className={`flex items-center gap-2.5 px-3 py-2 text-xs cursor-pointer hover:bg-slate-50 ${i.checked ? '' : 'opacity-55'}`} title={i.disabledReason}>
+              <input type="checkbox" checked={i.checked} onChange={e => onToggle(i.id, e.target.checked)}
+                className="w-3.5 h-3.5 accent-blue-600 shrink-0" />
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center gap-1.5">
+                  <span className={`font-semibold ${i.checked ? 'text-slate-900' : 'text-slate-500 line-through'}`}>{i.primary}</span>
+                  {i.badge && <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${i.badgeClass}`}>{i.badge}</span>}
+                  {i.note && <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-700">{i.note}</span>}
+                </span>
+                <span className="block text-slate-500 truncate">{i.secondary}</span>
+              </span>
+            </label>
+          </li>
+        ))}
+        {!shown.length && <li className="px-3 py-4 text-center text-[11px] text-slate-400">{items.length ? 'No matches' : `No ${title.toLowerCase()} in this city`}</li>}
+      </ul>
     </div>
   );
 }
