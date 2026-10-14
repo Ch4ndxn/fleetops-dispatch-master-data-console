@@ -16,6 +16,8 @@ import {
   Layers,
 } from 'lucide-react';
 import { supabase, isDbEnabled } from '../../lib/supabase';
+import { getVroomUrl, setVroomUrl, checkVroom } from '../../services/vroom';
+import { fetchRoadRoute } from '../../services/roadRouting';
 import { getCenters, getTechnicians, getTickets, getAttendance, getImportJobs, getSyncState, subscribeToDataChanges, refreshFromDb } from '../../services/storage';
 
 type ConnStatus = 'checking' | 'ok' | 'error' | 'disabled';
@@ -87,6 +89,68 @@ function AppSyncPanel() {
           <span className={`break-all ${r.ok === false ? 'text-rose-700' : 'text-slate-600'}`}>{r.text}</span>
         </div>
       ))}
+    </div>
+  );
+}
+
+/** Routing services: VROOM solver (VROOM Routes tab) and OSRM road distances (all planners). */
+function RoutingServicesPanel() {
+  const [url, setUrl] = useState(getVroomUrl().replace(/\/$/, ''));
+  const [vroom, setVroom] = useState<{ status: 'checking' | 'ok' | 'down' | 'unset'; detail: string; ms?: number }>({ status: 'checking', detail: '' });
+  const [osrm, setOsrm] = useState<{ status: 'checking' | 'ok' | 'down'; detail: string }>({ status: 'checking', detail: '' });
+
+  const testVroom = async (u: string) => {
+    setVroom({ status: u ? 'checking' : 'unset', detail: '' });
+    const t = performance.now();
+    const r = await checkVroom(u);
+    setVroom({ ...r, ms: Math.round(performance.now() - t) });
+  };
+  const testOsrm = async () => {
+    setOsrm({ status: 'checking', detail: '' });
+    // a short Delhi drive (Connaught Place → India Gate)
+    const r = await fetchRoadRoute([[28.6315, 77.2167], [28.6129, 77.2295]]);
+    setOsrm(r ? { status: 'ok', detail: `Road route OK — ${r.km} km, ${r.mins} min` }
+              : { status: 'down', detail: 'Road-distance service unreachable — planners fall back to estimated distances (straight line × 1.3).' });
+  };
+  useEffect(() => { testVroom(getVroomUrl()); testOsrm(); }, []);
+
+  const dot = (st: string) => st === 'ok' ? 'bg-emerald-500' : st === 'checking' ? 'bg-slate-300 animate-pulse' : 'bg-rose-500';
+  const label = { ok: 'Connected', checking: 'Checking… (a sleeping free server can take up to a minute)', down: 'Not reachable', unset: 'Not set up' } as const;
+
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-4">
+      <div className="text-sm font-bold text-slate-900">Routing services</div>
+
+      <div className="space-y-2">
+        <div className="flex items-center gap-2 text-xs">
+          <span className={`w-2 h-2 rounded-full shrink-0 ${dot(vroom.status)}`} />
+          <span className="w-36 shrink-0 font-semibold text-slate-700">VROOM solver</span>
+          <span className={vroom.status === 'down' ? 'text-rose-700' : 'text-slate-600'}>
+            {label[vroom.status]}{vroom.status === 'ok' && vroom.ms != null ? ` · responded in ${(vroom.ms / 1000).toFixed(1)} s` : ''}
+          </span>
+        </div>
+        {vroom.status === 'down' && vroom.detail && <p className="ml-[164px] text-[11px] text-rose-700">{vroom.detail}</p>}
+        <div className="flex flex-col sm:flex-row gap-2 sm:ml-[164px]">
+          <input value={url} onChange={e => setUrl(e.target.value)} placeholder="https://fleetops-vroom-engine.onrender.com"
+            className="flex-1 min-w-0 px-2.5 py-1.5 border border-slate-300 rounded-lg font-mono text-[11px] focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          <button disabled={vroom.status === 'checking'}
+            onClick={() => { setVroomUrl(url); const u = getVroomUrl(); setUrl(u.replace(/\/$/, '')); testVroom(u); }}
+            className="px-3 py-1.5 rounded-lg bg-slate-800 text-white text-xs font-semibold hover:bg-slate-900 disabled:opacity-60 disabled:cursor-wait">
+            {vroom.status === 'checking' ? 'Testing…' : 'Save & test'}
+          </button>
+        </div>
+        <p className="sm:ml-[164px] text-[10px] text-slate-400">Used by the VROOM Routes tab. Same setting as the address box there.</p>
+      </div>
+
+      <div className="space-y-1 pt-3 border-t border-slate-100">
+        <div className="flex items-center gap-2 text-xs">
+          <span className={`w-2 h-2 rounded-full shrink-0 ${dot(osrm.status)}`} />
+          <span className="w-36 shrink-0 font-semibold text-slate-700">Road distances (OSRM)</span>
+          <span className={osrm.status === 'down' ? 'text-rose-700' : 'text-slate-600'}>{osrm.status === 'checking' ? 'Checking…' : osrm.detail}</span>
+          <button onClick={testOsrm} disabled={osrm.status === 'checking'} className="ml-auto text-xs font-semibold text-blue-600 hover:underline disabled:opacity-50">Test</button>
+        </div>
+        <p className="sm:ml-[164px] text-[10px] text-slate-400">Public OpenStreetMap routing used by City Routes, VROOM Routes and the maps.</p>
+      </div>
     </div>
   );
 }
@@ -263,6 +327,7 @@ export function ConnectionStatusPage() {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <AppSyncPanel />
+      <RoutingServicesPanel />
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
