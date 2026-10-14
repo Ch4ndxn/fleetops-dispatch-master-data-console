@@ -487,14 +487,19 @@ export function planBalancedRoutes(constraints: BalancedPlanConstraints): Balanc
       // This forces even distribution — an overloaded tech loses the bid even if nearest
       const eligibleCounts = techStates.map(t => t.stopCount);
       const avgStops = eligibleCounts.reduce((s, n) => s + n, 0) / Math.max(1, techStates.length);
+      const minStops  = Math.min(...eligibleCounts);
+
+      // Hard skip: if this tech has 2+ more stops than the least-loaded tech, skip entirely
+      // This forces work to spread before any tech gets deeply overloaded
+      if (ts.stopCount >= minStops + 2 && minStops < constraints.maxStopsPerTech - 1) continue;
+
       // Strong penalty: each stop above average multiplies score significantly
-      // At 1 stop above avg → big penalty so nearby cluster tech picks up the work
-      const loadPenaltyFactor = 1 + Math.max(0, ts.stopCount - avgStops) * 1.5;
+      const loadPenaltyFactor = 1 + Math.max(0, ts.stopCount - avgStops) * 4.0;
 
       // SCORE = (travel_time × load_penalty) + distance_penalty + cluster_bonus
       // Cluster ownership pulls score down (favours home cluster)
       // Load penalty pushes score up (forces spillover to idle neighbours)
-      const score = travelMins * loadPenaltyFactor + distKm * 0.2 + clusterBonus;
+      const score = travelMins * loadPenaltyFactor + distKm * 0.3 + clusterBonus;
 
       if (score < bestScore) {
         bestScore = score;
