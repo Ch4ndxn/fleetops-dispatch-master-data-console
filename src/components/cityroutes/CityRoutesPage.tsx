@@ -16,6 +16,7 @@ import {
   saveTechnicians, setTicketsIgnored, subscribeToDataChanges,
 } from '../../services/storage';
 import { planBalancedRoutes, normaliseCityToPreset, CITY_PRESETS } from '../../services/routeOptimizer';
+import { fetchRoadMatrix, fetchRoadRoute, type LatLng } from '../../services/roadRouting';
 import type { Ticket, TechnicianRoutePlan, Technician } from '../../types';
 import { localDate } from '../../lib/date';
 
@@ -26,6 +27,7 @@ const PRIORITY_STYLE: Record<string, string> = {
 };
 /** City = the app's operating region (Delhi NCR, Mumbai, Bangalore, …) — same rule the optimizer uses. */
 const cityKey = (name?: string | null) => normaliseCityToPreset(name || '');
+const routeKey = (p: TechnicianRoutePlan) => `${p.technicianId}:${p.stops.map(s => `${s.latitude.toFixed(5)},${s.longitude.toFixed(5)}`).join(';')}`;
 const isOpen = (t: Ticket) => t.status !== 'Resolved' && t.status !== 'Closed';
 const isDone = (s?: string) => s === 'Resolved' || s === 'Closed';
 
@@ -36,7 +38,9 @@ const presetParams = (city: string): Params => {
   const p = CITY_PRESETS[city];
   return p ? { maxStops: p.maxStopsPerTech, maxKm: p.maxKmPerTech, shiftStart: p.shiftStartHour, shiftEnd: p.shiftEndHour } : DEFAULT_PARAMS;
 };
-interface Draft { plans: TechnicianRoutePlan[]; unrouted: Ticket[]; createdAt: string; selectionSig: string }
+interface Draft { plans: TechnicianRoutePlan[]; unrouted: Ticket[]; createdAt: string; selectionSig: string; roadPlanned: boolean }
+/** Road km / minutes for a technician's drawn route (from OSRM), keyed by technician id */
+type RoadStats = Record<string, { km: number; mins: number } | 'failed'>;
 
 export function CityRoutesPage() {
   const [, setTick] = useState(0);
@@ -120,14 +124,28 @@ export function CityRoutesPage() {
   const assignedElsewhere = cityOpenTickets.filter(t => t.assignedTechnicianId && !cityTechIds.has(t.assignedTechnicianId));
 
   // ── actions ────────────────────────────────────────────────────
-  const optimise = () => {
+  const [planning, setPlanning] = useState(false);
+  const [roadStats, setRoadStats] = useState<RoadStats>({});
+  const optimise = async () => {
+    setPlanning(true);
+    // Road distances between every technician base and every ticket center in this city
+    const points: LatLng[] = [
+      ...includedTechs.map(t => [t.startingLatitude!, t.startingLongitude!] as LatLng),
+      ...includedTickets.map(t => centers.find(c => c.name.trim().toLowerCase() === t.centerName.trim().toLowerCase()))
+        .filter(Boolean).map(c => [c!.latitude, c!.longitude] as LatLng),
+    ];
+    const roadMatrix = await fetchRoadMatrix(points);
+    setPlanning(false);
     const r = planBalancedRoutes({
+      roadMatrix,
       cityFilter: city, maxStopsPerTech: params.maxStops, maxKmPerTech: params.maxKm,
       priorityFilter: 'all', skillMatch: false, shiftStartHour: params.shiftStart, shiftEndHour: params.shiftEnd,
     });
     const used = r.plans.filter(p => p.stops.length > 0);
-    setDrafts(d => ({ ...d, [city]: { plans: used, unrouted: r.unrouted, createdAt: new Date().toISOString(), selectionSig } }));
-    showToast(`${city}: ${used.reduce((a, p) => a + p.stops.length, 0)} tickets planned across ${used.length} technicians — review, then Save & assign`);
+    setDrafts(d => ({ ...d, [city]: { plans: used, unrouted: r.unrouted, createdAt: new Date().toISOString(), selectionSig, roadPlanned: Boolean(roadMatrix) } }));
+    showToast(roadMatrix
+      ? `${city}: planned by road distance — ${used.reduce((a, p) => a + p.stops.length, 0)} tickets across ${used.length} technicians`
+      : `${city}: road data unavailable — planned with estimated distances (straight line × 1.3)`);
   };
 
   const saveAndAssign = () => {
@@ -165,7 +183,9 @@ export function CityRoutesPage() {
     a.click();
   };
 
-  const totalKm = Math.round(plans.reduce((a, p) => a + p.totalDistanceKm, 0) * 10) / 10;
+  const roadOf = (p: TechnicianRoutePlan) => { const r = roadStats[routeKey(p)]; return r && r !== 'failed' ? r : null; };
+  const allRoad = plans.length > 0 && plans.every(p => roadOf(p));
+  const totalKm = Math.round(plans.reduce((a, p) => a + (roadOf(p)?.km ?? p.totalDistanceKm), 0) * 10) / 10;
   const stopCount = plans.reduce((a, p) => a + p.stops.length, 0);
   const colorOf = (techId: string) => COLORS[Math.max(0, [...cityTechIds].sort().indexOf(techId)) % COLORS.length];
 
@@ -221,9 +241,9 @@ export function CityRoutesPage() {
               </label>
             ))}
             <div className="flex flex-wrap gap-2 ml-auto">
-              <button onClick={optimise} disabled={stats.present === 0 || stats.tickets === 0}
+              <button onClick={optimise} disabled={planning || stats.present === 0 || stats.tickets === 0}
                 className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-bold flex items-center gap-1.5">
-                <Play className="w-3.5 h-3.5" /> Optimise {city}
+                <Play className="w-3.5 h-3.5" /> {planning ? 'Fetching road distances…' : `Optimise ${city}`}
               </button>
               {draft && (
                 <>
@@ -309,7 +329,7 @@ export function CityRoutesPage() {
               ['Tickets planned', `${stopCount} / ${stats.tickets}`, 'text-slate-900'],
               ['Not planned', String(notPlanned.length), notPlanned.length ? 'text-rose-600' : 'text-slate-900'],
               ['Technicians used', `${plans.length} / ${stats.present}`, 'text-slate-900'],
-              ['Total route km', String(totalKm), 'text-slate-900'],
+              [allRoad ? 'Total road km' : 'Total km (est.)', String(totalKm), 'text-slate-900'],
             ].map(([label, value, cls]) => (
               <div key={label} className="bg-white rounded-xl border border-slate-200 px-4 py-3">
                 <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</div>
@@ -329,7 +349,10 @@ export function CityRoutesPage() {
               {plans.map(p => {
                 const color = colorOf(p.technicianId);
                 const done = p.stops.filter(s => isDone(s.ticketStatus)).length;
-                const overKm = p.totalDistanceKm > params.maxKm;
+                const road = roadOf(p);
+                const km = road?.km ?? p.totalDistanceKm;
+                const overKm = km > params.maxKm;
+                const workMins = p.stops.reduce((a, s) => a + (s.estimatedDurationMins || 45), 0);
                 return (
                   <div key={p.technicianId} className="bg-white rounded-xl border border-slate-200 overflow-hidden">
                     <div className="px-4 py-3 flex items-center gap-3 border-b border-slate-100" style={{ borderLeft: `4px solid ${color}` }}>
@@ -342,7 +365,10 @@ export function CityRoutesPage() {
                       </div>
                       <div className="text-right text-[11px] font-mono text-slate-600">
                         <div className="font-bold text-slate-900">{p.stops.length} stop{p.stops.length !== 1 ? 's' : ''}{done ? ` · ${done} done` : ''}</div>
-                        <div className={overKm ? 'text-rose-600 font-bold' : ''}>{p.totalDistanceKm} km · ~{Math.round(p.totalEstimatedMins / 6) / 10} h</div>
+                        <div className={overKm ? 'text-rose-600 font-bold' : ''} title={road ? 'Road distance and drive time (OSRM)' : 'Estimated: straight line × 1.3 — road data not loaded'}>
+                          {road ? `${km} km by road · ${Math.round(road.mins)} min drive` : `≈ ${km} km (est.)`}
+                        </div>
+                        <div className="text-slate-400">+ {Math.round(workMins / 6) / 10} h on site</div>
                       </div>
                     </div>
                     <ol className="divide-y divide-slate-50">
@@ -390,6 +416,7 @@ export function CityRoutesPage() {
             </div>
 
             <CityMap city={city} plans={plans} colorOf={colorOf}
+              onRoad={(k, v) => setRoadStats(r => (r[k] === v ? r : { ...r, [k]: v }))}
               techs={techs.filter(t => cityTechIds.has(t.id) && routableTech(t))}
               centers={centers.filter(c => cityKey(c.city) === city)} />
           </div>
@@ -404,7 +431,8 @@ export function CityRoutesPage() {
 }
 
 // ── Map of one city's routes ─────────────────────────────────────
-function CityMap({ city, plans, techs, centers, colorOf }: {
+function CityMap({ city, plans, techs, centers, colorOf, onRoad }: {
+  onRoad: (routeKey: string, v: { km: number; mins: number } | 'failed') => void;
   city: string;
   plans: TechnicianRoutePlan[];
   techs: Technician[];
@@ -430,6 +458,7 @@ function CityMap({ city, plans, techs, centers, colorOf }: {
   useEffect(() => {
     const map = mapRef.current, layer = layerRef.current;
     if (!map || !layer) return;
+    let cancelled = false;
     layer.clearLayers();
     const bounds: L.LatLngExpression[] = [];     // routes + bases (what matters)
     const allBounds: L.LatLngExpression[] = [];  // every center (fallback for an empty city)
@@ -450,7 +479,16 @@ function CityMap({ city, plans, techs, centers, colorOf }: {
     plans.forEach(p => {
       const color = colorOf(p.technicianId);
       const path: L.LatLngExpression[] = [[p.startLat, p.startLng], ...p.stops.map(s => [s.latitude, s.longitude] as L.LatLngExpression)];
-      L.polyline(path, { color, weight: 3, opacity: 0.8 }).addTo(layer);
+      // Dashed straight line while the road path loads (or if it can't be loaded)
+      const line = L.polyline(path, { color, weight: 2, opacity: 0.5, dashArray: '6 6' }).addTo(layer);
+      const k = routeKey(p);
+      fetchRoadRoute(path as LatLng[]).then(r => {
+        if (cancelled) return;
+        if (!r) { onRoad(k, 'failed'); return; }
+        layer.removeLayer(line);
+        L.polyline(r.path, { color, weight: 4, opacity: 0.85 }).addTo(layer);
+        onRoad(k, { km: r.km, mins: r.mins });
+      });
       p.stops.forEach(s => {
         const done = s.ticketStatus === 'Resolved' || s.ticketStatus === 'Closed';
         L.marker([s.latitude, s.longitude], { icon: L.divIcon({ className: '', iconSize: [20, 20], iconAnchor: [10, 10],
@@ -462,13 +500,15 @@ function CityMap({ city, plans, techs, centers, colorOf }: {
     const fit = plans.length ? bounds : [...bounds, ...allBounds];
     if (fit.length > 1) map.fitBounds(L.latLngBounds(fit), { padding: [30, 30], maxZoom: 13 });
     else if (fit.length === 1) map.setView(fit[0], 12);
-  }, [city, plans, techs, centers, colorOf]);
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [city, plans, techs, centers]);
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 overflow-hidden xl:sticky xl:top-0 self-start">
       <div className="px-4 py-2.5 border-b border-slate-100 flex items-center gap-2 text-xs font-bold text-slate-700">
         <Building2 className="w-3.5 h-3.5 text-slate-400" /> {city} map
-        <span className="ml-auto flex items-center gap-1 font-normal text-slate-400"><Users className="w-3 h-3" /> bases · numbered stops · ✓ resolved</span>
+        <span className="ml-auto flex items-center gap-1 font-normal text-slate-400"><Users className="w-3 h-3" /> bases · numbered stops · ✓ resolved · solid = road route</span>
       </div>
       <div ref={el} style={{ height: 'min(70vh, 620px)' }} />
     </div>

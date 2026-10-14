@@ -1,6 +1,7 @@
 import { Technician, Center, Ticket, TechnicianRoutePlan, RouteStop } from '../types';
 import { getCenters, getTechnicians, getTickets, getAttendance } from './storage';
 import { localDate } from '../lib/date';
+import type { RoadMatrix } from './roadRouting';
 
 // ─── Delhi NCR traffic corridor congestion multipliers ────────────
 function getCongestionFactor(fromLat: number, fromLng: number, toLat: number, toLng: number, hourOfDay: number): number {
@@ -204,6 +205,8 @@ export interface BalancedPlanConstraints {
   cityFilter?: string;
   /** Ticket IDs to skip entirely — user excluded them from the plan */
   excludedTicketIds?: Set<string>;
+  /** Real road distances/times (OSRM). When given, planning uses road km instead of straight line × 1.3. */
+  roadMatrix?: RoadMatrix | null;
 }
 
 // ─── Per-city routing constraint presets ─────────────────────────────────────
@@ -330,6 +333,15 @@ function techCanHandleIssue(tech: Technician, issue: string): boolean {
 }
 
 export function planBalancedRoutes(constraints: BalancedPlanConstraints): BalancedPlanResult {
+  // Distance / time between two points: real road values when available, otherwise the estimate
+  const road = constraints.roadMatrix ?? null;
+  const distKmOf = (aLat: number, aLng: number, bLat: number, bLng: number): number =>
+    road?.km(aLat, aLng, bLat, bLng) ?? calculateDistanceKm(aLat, aLng, bLat, bLng);
+  const travelMinsOf = (aLat: number, aLng: number, bLat: number, bLng: number, hour: number): number => {
+    const m = road?.mins(aLat, aLng, bLat, bLng);
+    return m === undefined ? travelTimeMins(aLat, aLng, bLat, bLng, hour)
+      : Math.round(m * getCongestionFactor(aLat, aLng, bLat, bLng, hour));
+  };
   const technicians = getTechnicians();
   const centers = getCenters();
   const tickets = getTickets();
@@ -454,7 +466,7 @@ export function planBalancedRoutes(constraints: BalancedPlanConstraints): Balanc
 
       // Hard constraints — the km limit must hold *after* driving to this stop
       if (ts.stopCount >= constraints.maxStopsPerTech) continue;
-      const legKm = calculateDistanceKm(ts.curLat, ts.curLng, center.latitude, center.longitude);
+      const legKm = distKmOf(ts.curLat, ts.curLng, center.latitude, center.longitude);
       if (ts.totalKm + legKm > constraints.maxKmPerTech) continue;
 
       // Skill matching
@@ -470,8 +482,8 @@ export function planBalancedRoutes(constraints: BalancedPlanConstraints): Balanc
 
       // Proximity: travel time to next stop given current hour
       const currentHour = constraints.shiftStartHour + Math.floor(ts.totalMins / 60);
-      const travelMins = travelTimeMins(ts.curLat, ts.curLng, center.latitude, center.longitude, currentHour);
-      const distKm = calculateDistanceKm(ts.curLat, ts.curLng, center.latitude, center.longitude);
+      const travelMins = travelMinsOf(ts.curLat, ts.curLng, center.latitude, center.longitude, currentHour);
+      const distKm = distKmOf(ts.curLat, ts.curLng, center.latitude, center.longitude);
 
       // Remaining shift time after this stop
       const minsAfterStop = ts.totalMins + travelMins + durationMins;
@@ -516,8 +528,8 @@ export function planBalancedRoutes(constraints: BalancedPlanConstraints): Balanc
 
     const ts = techStates[bestIdx];
     const currentHour = constraints.shiftStartHour + Math.floor(ts.totalMins / 60);
-    const travelMins = travelTimeMins(ts.curLat, ts.curLng, center.latitude, center.longitude, currentHour);
-    const distKm = calculateDistanceKm(ts.curLat, ts.curLng, center.latitude, center.longitude);
+    const travelMins = travelMinsOf(ts.curLat, ts.curLng, center.latitude, center.longitude, currentHour);
+    const distKm = distKmOf(ts.curLat, ts.curLng, center.latitude, center.longitude);
 
     ts.totalMins += travelMins + durationMins;
     ts.totalKm   += distKm;
@@ -552,8 +564,8 @@ export function planBalancedRoutes(constraints: BalancedPlanConstraints): Balanc
     let km = 0, mins = 30, lat = ts.plan.startLat, lng = ts.plan.startLng;
     ts.plan.stops = ts.plan.stops.map((stop, idx) => {
       const hour = constraints.shiftStartHour + Math.floor(mins / 60);
-      km += calculateDistanceKm(lat, lng, stop.latitude, stop.longitude);
-      mins += travelTimeMins(lat, lng, stop.latitude, stop.longitude, hour);
+      km += distKmOf(lat, lng, stop.latitude, stop.longitude);
+      mins += travelMinsOf(lat, lng, stop.latitude, stop.longitude, hour);
       const arrival = constraints.shiftStartHour * 60 + mins;
       mins += stop.estimatedDurationMins;
       lat = stop.latitude; lng = stop.longitude;
@@ -576,7 +588,7 @@ export function planBalancedRoutes(constraints: BalancedPlanConstraints): Balanc
     const stopToMove = mostLoaded.plan.stops[mostLoaded.plan.stops.length - 1];
     if (!stopToMove) break;
     if (leastLoaded.stopCount >= constraints.maxStopsPerTech) break;
-    const moveDist = calculateDistanceKm(leastLoaded.curLat, leastLoaded.curLng, stopToMove.latitude, stopToMove.longitude);
+    const moveDist = distKmOf(leastLoaded.curLat, leastLoaded.curLng, stopToMove.latitude, stopToMove.longitude);
     if (leastLoaded.totalKm + moveDist > constraints.maxKmPerTech) break;
 
     mostLoaded.plan.stops = mostLoaded.plan.stops.slice(0, -1);
@@ -618,7 +630,7 @@ export function planBalancedRoutes(constraints: BalancedPlanConstraints): Balanc
     const idx = i % availableTechs.length;
     const c = centerMap.get(tk.centerName.trim().toLowerCase());
     if (!c) return;
-    naiveKm += calculateDistanceKm(naiveLat[idx], naiveLng[idx], c.latitude, c.longitude);
+    naiveKm += distKmOf(naiveLat[idx], naiveLng[idx], c.latitude, c.longitude);
     naiveLat[idx] = c.latitude; naiveLng[idx] = c.longitude;
   });
   const actualKm = plans.reduce((a, p) => a + p.totalDistanceKm, 0);
