@@ -8,12 +8,15 @@ import type { Center, Technician, Ticket, TechnicianRoutePlan, RouteStop } from 
 import type { RoadMatrix } from './roadRouting';
 
 const URL_KEY = 'fo_vroom_url';
+/** This deployment's VROOM service on Render (can be changed in the VROOM Routes tab). */
+const DEFAULT_VROOM_URL = 'https://fleetops-vroom-engine.onrender.com';
 
 /** Service URL: build-time VITE_VROOM_URL, or one saved in this browser. */
 export function getVroomUrl(): string {
   let u = '';
   try { u = localStorage.getItem(URL_KEY) || ''; } catch { /* ignore */ }
   if (!u) u = (import.meta.env.VITE_VROOM_URL as string | undefined) || '';
+  if (!u) u = DEFAULT_VROOM_URL;
   u = u.trim().replace(/\/health\/?$/i, '');
   if (!u) return '';
   if (!/^https?:\/\//.test(u)) u = `https://${u}`;
