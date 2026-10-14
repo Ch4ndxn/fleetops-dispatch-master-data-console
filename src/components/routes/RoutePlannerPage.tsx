@@ -374,6 +374,12 @@ export const RoutePlannerPage: React.FC = () => {
   const totalStops = routePlans.reduce((a, p) => a + p.stops.length, 0);
   const totalKm = Math.round(routePlans.reduce((a, p) => a + p.totalDistanceKm, 0) * 10) / 10;
   const activeTechs = routePlans.length;
+  // Total eligible techs in the selected routing city (Active + not excluded + have coordinates)
+  const eligibleTechsCount = technicians.filter(t =>
+    t.status === 'Active' && !t.excludeFromRouting &&
+    t.startingLatitude && t.startingLongitude &&
+    normaliseCityToPreset(t.city) === selectedRoutingCity
+  ).length;
   const avgStopsPerTech = activeTechs > 0 ? (totalStops / activeTechs).toFixed(1) : '—';
   const coveragePct = routableTicketCount > 0
     ? Math.round((assignedTicketIds.size / routableTicketCount) * 100)
@@ -1160,7 +1166,7 @@ export const RoutePlannerPage: React.FC = () => {
       <div className="overflow-x-auto pb-1">
         <div className="flex gap-2.5 min-w-max lg:min-w-0 lg:grid lg:grid-cols-7">
           {[
-            { label: 'Active Techs', value: activeTechs, color: 'text-slate-900', bg: 'bg-blue-50', icon: <Navigation className="w-3.5 h-3.5 text-blue-600" /> },
+            { label: 'Dispatched / Available', value: routePlans.length === 0 ? `— / ${eligibleTechsCount}` : `${activeTechs} / ${eligibleTechsCount}`, color: 'text-slate-900', bg: 'bg-blue-50', icon: <Navigation className="w-3.5 h-3.5 text-blue-600" /> },
             { label: 'Total Stops', value: totalStops, color: 'text-blue-700', bg: 'bg-blue-50', icon: <MapPin className="w-3.5 h-3.5 text-blue-600" /> },
             { label: 'Unassigned', value: unassignedTicketsRaw.length, color: unassignedTicketsRaw.length > 0 ? 'text-amber-700' : 'text-emerald-700', bg: unassignedTicketsRaw.length > 0 ? 'bg-amber-50' : 'bg-emerald-50', icon: <AlertCircle className={`w-3.5 h-3.5 ${unassignedTicketsRaw.length > 0 ? 'text-amber-500' : 'text-emerald-500'}`} /> },
             { label: 'Total Distance', value: `${totalKm} km`, color: 'text-slate-900', bg: 'bg-slate-50', icon: <Compass className="w-3.5 h-3.5 text-slate-600" /> },
