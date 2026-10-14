@@ -380,6 +380,8 @@ export function planBalancedRoutes(constraints: BalancedPlanConstraints): Balanc
     if (tk.status === 'Resolved' || tk.status === 'Closed' || tk.ignoreForRouting) return false;
     if (excludedIds.has(tk.ticketId)) return false;
     const center = centerMap.get(tk.centerName.trim().toLowerCase());
+    // Planning one city: only that city's tickets (not just its technicians)
+    if (constraints.cityFilter && (!center || normaliseCityToPreset(center.city || '') !== constraints.cityFilter)) return false;
     return Boolean(center?.latitude && center?.longitude);
   });
 

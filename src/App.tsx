@@ -23,6 +23,7 @@ import { VehiclesPage } from './components/vehicles/VehiclesPage';
 import { TicketsPage } from './components/tickets/TicketsPage';
 import { AiAssistantPage } from './components/ai/AiAssistantPage';
 import { AiRoutePlannerPage } from './components/airouter/AiRoutePlannerPage';
+import { CityRoutesPage } from './components/cityroutes/CityRoutesPage';
 import { SmartRoutePlannerPage } from './components/smartrouter/SmartRoutePlannerPage';
 
 // Modals
@@ -56,6 +57,7 @@ import {
   Truck,
   Ticket,
   Sparkles,
+  Waypoints,
   BrainCircuit
 } from 'lucide-react';
 
@@ -80,7 +82,8 @@ type NavTab =
   | 'TICKETS'
   | 'AI ASSISTANT'
   | 'AI ROUTE'
-  | 'SMART ROUTE';
+  | 'SMART ROUTE'
+  | 'CITY ROUTES';
 
 interface NavItem {
   id: NavTab;
@@ -113,6 +116,7 @@ const NAV_GROUPS: NavGroup[] = [
       { id: 'ROUTE PLANNER',      label: 'Route Planner',     icon: Compass },
       { id: 'AI ROUTE',           label: 'AI Route',          icon: BrainCircuit },
       { id: 'SMART ROUTE',        label: 'Smart Route',       icon: Sparkles },
+      { id: 'CITY ROUTES',        label: 'City Routes',       icon: Waypoints },
       { id: 'LIVE TRACKING',      label: 'Live Tracking',     icon: Radio },
       { id: 'HEX ZONE MAP',       label: 'Hex Zone Map',      icon: Hexagon },
     ],
@@ -384,6 +388,8 @@ export default function App() {
           {activeTab === 'SMART ROUTE' && (
             <SmartRoutePlannerPage />
           )}
+
+          {activeTab === 'CITY ROUTES' && <CityRoutesPage />}
 
           {activeTab === 'TICKETS' && (
             <TicketsPage onOpenUploadModal={handleOpenUpload} />
