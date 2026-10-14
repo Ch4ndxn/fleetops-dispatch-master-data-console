@@ -69,15 +69,19 @@ export function CityRoutesPage({ engine = 'builtin' }: { engine?: 'builtin' | 'v
   const isVroom = engine === 'vroom';
   const [vroomUrl, setVroomUrlState] = useState(getVroomUrl());
   const [vroomStatus, setVroomStatus] = useState<'checking' | 'ok' | 'down' | 'unset'>(vroomUrl ? 'checking' : 'unset');
-  const [urlDraft, setUrlDraft] = useState(vroomUrl);
+  const [vroomDetail, setVroomDetail] = useState('');
+  const testVroom = async (url: string) => {
+    setVroomStatus(url ? 'checking' : 'unset'); setVroomDetail('');
+    const r = await checkVroom(url);
+    setVroomStatus(r.status); setVroomDetail(r.detail);
+  };
+  const [urlDraft, setUrlDraft] = useState(vroomUrl.replace(/\/$/, ''));
   const [comparison, setComparison] = useState<Record<string, string>>({});
   useEffect(() => {
     if (!isVroom) return;
-    let live = true;
-    setVroomStatus(vroomUrl ? 'checking' : 'unset');
-    checkVroom(vroomUrl).then(s => { if (live) setVroomStatus(s); });
-    return () => { live = false; };
-  }, [isVroom, vroomUrl]);
+    testVroom(vroomUrl);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isVroom]);
 
   const [, setTick] = useState(0);
   useEffect(() => subscribeToDataChanges(() => setTick(n => n + 1)), []);
@@ -312,10 +316,17 @@ export function CityRoutesPage({ engine = 'builtin' }: { engine?: 'builtin' | 'v
           </span>
           <input value={urlDraft} onChange={e => setUrlDraft(e.target.value)} placeholder="https://fleetops-vroom-engine.onrender.com"
             className="flex-1 min-w-0 px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white font-mono text-[11px] focus:outline-none focus:ring-2 focus:ring-blue-500" />
-          <button onClick={() => { setVroomUrl(urlDraft); setVroomUrlState(getVroomUrl()); }}
-            className="px-3 py-1.5 rounded-lg bg-slate-800 text-white font-semibold hover:bg-slate-900 shrink-0">Save & test</button>
-          {vroomStatus !== 'ok' && vroomStatus !== 'checking' && (
-            <span className="text-slate-600 md:max-w-xs">Deploy the <b>fleetops-vroom</b> service from render.yaml, then paste its URL here.</span>
+          <button
+            onClick={() => { setVroomUrl(urlDraft); const u = getVroomUrl(); setVroomUrlState(u); setUrlDraft(u.replace(/\/$/, '')); testVroom(u); }}
+            disabled={vroomStatus === 'checking'}
+            className="px-3 py-1.5 rounded-lg bg-slate-800 text-white font-semibold hover:bg-slate-900 disabled:opacity-60 disabled:cursor-wait shrink-0">
+            {vroomStatus === 'checking' ? 'Testing…' : 'Save & test'}
+          </button>
+          {vroomStatus === 'unset' && (
+            <span className="text-slate-600 md:max-w-xs">Paste the address of your VROOM service from Render, then click Save & test.</span>
+          )}
+          {vroomStatus === 'down' && vroomDetail && (
+            <span className="text-amber-900 md:max-w-sm">{vroomDetail}</span>
           )}
         </div>
       )}

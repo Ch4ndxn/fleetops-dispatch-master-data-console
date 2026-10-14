@@ -14,7 +14,7 @@ export function getVroomUrl(): string {
   let u = '';
   try { u = localStorage.getItem(URL_KEY) || ''; } catch { /* ignore */ }
   if (!u) u = (import.meta.env.VITE_VROOM_URL as string | undefined) || '';
-  u = u.trim();
+  u = u.trim().replace(/\/health\/?$/i, '');
   if (!u) return '';
   if (!/^https?:\/\//.test(u)) u = `https://${u}`;
   return u.endsWith('/') ? u : `${u}/`;
@@ -23,12 +23,35 @@ export function setVroomUrl(url: string): void {
   try { url.trim() ? localStorage.setItem(URL_KEY, url.trim()) : localStorage.removeItem(URL_KEY); } catch { /* ignore */ }
 }
 
-export async function checkVroom(url = getVroomUrl()): Promise<'ok' | 'down' | 'unset'> {
-  if (!url) return 'unset';
+export type VroomCheck = { status: 'ok' | 'down' | 'unset'; detail: string };
+
+/** Test the service: GET /health, falling back to a tiny real solve. Explains failures in plain words. */
+export async function checkVroom(url = getVroomUrl()): Promise<VroomCheck> {
+  if (!url) return { status: 'unset', detail: '' };
+  const explain = (code: number) =>
+    code === 404 ? 'Render can\'t find a running service at this address (404). Check the URL, and that the service shows "Live" in Render.'
+    : code === 502 || code === 503 ? `The service is starting up or has crashed (${code}). Wait a minute and test again, or check its Logs in Render.`
+    : `The service answered with an error (${code}).`;
+  let lastDetail = '';
   try {
-    const r = await fetch(`${url}health`, { signal: AbortSignal.timeout(60_000) }); // free hosting may need to wake up
-    return r.ok ? 'ok' : 'down';
-  } catch { return 'down'; }
+    const r = await fetch(`${url}health`, { signal: AbortSignal.timeout(70_000) }); // a sleeping free server can take ~1 min to wake
+    if (r.ok) return { status: 'ok', detail: 'Health check passed' };
+    lastDetail = explain(r.status);
+  } catch (e) {
+    lastDetail = (e as Error).name === 'TimeoutError'
+      ? 'No answer within 70 seconds. The service may still be waking up — test again.'
+      : 'Can\'t reach this address from the browser (wrong URL, service not running, or blocked).';
+  }
+  // Fallback: a minimal real problem (some setups don't expose /health)
+  try {
+    const r = await fetch(url, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(30_000),
+      body: JSON.stringify({ vehicles: [{ id: 1, start_index: 0 }], jobs: [{ id: 1, location_index: 1 }], matrices: { car: { durations: [[0, 60], [60, 0]] } } }),
+    });
+    const d = await r.json().catch(() => null);
+    if (r.ok && d && d.code === 0) return { status: 'ok', detail: 'Test solve passed' };
+  } catch { /* keep the health-check explanation */ }
+  return { status: 'down', detail: lastDetail };
 }
 
 export interface VroomInput {
