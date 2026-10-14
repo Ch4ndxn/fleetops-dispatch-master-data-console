@@ -13,6 +13,7 @@ import {
   saveRoutePlans, saveTickets,
 } from '../../services/storage';
 import { planBalancedRoutes, calculateDistanceKm, CITY_PRESETS, normaliseCityToPreset, CityConstraintPreset } from '../../services/routeOptimizer';
+import { PlanSelectionPanel } from '../routing/PlanSelectionPanel';
 import Groq from 'groq-sdk';
 import {
   BrainCircuit, Zap, Map as MapIcon, List, Sliders, RefreshCw,
@@ -1505,6 +1506,8 @@ Optimize within constraints.`;
         )}
 
         {/* Main scrollable content */}
+          {/* Choose tickets / technicians for this city before optimising */}
+          <div className="mb-3"><PlanSelectionPanel city={selectedCity} defaultOpen={false} /></div>
         <div className="flex-1 overflow-y-auto min-h-0 p-3 sm:p-5">
           {/* Idle state */}
           {phase === 'idle' && (

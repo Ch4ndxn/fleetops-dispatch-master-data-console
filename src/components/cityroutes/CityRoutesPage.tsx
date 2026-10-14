@@ -10,13 +10,14 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import * as L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Building2, Download, MapPin, Play, Save, Users, X, AlertTriangle, ChevronDown, ChevronRight, SlidersHorizontal } from 'lucide-react';
+import { Building2, Download, MapPin, Play, Save, Users, X, AlertTriangle } from 'lucide-react';
 import {
   getCenters, getTechnicians, getTickets, getAttendance, getRoutePlans, saveRoutePlans, saveTickets,
-  saveTechnicians, setTicketsIgnored, subscribeToDataChanges,
+  subscribeToDataChanges,
 } from '../../services/storage';
 import { planBalancedRoutes, normaliseCityToPreset, CITY_PRESETS } from '../../services/routeOptimizer';
 import { fetchRoadMatrix, fetchRoadRoute, type LatLng } from '../../services/roadRouting';
+import { PlanSelectionPanel } from '../routing/PlanSelectionPanel';
 import type { Ticket, TechnicianRoutePlan, Technician } from '../../types';
 import { localDate } from '../../lib/date';
 
@@ -28,6 +29,24 @@ const PRIORITY_STYLE: Record<string, string> = {
 /** City = the app's operating region (Delhi NCR, Mumbai, Bangalore, …) — same rule the optimizer uses. */
 const cityKey = (name?: string | null) => normaliseCityToPreset(name || '');
 const routeKey = (p: TechnicianRoutePlan) => `${p.technicianId}:${p.stops.map(s => `${s.latitude.toFixed(5)},${s.longitude.toFixed(5)}`).join(';')}`;
+function hav(aLat: number, aLng: number, bLat: number, bLng: number) {
+  const t = Math.PI / 180;
+  const x = Math.sin((bLat - aLat) * t / 2) ** 2 + Math.cos(aLat * t) * Math.cos(bLat * t) * Math.sin((bLng - aLng) * t / 2) ** 2;
+  return 2 * 6371 * Math.asin(Math.sqrt(x));
+}
+/** Re-number stops and re-estimate km / arrival times after a manual change (road figures refresh on the map). */
+function retime(p: TechnicianRoutePlan, shiftStart: number): TechnicianRoutePlan {
+  let km = 0, mins = 0, lat = p.startLat, lng = p.startLng;
+  const stops = p.stops.map((s, i) => {
+    const leg = hav(lat, lng, s.latitude, s.longitude) * 1.3;
+    km += leg; mins += (leg / 24) * 60;
+    const at = shiftStart * 60 + Math.round(mins);
+    mins += s.estimatedDurationMins || 45;
+    lat = s.latitude; lng = s.longitude;
+    return { ...s, stopOrder: i + 1, estimatedArrival: `${String(Math.floor(at / 60)).padStart(2, '0')}:${String(at % 60).padStart(2, '0')}` };
+  });
+  return { ...p, stops, totalDistanceKm: Math.round(km * 10) / 10, totalEstimatedMins: Math.round(mins) };
+}
 const isOpen = (t: Ticket) => t.status !== 'Resolved' && t.status !== 'Closed';
 const isDone = (s?: string) => s === 'Resolved' || s === 'Closed';
 
@@ -104,14 +123,6 @@ export function CityRoutesPage() {
   const includedTickets = selTickets.filter(t => !t.ignoreForRouting);
   const includedTechs = selTechs.filter(t => !t.excludeFromRouting && !absentToday.has(t.employeeId.toUpperCase()));
   const selectionSig = includedTickets.map(t => t.id).join(',') + '|' + includedTechs.map(t => t.id).join(',');
-  const [selOpen, setSelOpen] = useState(true);
-
-  const setTicketIncluded = (ids: string[], include: boolean) => setTicketsIgnored(ids, !include);
-  const setTechIncluded = (ids: string[], include: boolean) => {
-    const set = new Set(ids);
-    const now = new Date().toISOString();
-    saveTechnicians(getTechnicians().map(t => (set.has(t.id) && Boolean(t.excludeFromRouting) === include ? { ...t, excludeFromRouting: !include, updatedAt: now } : t)));
-  };
 
   // Current state = saved/assigned routes of this city's technicians (live from tickets)
   const currentPlans = getRoutePlans().filter(p => cityTechIds.has(p.technicianId));
@@ -147,6 +158,56 @@ export function CityRoutesPage() {
       ? `${city}: planned by road distance — ${used.reduce((a, p) => a + p.stops.length, 0)} tickets across ${used.length} technicians`
       : `${city}: road data unavailable — planned with estimated distances (straight line × 1.3)`);
   };
+
+  // ── Manual reassignment (works on the draft; starts one from the current routes if needed) ──
+  const editDraft = (fn: (plans: TechnicianRoutePlan[], unrouted: Ticket[]) => { plans: TechnicianRoutePlan[]; unrouted: Ticket[] }) => {
+    const base: Draft = draft ?? {
+      plans: currentPlans.map(p => ({ ...p, stops: [...p.stops] })), unrouted: [...notPlanned],
+      createdAt: new Date().toISOString(), selectionSig, roadPlanned: false,
+    };
+    const next = fn(base.plans.map(p => ({ ...p, stops: [...p.stops] })), [...base.unrouted]);
+    setDrafts(d => ({ ...d, [city]: { ...base, plans: next.plans.filter(p => p.stops.length > 0), unrouted: next.unrouted } }));
+  };
+  const planFor = (plans: TechnicianRoutePlan[], techId: string): TechnicianRoutePlan | null => {
+    const found = plans.find(p => p.technicianId === techId);
+    if (found) return found;
+    const t = techs.find(x => x.id === techId);
+    if (!t || t.startingLatitude == null || t.startingLongitude == null) return null;
+    const p: TechnicianRoutePlan = { technicianId: t.id, technicianName: t.name, employeeId: t.employeeId,
+      startLat: t.startingLatitude, startLng: t.startingLongitude, defaultDc: t.defaultDc ?? '',
+      stops: [], totalDistanceKm: 0, totalEstimatedMins: 0, status: 'Draft' };
+    plans.push(p);
+    return p;
+  };
+  /** Move a planned stop to another technician, or take it off the plan ('') */
+  const moveStop = (ticketId: string, toTechId: string) => editDraft((ps, un) => {
+    const from = ps.find(p => p.stops.some(s => s.ticketId === ticketId));
+    if (!from) return { plans: ps, unrouted: un };
+    const stop = from.stops.find(s => s.ticketId === ticketId)!;
+    from.stops = from.stops.filter(s => s.ticketId !== ticketId);
+    const touched = new Set([from.technicianId]);
+    if (toTechId) {
+      const to = planFor(ps, toTechId);
+      if (to) { to.stops.push(stop); touched.add(to.technicianId); }
+    } else {
+      const tk = tickets.find(t => t.ticketId === ticketId);
+      if (tk) un.push(tk);
+    }
+    return { plans: ps.map(p => (touched.has(p.technicianId) ? retime(p, params.shiftStart) : p)), unrouted: un };
+  });
+  /** Put a not-planned ticket on a technician's route */
+  const assignUnplanned = (ticketId: string, toTechId: string) => editDraft((ps, un) => {
+    const tk = tickets.find(t => t.ticketId === ticketId);
+    const c = tk && centers.find(x => x.name.trim().toLowerCase() === tk.centerName.trim().toLowerCase());
+    const to = planFor(ps, toTechId);
+    if (!tk || !c || !to) return { plans: ps, unrouted: un };
+    to.stops.push({ stopOrder: 0, ticketId: tk.ticketId, centerName: tk.centerName, vehicleNumber: tk.vehicleNumber, issue: tk.issue,
+      priority: tk.priority, latitude: c.latitude, longitude: c.longitude, estimatedArrival: '', ticketStatus: tk.status,
+      estimatedDurationMins: tk.priority === 'CRITICAL' ? 60 : 45 });
+    return { plans: ps.map(p => (p.technicianId === to.technicianId ? retime(p, params.shiftStart) : p)), unrouted: un.filter(t => t.ticketId !== ticketId) };
+  });
+  // Technicians a stop can be given to: everyone working in this city today
+  const moveTargets = includedTechs;
 
   const saveAndAssign = () => {
     if (!draft) return;
@@ -263,50 +324,8 @@ export function CityRoutesPage() {
             </div>
           </div>
 
-          {/* Plan selection */}
-          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-            <button onClick={() => setSelOpen(o => !o)} className="w-full px-4 py-3 flex items-center gap-2 text-left hover:bg-slate-50">
-              {selOpen ? <ChevronDown className="w-4 h-4 text-slate-400" /> : <ChevronRight className="w-4 h-4 text-slate-400" />}
-              <SlidersHorizontal className="w-4 h-4 text-blue-600" />
-              <span className="text-sm font-bold text-slate-900">Select what to plan</span>
-              <span className="text-xs text-slate-500">
-                {includedTickets.length}/{selTickets.length} tickets · {includedTechs.length}/{selTechs.length} technicians
-              </span>
-              {draft && draft.selectionSig !== selectionSig && (
-                <span className="ml-auto text-[11px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-700">Selection changed — optimise again</span>
-              )}
-            </button>
-            {selOpen && (
-              <div className="grid grid-cols-1 lg:grid-cols-2 border-t border-slate-100">
-                <SelectList
-                  title="Tickets"
-                  hint="Untick to ignore a ticket for routing (same as Ignore in Active Cases)"
-                  items={selTickets.map(t => ({
-                    id: t.id, checked: !t.ignoreForRouting,
-                    primary: t.ticketId, badge: t.priority, badgeClass: PRIORITY_STYLE[t.priority] ?? PRIORITY_STYLE.LOW,
-                    secondary: `${t.centerName}${t.assignedTechnicianName ? ` · → ${t.assignedTechnicianName}` : ''}`,
-                    note: t.status !== 'Open' && t.status !== 'Assigned' ? t.status : undefined,
-                  }))}
-                  onToggle={(id, on) => setTicketIncluded([id], on)}
-                  onAll={on => setTicketIncluded(selTickets.map(t => t.id), on)}
-                />
-                <SelectList
-                  title="Technicians"
-                  hint="Untick to leave a technician out of routing (same as the Technicians page toggle)"
-                  items={selTechs.map(t => {
-                    const absent = absentToday.has(t.employeeId.toUpperCase());
-                    return {
-                      id: t.id, checked: !t.excludeFromRouting,
-                      primary: t.name, secondary: `${t.employeeId} · ${t.zone || t.city}`,
-                      note: absent ? 'Absent today' : undefined, disabledReason: absent ? 'Marked absent today — change attendance to include' : undefined,
-                    };
-                  })}
-                  onToggle={(id, on) => setTechIncluded([id], on)}
-                  onAll={on => setTechIncluded(selTechs.map(t => t.id), on)}
-                />
-              </div>
-            )}
-          </div>
+          {/* Plan selection (shared with Route Planner and Smart Route) */}
+          <PlanSelectionPanel city={city} stale={Boolean(draft && draft.selectionSig !== selectionSig)} />
 
           {/* Notices */}
           {stats.tickets > 0 && stats.present === 0 && (
@@ -388,7 +407,17 @@ export function CityRoutesPage() {
                             <div className="text-slate-600 truncate"><MapPin className="inline w-3 h-3 -mt-0.5" /> {s.centerName} · {s.vehicleNumber}</div>
                             <div className="text-slate-400 truncate">{s.issue}</div>
                           </div>
-                          <span className="font-mono text-slate-500 shrink-0">{s.estimatedArrival}</span>
+                          <div className="flex flex-col items-end gap-1 shrink-0">
+                            <span className="font-mono text-slate-500">{s.estimatedArrival}</span>
+                            {!isDone(s.ticketStatus) && (
+                              <select value="" onChange={e => { if (e.target.value !== '') moveStop(s.ticketId, e.target.value === '__none' ? '' : e.target.value); }}
+                                className="text-[10px] border border-slate-200 rounded px-1 py-0.5 text-slate-600 bg-white max-w-[120px]" title="Reassign this stop">
+                                <option value="">Move to…</option>
+                                {moveTargets.filter(t => t.id !== p.technicianId).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                <option value="__none">— Remove from plan</option>
+                              </select>
+                            )}
+                          </div>
                         </li>
                       ))}
                     </ol>
@@ -399,7 +428,7 @@ export function CityRoutesPage() {
               {notPlanned.length > 0 && (
                 <div className="bg-white rounded-xl border border-rose-200 overflow-hidden">
                   <div className="px-4 py-2.5 bg-rose-50 text-xs font-bold text-rose-700">
-                    Not planned ({notPlanned.length}) — {draft ? 'over the stop/km limits for the available technicians' : 'not on any technician\'s route yet'}
+                    Not planned ({notPlanned.length}) — {draft ? 'didn\'t fit the limits, or removed by you' : 'not on any technician\'s route yet'} · use “Assign to…” to place one
                   </div>
                   <ul className="divide-y divide-slate-50">
                     {notPlanned.map(t => (
@@ -408,6 +437,12 @@ export function CityRoutesPage() {
                         <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${PRIORITY_STYLE[t.priority] ?? PRIORITY_STYLE.LOW}`}>{t.priority}</span>
                         <span className="text-slate-500 truncate">{t.centerName}</span>
                         {t.assignedTechnicianName && <span className="ml-auto text-slate-400 shrink-0">→ {t.assignedTechnicianName}</span>}
+                        <select value="" onChange={e => e.target.value && assignUnplanned(t.ticketId, e.target.value)}
+                          className={`${t.assignedTechnicianName ? '' : 'ml-auto'} text-[10px] border border-slate-200 rounded px-1 py-0.5 text-slate-600 bg-white shrink-0`}
+                          title="Put this ticket on a technician's route">
+                          <option value="">Assign to…</option>
+                          {moveTargets.map(tt => <option key={tt.id} value={tt.id}>{tt.name}</option>)}
+                        </select>
                       </li>
                     ))}
                   </ul>
@@ -515,52 +550,3 @@ function CityMap({ city, plans, techs, centers, colorOf, onRoad }: {
   );
 }
 
-// ── Checkbox list used by "Select what to plan" ──────────────────
-interface SelectItem {
-  id: string; checked: boolean; primary: string; secondary: string;
-  badge?: string; badgeClass?: string; note?: string; disabledReason?: string;
-}
-function SelectList({ title, hint, items, onToggle, onAll }: {
-  title: string; hint: string; items: SelectItem[];
-  onToggle: (id: string, on: boolean) => void; onAll: (on: boolean) => void;
-}) {
-  const [q, setQ] = useState('');
-  const shown = items.filter(i => !q || `${i.primary} ${i.secondary}`.toLowerCase().includes(q.toLowerCase()));
-  const on = items.filter(i => i.checked).length;
-  return (
-    <div className="p-4 lg:first:border-r border-slate-100 min-w-0">
-      <div className="flex items-center gap-2 mb-1">
-        <span className="text-xs font-bold text-slate-800">{title}</span>
-        <span className="text-[11px] text-slate-500">{on} of {items.length} included</span>
-        <div className="ml-auto flex gap-1">
-          <button onClick={() => onAll(true)} className="text-[11px] font-semibold text-blue-600 hover:underline px-1">All</button>
-          <button onClick={() => onAll(false)} className="text-[11px] font-semibold text-slate-500 hover:underline px-1">None</button>
-        </div>
-      </div>
-      <p className="text-[10px] text-slate-400 mb-2">{hint}</p>
-      {items.length > 6 && (
-        <input value={q} onChange={e => setQ(e.target.value)} placeholder={`Search ${title.toLowerCase()}…`}
-          className="w-full mb-2 px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
-      )}
-      <ul className="max-h-64 overflow-y-auto divide-y divide-slate-50 border border-slate-100 rounded-lg">
-        {shown.map(i => (
-          <li key={i.id}>
-            <label className={`flex items-center gap-2.5 px-3 py-2 text-xs cursor-pointer hover:bg-slate-50 ${i.checked ? '' : 'opacity-55'}`} title={i.disabledReason}>
-              <input type="checkbox" checked={i.checked} onChange={e => onToggle(i.id, e.target.checked)}
-                className="w-3.5 h-3.5 accent-blue-600 shrink-0" />
-              <span className="min-w-0 flex-1">
-                <span className="flex items-center gap-1.5">
-                  <span className={`font-semibold ${i.checked ? 'text-slate-900' : 'text-slate-500 line-through'}`}>{i.primary}</span>
-                  {i.badge && <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${i.badgeClass}`}>{i.badge}</span>}
-                  {i.note && <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-700">{i.note}</span>}
-                </span>
-                <span className="block text-slate-500 truncate">{i.secondary}</span>
-              </span>
-            </label>
-          </li>
-        ))}
-        {!shown.length && <li className="px-3 py-4 text-center text-[11px] text-slate-400">{items.length ? 'No matches' : `No ${title.toLowerCase()} in this city`}</li>}
-      </ul>
-    </div>
-  );
-}

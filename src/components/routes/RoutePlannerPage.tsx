@@ -53,6 +53,7 @@ import {
   History,
 } from 'lucide-react';
 import { localDate } from '../../lib/date';
+import { PlanSelectionPanel } from '../routing/PlanSelectionPanel';
 
 // ─── Recalc helper ────────────────────────────────────────────────────────────
 function recalcPlan(plan: TechnicianRoutePlan, centers: Center[]): TechnicianRoutePlan {
@@ -1031,6 +1032,9 @@ export const RoutePlannerPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Choose tickets / technicians for this city before planning */}
+      <PlanSelectionPanel city={selectedRoutingCity} />
 
       {/* Constraints Panel */}
       {showConstraints && (
