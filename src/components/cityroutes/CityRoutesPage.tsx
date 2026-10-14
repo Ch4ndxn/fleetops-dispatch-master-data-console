@@ -402,11 +402,19 @@ export function CityRoutesPage({ engine = 'builtin' }: { engine?: 'builtin' | 'v
             </label>
             <div className="flex flex-wrap gap-2 ml-auto">
               <div className="flex flex-col items-end gap-0.5">
-                <button onClick={optimise} disabled={planning || stats.present === 0 || stats.tickets === 0 || (isVroom && vroomStatus !== 'ok')}
+                <button onClick={optimise} disabled={planning || !stats || stats.present === 0 || stats.tickets === 0 || (isVroom && vroomStatus === 'down')}
                   className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-bold flex items-center gap-1.5">
-                  <Play className="w-3.5 h-3.5" /> {planning ? (planningStatus || (isVroom ? 'Solving with VROOM…' : 'Optimising…')) : `${isVroom ? 'Solve with VROOM: ' : 'Optimise '}${city}`}
+                  <Play className="w-3.5 h-3.5" />
+                  {planning
+                    ? (planningStatus || (isVroom ? 'Solving with VROOM…' : 'Optimising…'))
+                    : isVroom && vroomStatus === 'checking'
+                      ? `Checking VROOM service…`
+                      : `${isVroom ? 'Solve with VROOM: ' : 'Optimise '}${city}`}
                 </button>
-                {planning && isVroom && <span className="text-[10px] text-slate-500 pr-1">{planningStatus}</span>}
+                {isVroom && !planning && vroomStatus === 'checking' && (
+                  <span className="text-[10px] text-slate-400 pr-1">Waking service, button enabled shortly…</span>
+                )}
+                {planning && isVroom && planningStatus && <span className="text-[10px] text-slate-500 pr-1">{planningStatus}</span>}
               </div>
               {draft && (
                 <>
