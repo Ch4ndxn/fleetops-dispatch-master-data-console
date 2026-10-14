@@ -10,7 +10,7 @@ services:
         destination: /index.html
     envVars:
       - key: VITE_VROOM_URL
-        value: https://fleetops-vroom.onrender.com
+        value: https://fleetops-vroom-engine.onrender.com
       - key: VITE_SUPABASE_URL
         value: https://fiuyaoxecouuxmrdqqot.supabase.co
       - key: VITE_SUPABASE_ANON_KEY

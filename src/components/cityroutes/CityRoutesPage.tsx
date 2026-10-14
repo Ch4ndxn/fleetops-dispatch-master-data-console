@@ -310,7 +310,7 @@ export function CityRoutesPage({ engine = 'builtin' }: { engine?: 'builtin' | 'v
           <span className="font-semibold text-slate-800 shrink-0">
             VROOM service: {{ ok: '● connected', checking: 'checking… (a sleeping free server can take up to a minute to wake)', down: '● not reachable', unset: 'not set up' }[vroomStatus]}
           </span>
-          <input value={urlDraft} onChange={e => setUrlDraft(e.target.value)} placeholder="https://fleetops-vroom.onrender.com"
+          <input value={urlDraft} onChange={e => setUrlDraft(e.target.value)} placeholder="https://fleetops-vroom-engine.onrender.com"
             className="flex-1 min-w-0 px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white font-mono text-[11px] focus:outline-none focus:ring-2 focus:ring-blue-500" />
           <button onClick={() => { setVroomUrl(urlDraft); setVroomUrlState(getVroomUrl()); }}
             className="px-3 py-1.5 rounded-lg bg-slate-800 text-white font-semibold hover:bg-slate-900 shrink-0">Save & test</button>
