@@ -37,6 +37,7 @@ import {
   Ticket,
   Sparkles,
   Waypoints,
+  Route,
   BrainCircuit
 } from 'lucide-react';
 
@@ -85,7 +86,8 @@ type NavTab =
   | 'AI ASSISTANT'
   | 'AI ROUTE'
   | 'SMART ROUTE'
-  | 'CITY ROUTES';
+  | 'CITY ROUTES'
+  | 'VROOM ROUTES';
 
 interface NavItem {
   id: NavTab;
@@ -119,6 +121,7 @@ const NAV_GROUPS: NavGroup[] = [
       { id: 'AI ROUTE',           label: 'AI Route',          icon: BrainCircuit },
       { id: 'SMART ROUTE',        label: 'Smart Route',       icon: Sparkles },
       { id: 'CITY ROUTES',        label: 'City Routes',       icon: Waypoints },
+      { id: 'VROOM ROUTES',       label: 'VROOM Routes',      icon: Route },
       { id: 'LIVE TRACKING',      label: 'Live Tracking',     icon: Radio },
       { id: 'HEX ZONE MAP',       label: 'Hex Zone Map',      icon: Hexagon },
     ],
@@ -393,6 +396,7 @@ export default function App() {
           )}
 
           {activeTab === 'CITY ROUTES' && <CityRoutesPage />}
+          {activeTab === 'VROOM ROUTES' && <CityRoutesPage engine="vroom" />}
 
           {activeTab === 'TICKETS' && (
             <TicketsPage onOpenUploadModal={handleOpenUpload} />

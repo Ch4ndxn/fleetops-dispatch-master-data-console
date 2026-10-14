@@ -18,6 +18,7 @@ import {
 import { planBalancedRoutes, normaliseCityToPreset, CITY_PRESETS } from '../../services/routeOptimizer';
 import { fetchRoadMatrix, fetchRoadRoute, type LatLng } from '../../services/roadRouting';
 import { PlanSelectionPanel } from '../routing/PlanSelectionPanel';
+import { solveWithVroom, getVroomUrl, setVroomUrl, checkVroom } from '../../services/vroom';
 import type { Ticket, TechnicianRoutePlan, Technician } from '../../types';
 import { localDate } from '../../lib/date';
 
@@ -63,7 +64,21 @@ interface Draft { plans: TechnicianRoutePlan[]; unrouted: Ticket[]; createdAt: s
 /** Road km / minutes for a technician's drawn route (from OSRM), keyed by technician id */
 type RoadStats = Record<string, { km: number; mins: number } | 'failed'>;
 
-export function CityRoutesPage() {
+/** engine = which optimiser plans the routes: the built-in one, or the VROOM service */
+export function CityRoutesPage({ engine = 'builtin' }: { engine?: 'builtin' | 'vroom' } = {}) {
+  const isVroom = engine === 'vroom';
+  const [vroomUrl, setVroomUrlState] = useState(getVroomUrl());
+  const [vroomStatus, setVroomStatus] = useState<'checking' | 'ok' | 'down' | 'unset'>(vroomUrl ? 'checking' : 'unset');
+  const [urlDraft, setUrlDraft] = useState(vroomUrl);
+  const [comparison, setComparison] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (!isVroom) return;
+    let live = true;
+    setVroomStatus(vroomUrl ? 'checking' : 'unset');
+    checkVroom(vroomUrl).then(s => { if (live) setVroomStatus(s); });
+    return () => { live = false; };
+  }, [isVroom, vroomUrl]);
+
   const [, setTick] = useState(0);
   useEffect(() => subscribeToDataChanges(() => setTick(n => n + 1)), []);
 
@@ -149,17 +164,39 @@ export function CityRoutesPage() {
         .filter(Boolean).map(c => [c!.latitude, c!.longitude] as LatLng),
     ];
     const roadMatrix = await fetchRoadMatrix(points);
-    setPlanning(false);
-    const r = planBalancedRoutes({
+    const builtin = planBalancedRoutes({
       roadMatrix,
       balanceKm: MODE_KM[params.mode],
       cityFilter: city, maxStopsPerTech: params.maxStops, maxKmPerTech: params.maxKm,
       priorityFilter: 'all', skillMatch: false, shiftStartHour: params.shiftStart, shiftEndHour: params.shiftEnd,
     });
+    let r: { plans: TechnicianRoutePlan[]; unrouted: Ticket[] } = builtin;
+    if (isVroom) {
+      try {
+        const v = await solveWithVroom({
+          techs: includedTechs, tickets: includedTickets, centers,
+          maxStops: params.maxStops, maxKm: params.maxKm, shiftStart: params.shiftStart, shiftEnd: params.shiftEnd,
+          mode: params.mode, roadMatrix,
+        }, vroomUrl);
+        r = v;
+        // Same tickets, same limits, same distances: show how VROOM compares with the built-in planner
+        const km = (ps: TechnicianRoutePlan[]) => Math.round(ps.reduce((a, p) => a + p.totalDistanceKm, 0) * 10) / 10;
+        const n = (ps: TechnicianRoutePlan[]) => ps.reduce((a, p) => a + p.stops.length, 0);
+        setComparison(c => ({ ...c, [city]:
+          `VROOM: ${n(v.plans)} tickets, ${km(v.plans)} km, ${v.plans.length} technicians (solved in ${v.solveMs} ms, up to ${v.capUsed} stops each) · ` +
+          `Built-in: ${n(builtin.plans)} tickets, ${km(builtin.plans)} km, ${builtin.plans.filter(p => p.stops.length).length} technicians` }));
+      } catch (e) {
+        setPlanning(false);
+        showToast(`VROOM failed: ${(e as Error).message} — check the service URL`);
+        setVroomStatus('down');
+        return;
+      }
+    }
+    setPlanning(false);
     const used = r.plans.filter(p => p.stops.length > 0);
     setDrafts(d => ({ ...d, [city]: { plans: used, unrouted: r.unrouted, createdAt: new Date().toISOString(), selectionSig, roadPlanned: Boolean(roadMatrix) } }));
     showToast(roadMatrix
-      ? `${city}: planned by road distance — ${used.reduce((a, p) => a + p.stops.length, 0)} tickets across ${used.length} technicians`
+      ? `${city}: ${isVroom ? 'VROOM ' : ''}planned by road distance — ${used.reduce((a, p) => a + p.stops.length, 0)} tickets across ${used.length} technicians`
       : `${city}: road data unavailable — planned with estimated distances (straight line × 1.3)`);
   };
 
@@ -259,12 +296,29 @@ export function CityRoutesPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight">CITY ROUTES</h1>
+          <h1 className="text-xl font-bold text-slate-900 tracking-tight">{isVroom ? 'VROOM ROUTES' : 'CITY ROUTES'}</h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Each city is optimised with its own technicians and its own tickets. Plans stay drafts until you save them.
+            {isVroom
+              ? 'Each city is optimised by VROOM, an open-source routing solver, with its own technicians and tickets. Plans stay drafts until you save them.'
+              : 'Each city is optimised with its own technicians and its own tickets. Plans stay drafts until you save them.'}
           </p>
         </div>
       </div>
+
+      {isVroom && (
+        <div className={`rounded-xl border p-3 flex flex-col md:flex-row md:items-center gap-2 text-xs ${vroomStatus === 'ok' ? 'bg-emerald-50 border-emerald-200' : vroomStatus === 'checking' ? 'bg-slate-50 border-slate-200' : 'bg-amber-50 border-amber-200'}`}>
+          <span className="font-semibold text-slate-800 shrink-0">
+            VROOM service: {{ ok: '● connected', checking: 'checking… (a sleeping free server can take up to a minute to wake)', down: '● not reachable', unset: 'not set up' }[vroomStatus]}
+          </span>
+          <input value={urlDraft} onChange={e => setUrlDraft(e.target.value)} placeholder="https://fleetops-vroom.onrender.com"
+            className="flex-1 min-w-0 px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white font-mono text-[11px] focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          <button onClick={() => { setVroomUrl(urlDraft); setVroomUrlState(getVroomUrl()); }}
+            className="px-3 py-1.5 rounded-lg bg-slate-800 text-white font-semibold hover:bg-slate-900 shrink-0">Save & test</button>
+          {vroomStatus !== 'ok' && vroomStatus !== 'checking' && (
+            <span className="text-slate-600 md:max-w-xs">Deploy the <b>fleetops-vroom</b> service from render.yaml, then paste its URL here.</span>
+          )}
+        </div>
+      )}
 
       {/* City tabs */}
       <div className="flex gap-2 overflow-x-auto pb-1">
@@ -316,9 +370,9 @@ export function CityRoutesPage() {
               </select>
             </label>
             <div className="flex flex-wrap gap-2 ml-auto">
-              <button onClick={optimise} disabled={planning || stats.present === 0 || stats.tickets === 0}
+              <button onClick={optimise} disabled={planning || stats.present === 0 || stats.tickets === 0 || (isVroom && vroomStatus !== 'ok')}
                 className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-bold flex items-center gap-1.5">
-                <Play className="w-3.5 h-3.5" /> {planning ? 'Fetching road distances…' : `Optimise ${city}`}
+                <Play className="w-3.5 h-3.5" /> {planning ? (isVroom ? 'Solving with VROOM…' : 'Fetching road distances…') : `${isVroom ? 'Solve with VROOM: ' : 'Optimise '}${city}`}
               </button>
               {draft && (
                 <>
@@ -370,6 +424,10 @@ export function CityRoutesPage() {
               </div>
             ))}
           </div>
+
+          {isVroom && comparison[city] && draft && (
+            <div className="px-4 py-2.5 rounded-xl bg-blue-50 border border-blue-200 text-xs text-blue-900">{comparison[city]}</div>
+          )}
 
           {/* Roster + map */}
           <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] gap-4">
@@ -446,7 +504,9 @@ export function CityRoutesPage() {
                 return (
                   <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
                     <div className="px-4 py-2.5 bg-slate-50 text-xs font-bold text-slate-700">
-                      Not used ({idle.length}) — every ticket had a closer technician{params.mode !== 'even' ? ' · choose “Even workload” to use everyone' : ''}
+                      Not used ({idle.length}) — {isVroom
+                        ? `VROOM found shorter total driving without them${params.mode !== 'even' ? ' · “Even workload” caps everyone at a fair share, which brings more technicians in' : ''}`
+                        : `every ticket had a closer technician${params.mode !== 'even' ? ' · choose “Even workload” to use everyone' : ''}`}
                     </div>
                     <ul className="divide-y divide-slate-50">
                       {idle.map(t => {

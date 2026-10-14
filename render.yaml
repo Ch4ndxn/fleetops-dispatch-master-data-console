@@ -9,7 +9,22 @@ services:
         source: /*
         destination: /index.html
     envVars:
+      - key: VITE_VROOM_URL
+        value: https://fleetops-vroom.onrender.com
       - key: VITE_SUPABASE_URL
         value: https://fiuyaoxecouuxmrdqqot.supabase.co
       - key: VITE_SUPABASE_ANON_KEY
         value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpdXlhb3hlY291dXhtcmRxcW90Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE0NzIzNjUsImV4cCI6MjEwNzA0ODM2NX0.9NQdU899C-YSbrBTeukAknpl6GkL8cYnJwmhheFORYA
+
+  # VROOM route-optimisation engine (vroom-express on port 3000), used by the "VROOM Routes" tab.
+  # The app sends its own distance/time matrices, so no map server is needed here.
+  - type: web
+    name: fleetops-vroom
+    runtime: image
+    image:
+      url: ghcr.io/vroom-project/vroom-docker:v1.15.0
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: VROOM_ROUTER
+        value: osrm
