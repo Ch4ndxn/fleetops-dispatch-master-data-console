@@ -117,7 +117,9 @@ function SelectList({ title, hint, items, onToggle, onAll }: {
   onToggle: (id: string, on: boolean) => void; onAll: (on: boolean) => void;
 }) {
   const [q, setQ] = useState('');
-  const shown = items.filter(i => !q || `${i.primary} ${i.secondary}`.toLowerCase().includes(q.toLowerCase()));
+  const [limit, setLimit] = useState(100);
+  const matches = items.filter(i => !q || `${i.primary} ${i.secondary}`.toLowerCase().includes(q.toLowerCase()));
+  const shown = matches.slice(0, limit); // drawing thousands of rows at once froze the page
   const on = items.filter(i => i.checked).length;
   return (
     <div className="p-4 lg:first:border-r border-slate-100 min-w-0">
@@ -151,6 +153,13 @@ function SelectList({ title, hint, items, onToggle, onAll }: {
             </label>
           </li>
         ))}
+        {matches.length > shown.length && (
+          <li className="px-3 py-2 text-center">
+            <button onClick={() => setLimit(l => l + 200)} className="text-[11px] font-semibold text-blue-600 hover:underline">
+              Showing {shown.length} of {matches.length} — show more (or search)
+            </button>
+          </li>
+        )}
         {!shown.length && <li className="px-3 py-4 text-center text-[11px] text-slate-400">{items.length ? 'No matches' : `No ${title.toLowerCase()} in this city`}</li>}
       </ul>
     </div>

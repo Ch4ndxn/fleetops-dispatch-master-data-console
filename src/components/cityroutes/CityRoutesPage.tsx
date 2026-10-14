@@ -138,6 +138,7 @@ export function CityRoutesPage() {
 
   // ── actions ────────────────────────────────────────────────────
   const [planning, setPlanning] = useState(false);
+  const [notPlannedLimit, setNotPlannedLimit] = useState(50);
   const [roadStats, setRoadStats] = useState<RoadStats>({});
   const optimise = async () => {
     setPlanning(true);
@@ -469,7 +470,7 @@ export function CityRoutesPage() {
                     Not planned ({notPlanned.length}) — {draft ? 'didn\'t fit the limits, or removed by you' : 'not on any technician\'s route yet'} · use “Assign to…” to place one
                   </div>
                   <ul className="divide-y divide-slate-50">
-                    {notPlanned.map(t => (
+                    {notPlanned.slice(0, notPlannedLimit).map(t => (
                       <li key={t.ticketId} className="px-4 py-2 text-xs flex items-center gap-2">
                         <span className="font-mono font-bold text-slate-700">{t.ticketId}</span>
                         <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${PRIORITY_STYLE[t.priority] ?? PRIORITY_STYLE.LOW}`}>{t.priority}</span>
@@ -483,6 +484,13 @@ export function CityRoutesPage() {
                         </select>
                       </li>
                     ))}
+                    {notPlanned.length > notPlannedLimit && (
+                      <li className="px-4 py-2 text-center">
+                        <button onClick={() => setNotPlannedLimit(l => l + 100)} className="text-[11px] font-semibold text-blue-600 hover:underline">
+                          Showing {notPlannedLimit} of {notPlanned.length} — show more
+                        </button>
+                      </li>
+                    )}
                   </ul>
                 </div>
               )}

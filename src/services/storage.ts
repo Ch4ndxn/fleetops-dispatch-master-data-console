@@ -96,8 +96,20 @@ function notify() {
 // ─────────────────────────────────────────────────────────────────
 // LOCALSTORAGE HELPERS (synchronous primary store)
 // ─────────────────────────────────────────────────────────────────
+// Parsed values are reused until the stored text changes. Parsing thousands of tickets on
+// every call made pages slow; comparing the stored string is far cheaper than JSON.parse.
+const parseCache = new Map<string, { raw: string; value: unknown }>();
 function lsGet<T>(key: string, def: T): T {
-  try { const r = localStorage.getItem(key); return r ? JSON.parse(r) : def; } catch { return def; }
+  try {
+    const r = localStorage.getItem(key);
+    if (!r) return def;
+    const hit = parseCache.get(key);
+    let value: unknown;
+    if (hit && hit.raw === r) value = hit.value;
+    else { value = JSON.parse(r); parseCache.set(key, { raw: r, value }); }
+    // fresh array each call so callers can sort / push without touching the cache
+    return (Array.isArray(value) ? [...value] : value) as T;
+  } catch { return def; }
 }
 function lsSet<T>(key: string, val: T): void {
   try { localStorage.setItem(key, JSON.stringify(val)); notify(); } catch (e) { console.error(e); }

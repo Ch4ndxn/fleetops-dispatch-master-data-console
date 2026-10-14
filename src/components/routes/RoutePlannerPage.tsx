@@ -191,6 +191,7 @@ export const RoutePlannerPage: React.FC = () => {
 
   // Filter/search state
   const [cityFilter, setCityFilter] = useState<string>('ALL');
+  const [unassignedLimit, setUnassignedLimit] = useState(60); // render a page at a time; thousands of rows froze the tab
   const [selectedRoutingCity, setSelectedRoutingCity] = useState<string>(() => detectDominantCityForRoute());
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -1780,7 +1781,7 @@ export const RoutePlannerPage: React.FC = () => {
                   {unassignedTicketsRaw.length === 0 ? 'All routable tickets are assigned.' : 'No tickets match the filter.'}
                 </div>
               ) : (
-                unassignedTickets.map(tk => {
+                unassignedTickets.slice(0, unassignedLimit).map(tk => {
                   const isOpen = assignOpen[tk.ticketId] ?? false;
                   return (
                     <div key={tk.ticketId} className="px-4 py-3">
@@ -1828,6 +1829,11 @@ export const RoutePlannerPage: React.FC = () => {
                 })
               )}
             </div>
+            {unassignedTickets.length > unassignedLimit && (
+              <button onClick={() => setUnassignedLimit(l => l + 100)} className="w-full py-2 text-[11px] font-semibold text-blue-600 hover:underline border-t border-slate-100">
+                Showing {unassignedLimit} of {unassignedTickets.length} — show more
+              </button>
+            )}
           </div>
         </div>
       </div>

@@ -245,6 +245,7 @@ export const MapTab: React.FC<MapTabProps> = ({
     const bounds = L.latLngBounds([]);
 
     // DC markers
+    const dcCanvas = L.canvas({ padding: 0.5 });
     centers.forEach(c => {
       if (!c.latitude || !c.longitude || isNaN(c.latitude) || isNaN(c.longitude)) return;
       bounds.extend([c.latitude, c.longitude]);
@@ -256,7 +257,9 @@ export const MapTab: React.FC<MapTabProps> = ({
         iconSize: [22, 22],
         iconAnchor: [11, 11],
       });
-      L.marker([c.latitude, c.longitude], { icon })
+      void icon;
+      // canvas dot — hundreds of HTML markers made the map slow
+      L.circleMarker([c.latitude, c.longitude], { renderer: dcCanvas, radius: 5, color: '#fff', weight: 1.5, fillColor: '#0f172a', fillOpacity: 1 })
         .addTo(map)
         .bindPopup(`<b style="font-family:sans-serif;font-size:13px">${c.name.replace(/_D$/, '')}</b><br/><span style="color:#64748b;font-size:11px">${c.city}</span>`);
     });

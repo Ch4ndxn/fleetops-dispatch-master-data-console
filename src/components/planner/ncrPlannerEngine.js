@@ -417,6 +417,9 @@ function assignTechnicians(numTechs, params) {
 //  SPARE VEHICLE OPTIMIZER
 // ═══════════════════════════════════════════════════════
 
+// Spare hubs depend only on the DCs and which of them have tickets — not on the technician
+// slider or shift settings — so the result is cached, and every distance is computed once.
+let __spareCache = { sig: null, value: null };
 function findOptimalSpareHubs() {
   // 1 spare vehicle per 20 vehicles in the fleet
   const totalVehicles = ALL_DCS.reduce((s, dc) => s + (dc.v || []).length, 0);
@@ -425,51 +428,51 @@ function findOptimalSpareHubs() {
   const activeDCPoints = ACTIVE_DCS.map(name => DC_MAP[name]).filter(Boolean);
   if(activeDCPoints.length === 0) return { hubs: [], totalVehicles, numSpares };
 
-  // Score every DC as a candidate hub: minimize avg dist to uncovered ticket DCs
-  // Use greedy k-medoid: pick hubs one by one, each covering nearest ticket DCs
+  const sig = ALL_DCS.length + '|' + totalVehicles + '|' + activeDCPoints.map(d => d.c).sort().join(',');
+  if (__spareCache.sig === sig) return __spareCache.value;
+
+  // distance matrix: candidate DC × ticket DC, computed once
+  const nC = ALL_DCS.length, nA = activeDCPoints.length;
+  const D = new Float64Array(nC * nA);
+  for (let c = 0; c < nC; c++) {
+    const cand = ALL_DCS[c];
+    for (let a = 0; a < nA; a++) D[c * nA + a] = haversineKm(cand, activeDCPoints[a]);
+  }
+
+  // Greedy k-medoid: pick hubs one by one, each covering nearest ticket DCs
   const hubs = [];
-  let uncovered = activeDCPoints.slice();
-
+  let uncovered = [...Array(nA).keys()];
   for(let h = 0; h < numSpares; h++) {
-    let bestDC = null, bestScore = Infinity;
-    ALL_DCS.forEach(cand => {
-      let totalDist = 0;
-      uncovered.forEach(dc => {
-        totalDist += haversineKm({lat:cand.lat,lon:cand.lon},{lat:dc.lat,lon:dc.lon});
-      });
-      const avgDist = uncovered.length > 0 ? totalDist / uncovered.length : 0;
-      const vehicleBonus = (cand.v || []).length * 1.5;
-      const score = avgDist - vehicleBonus;
-      if(score < bestScore) { bestScore = score; bestDC = cand; }
-    });
-    if(!bestDC) break;
-
-    // Assign each ticket DC to its nearest hub (for coverage stats)
-    const dists = uncovered.map(dc => haversineKm({lat:bestDC.lat,lon:bestDC.lon},{lat:dc.lat,lon:dc.lon}));
+    let best = -1, bestScore = Infinity;
+    for (let c = 0; c < nC; c++) {
+      let total = 0;
+      for (const a of uncovered) total += D[c * nA + a];
+      const avgDist = uncovered.length > 0 ? total / uncovered.length : 0;
+      const score = avgDist - (ALL_DCS[c].v || []).length * 1.5;
+      if (score < bestScore) { bestScore = score; best = c; }
+    }
+    if(best < 0) break;
+    const bestDC = ALL_DCS[best];
+    const dists = uncovered.map(a => D[best * nA + a]);
     const avgDist = dists.length ? dists.reduce((s,d)=>s+d,0)/dists.length : 0;
     const maxDist = dists.length ? Math.max(...dists) : 0;
-    const within15 = dists.filter(d=>d<=15).length;
-    const vehiclesAtHub = (bestDC.v || []).length;
-
     hubs.push({
       dc: bestDC,
       avgDist: Math.round(avgDist*10)/10,
       maxDist: Math.round(maxDist*10)/10,
-      within15,
-      vehiclesAtHub,
+      within15: dists.filter(d=>d<=15).length,
+      vehiclesAtHub: (bestDC.v || []).length,
       hubNumber: h + 1
     });
-
-    // Remove covered DCs (those closest to this hub vs remaining)
-    // Simple: remove DCs within avg radius of this hub to spread coverage
+    // Remove DCs within avg radius of this hub to spread coverage
     const coverRadius = Math.max(avgDist, 10);
-    uncovered = uncovered.filter(dc =>
-      haversineKm({lat:bestDC.lat,lon:bestDC.lon},{lat:dc.lat,lon:dc.lon}) > coverRadius
-    );
+    uncovered = uncovered.filter(a => D[best * nA + a] > coverRadius);
     if(uncovered.length === 0) break;
   }
 
-  return { hubs, totalVehicles, numSpares };
+  const value = { hubs, totalVehicles, numSpares };
+  __spareCache = { sig, value };
+  return value;
 }
 
 // ═══════════════════════════════════════════════════════

@@ -16,6 +16,7 @@ import {
   Building2
 } from 'lucide-react';
 import { localDate } from '../../lib/date';
+import { usePaged, Pager } from '../common/Pager';
 
 interface Props {
   onOpenUploadModal: (type: 'TICKET_CSV') => void;
@@ -104,6 +105,7 @@ export const ActiveCasesPage: React.FC<Props> = ({ onOpenUploadModal }) => {
       return matchSearch && matchStatus && matchPriority && matchCenter && matchRouting;
     });
   }, [tickets, searchTerm, statusFilter, priorityFilter, centerFilter, routingFilter]);
+  const paged = usePaged(filteredTickets, 50, `${searchTerm}|${statusFilter}|${priorityFilter}|${centerFilter}|${routingFilter}`);
   const ignoredOpenCount = tickets.filter(t => t.ignoreForRouting && t.status !== 'Resolved' && t.status !== 'Closed').length;
 
   const uniqueCenters = Array.from(new Set(tickets.map(t => t.centerName).filter(Boolean)));
@@ -238,7 +240,7 @@ export const ActiveCasesPage: React.FC<Props> = ({ onOpenUploadModal }) => {
                   </td>
                 </tr>
               ) : (
-                filteredTickets.map((tk) => {
+                paged.pageItems.map((tk) => {
                   return (
                     <tr key={tk.id} className={`hover:bg-slate-50/70 transition-colors ${tk.ignoreForRouting ? 'bg-slate-50/80 opacity-70' : ''}`}>
                       {/* Ticket */}
@@ -357,6 +359,7 @@ export const ActiveCasesPage: React.FC<Props> = ({ onOpenUploadModal }) => {
           </table>
         </div>
 
+        <Pager page={paged.page} pages={paged.pages} setPage={paged.setPage} start={paged.start} shown={paged.pageItems.length} total={paged.total} label="cases" />
         <div className="p-3 bg-slate-50 border-t border-slate-200 text-xs text-slate-500 flex items-center justify-between">
           <span>Showing {filteredTickets.length} cases</span>
           <span>

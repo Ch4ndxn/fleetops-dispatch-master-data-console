@@ -11,6 +11,7 @@ import {
   Search,
   Building2
 } from 'lucide-react';
+import { usePaged, Pager } from '../common/Pager';
 
 export const TicketAssignmentPage: React.FC = () => {
   const [tickets, setTickets] = useState<Ticket[]>(() => getTickets());
@@ -48,6 +49,7 @@ export const TicketAssignmentPage: React.FC = () => {
     t.centerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     t.issue.toLowerCase().includes(searchTerm.toLowerCase())
   );
+  const pagedUnassigned = usePaged(filteredUnassigned, 40, searchTerm);
 
   return (
     <div className="space-y-6">
@@ -90,7 +92,7 @@ export const TicketAssignmentPage: React.FC = () => {
                 No unassigned tickets found. All cases are currently allocated!
               </div>
             ) : (
-              filteredUnassigned.map((tk) => (
+              pagedUnassigned.pageItems.map((tk) => (
                 <div key={tk.id} className="py-3 flex items-center justify-between gap-3">
                   <div>
                     <div className="flex items-center gap-2">
@@ -129,6 +131,7 @@ export const TicketAssignmentPage: React.FC = () => {
               ))
             )}
           </div>
+          <Pager page={pagedUnassigned.page} pages={pagedUnassigned.pages} setPage={pagedUnassigned.setPage} start={pagedUnassigned.start} shown={pagedUnassigned.pageItems.length} total={pagedUnassigned.total} label="unassigned tickets" />
         </div>
 
         {/* Technician workload capacity */}

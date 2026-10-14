@@ -1628,12 +1628,18 @@ export function HexZoneMapPage() {
       layersRef.current.push(poly);
     });
 
-    // DC / Center markers
+    // DC / Center markers — tickets grouped by center once (was a full scan per center)
+    const byCenter = new Map<string, typeof filteredTickets>();
+    filteredTickets.forEach(t => {
+      const k = t.centerName.toLowerCase().trim();
+      if (!byCenter.has(k)) byCenter.set(k, []);
+      byCenter.get(k)!.push(t);
+    });
+    const dcCanvas = L.canvas({ padding: 0.5 });
     centers.forEach(c => {
       if (!c.latitude || !c.longitude || isNaN(c.latitude)) return;
-      const cTickets = filteredTickets.filter(t =>
-        t.centerName.toLowerCase().trim() === c.name.toLowerCase().trim() || t.centerName.toLowerCase() === c.normalizedName
-      );
+      const nameKey = c.name.toLowerCase().trim();
+      const cTickets = [...(byCenter.get(nameKey) ?? []), ...(c.normalizedName && c.normalizedName !== nameKey ? byCenter.get(c.normalizedName) ?? [] : [])];
       const openCount = cTickets.filter(t => !ignored.has(t.id) && t.status !== 'Resolved' && t.status !== 'Closed').length;
       const hasOpen = openCount > 0;
       const hasIgn  = cTickets.some(t => ignored.has(t.id));
@@ -1645,12 +1651,8 @@ export function HexZoneMapPage() {
                       : hasIgn && activeLayers.has('ignoredTickets') ? '#94a3b8'
                       : '#0f172a';
       const ringWidth = (hasOpen || hasIgn) ? 3 : 2;
-      const icon = L.divIcon({
-        className: '',
-        html: `<div style="background:#0f172a;color:white;font-size:9px;font-weight:700;width:26px;height:26px;border-radius:5px;display:flex;align-items:center;justify-content:center;border:${ringWidth}px solid ${ringColor};box-shadow:0 2px 5px rgba(0,0,0,.35)">DC</div>`,
-        iconSize: [26, 26], iconAnchor: [13, 13],
-      });
-      const m = L.marker([c.latitude, c.longitude], { icon }).addTo(map);
+      // canvas dot — hundreds of HTML markers made the map slow
+      const m = L.circleMarker([c.latitude, c.longitude], { renderer: dcCanvas, radius: 6, color: ringColor, weight: ringWidth, fillColor: '#0f172a', fillOpacity: 1 }).addTo(map);
       m.bindTooltip(`${c.name.replace(/_D$/, '')} — ${openCount} open`, { permanent: false, direction: 'top' });
       m.on('click', () => {
         const cell = grid.find(cell => isInsideHex(c.latitude, c.longitude, cell.cLat, cell.cLng));

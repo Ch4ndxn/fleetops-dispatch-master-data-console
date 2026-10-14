@@ -484,6 +484,17 @@ export function planBalancedRoutes(constraints: BalancedPlanConstraints): Balanc
     return seq;
   }
 
+  /** Put job ji at the position in seq that adds the least km (feasibility checked by caller) */
+  function insertAtBest(ti: number, seq: number[], ji: number): number[] {
+    let best = seq, bestKm = Infinity;
+    for (let pos = 0; pos <= seq.length; pos++) {
+      const cand = [...seq.slice(0, pos), ji, ...seq.slice(pos)];
+      const km = routeKm(ti, cand);
+      if (km < bestKm) { bestKm = km; best = cand; }
+    }
+    return best;
+  }
+
   /** Cheapest feasible position for job ji in technician ti's route */
   function bestInsertion(ti: number, seq: number[], ji: number): { seq: number[]; deltaKm: number } | null {
     if (seq.length >= constraints.maxStopsPerTech || !skillOk(ji, ti) || !reachable(ji, ti)) return null;
@@ -583,6 +594,30 @@ export function planBalancedRoutes(constraints: BalancedPlanConstraints): Balanc
         if (best) {
           routes[a] = sequence(a, fromSeq);
           routes[best.b] = sequence(best.b, best.seq);
+          moved = true;
+        }
+      }
+    }
+    // Swap: exchange one stop between two technicians — loads stay the same, km drops
+    for (let a = 0; a < T; a++) {
+      for (let b = a + 1; b < T; b++) {
+        if (!routes[a].length || !routes[b].length) continue;
+        const kmA = routeKm(a, routes[a]), kmB = routeKm(b, routes[b]);
+        let best: { ra: number[]; rb: number[]; gain: number } | null = null;
+        for (const x of routes[a]) {
+          for (const y of routes[b]) {
+            if (!skillOk(y, a) || !skillOk(x, b) || !reachable(y, a) || !reachable(x, b)) continue;
+            // each incoming stop goes to its best position; full re-order only if accepted
+            const ra = insertAtBest(a, routes[a].filter(v => v !== x), y);
+            const rb = insertAtBest(b, routes[b].filter(v => v !== y), x);
+            const gain = kmA + kmB - routeKm(a, ra) - routeKm(b, rb);
+            if (gain > 0.5 && (!best || gain > best.gain) && feasible(a, ra) && feasible(b, rb)) best = { ra, rb, gain };
+          }
+        }
+        if (best) {
+          const ra = sequence(a, best.ra), rb = sequence(b, best.rb);
+          routes[a] = feasible(a, ra) ? ra : best.ra;
+          routes[b] = feasible(b, rb) ? rb : best.rb;
           moved = true;
         }
       }

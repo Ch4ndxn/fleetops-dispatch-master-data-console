@@ -165,6 +165,7 @@ export const LiveMapViewer: React.FC<Props> = ({
     const bounds = L.latLngBounds([]);
 
     // ── 1. Centers (only when no route selected or always as context) ──────────
+    const dcCanvas = L.canvas({ padding: 0.5 });
     centers.forEach(c => {
       if (!c.latitude || !c.longitude || isNaN(c.latitude) || isNaN(c.longitude)) return;
       bounds.extend([c.latitude, c.longitude]);
@@ -182,7 +183,9 @@ export const LiveMapViewer: React.FC<Props> = ({
         iconAnchor: [12, 12]
       });
 
-      L.marker([c.latitude, c.longitude], { icon: dcIcon })
+      void dcIcon;
+      // canvas dot — hundreds of HTML markers made the map slow
+      L.circleMarker([c.latitude, c.longitude], { renderer: dcCanvas, radius: 5, color: '#fff', weight: 1.5, fillColor: '#0f172a', fillOpacity: 1 })
         .addTo(map)
         .bindPopup(`
           <div style="font-family:sans-serif;font-size:12px;min-width:160px">

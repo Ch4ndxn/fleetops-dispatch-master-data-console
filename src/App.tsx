@@ -1,30 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { lazy, Suspense, useState, useEffect } from 'react';
 import { ImportType, Technician, Center, ImportJob } from './types';
 import { subscribeToDataChanges } from './services/storage';
 
 // Subcomponents & Pages
 import { OverviewPage } from './components/overview/OverviewPage';
-import { AttendancePage } from './components/attendance/AttendancePage';
-import { ActiveCasesPage } from './components/tickets/ActiveCasesPage';
-import { RoutePlannerPage } from './components/routes/RoutePlannerPage';
-import { TicketAssignmentPage } from './components/tickets/TicketAssignmentPage';
-import { LiveTrackingPage } from './components/tracking/LiveTrackingPage';
-import { TechnicianPerformancePage } from './components/performance/TechnicianPerformancePage';
-import { TechnicianManagement } from './components/technicians/TechnicianManagement';
-import { CenterManagement } from './components/centers/CenterManagement';
-import { ImportDataPage } from './components/importer/ImportDataPage';
-import { ImportHistoryPage } from './components/history/ImportHistoryPage';
-import { SettingsPage } from './components/settings/SettingsPage';
-import { ConnectionStatusPage } from './components/connections/ConnectionStatusPage';
-import { HexZoneMapPage } from './components/map/HexZoneMapPage';
-import { RosterPage } from './components/roster/RosterPage';
-import { PlannerPage } from './components/planner/PlannerPage';
-import { VehiclesPage } from './components/vehicles/VehiclesPage';
-import { TicketsPage } from './components/tickets/TicketsPage';
-import { AiAssistantPage } from './components/ai/AiAssistantPage';
-import { AiRoutePlannerPage } from './components/airouter/AiRoutePlannerPage';
-import { CityRoutesPage } from './components/cityroutes/CityRoutesPage';
-import { SmartRoutePlannerPage } from './components/smartrouter/SmartRoutePlannerPage';
 
 // Modals
 import { AddEditTechnicianModal } from './components/technicians/AddEditTechnicianModal';
@@ -60,6 +39,29 @@ import {
   Waypoints,
   BrainCircuit
 } from 'lucide-react';
+
+// Pages load on first visit (was one 1.1 MB bundle with every page)
+const AttendancePage = lazy(() => import('./components/attendance/AttendancePage').then(m => ({ default: m.AttendancePage })));
+const ActiveCasesPage = lazy(() => import('./components/tickets/ActiveCasesPage').then(m => ({ default: m.ActiveCasesPage })));
+const RoutePlannerPage = lazy(() => import('./components/routes/RoutePlannerPage').then(m => ({ default: m.RoutePlannerPage })));
+const TicketAssignmentPage = lazy(() => import('./components/tickets/TicketAssignmentPage').then(m => ({ default: m.TicketAssignmentPage })));
+const LiveTrackingPage = lazy(() => import('./components/tracking/LiveTrackingPage').then(m => ({ default: m.LiveTrackingPage })));
+const TechnicianPerformancePage = lazy(() => import('./components/performance/TechnicianPerformancePage').then(m => ({ default: m.TechnicianPerformancePage })));
+const TechnicianManagement = lazy(() => import('./components/technicians/TechnicianManagement').then(m => ({ default: m.TechnicianManagement })));
+const CenterManagement = lazy(() => import('./components/centers/CenterManagement').then(m => ({ default: m.CenterManagement })));
+const ImportDataPage = lazy(() => import('./components/importer/ImportDataPage').then(m => ({ default: m.ImportDataPage })));
+const ImportHistoryPage = lazy(() => import('./components/history/ImportHistoryPage').then(m => ({ default: m.ImportHistoryPage })));
+const SettingsPage = lazy(() => import('./components/settings/SettingsPage').then(m => ({ default: m.SettingsPage })));
+const ConnectionStatusPage = lazy(() => import('./components/connections/ConnectionStatusPage').then(m => ({ default: m.ConnectionStatusPage })));
+const HexZoneMapPage = lazy(() => import('./components/map/HexZoneMapPage').then(m => ({ default: m.HexZoneMapPage })));
+const RosterPage = lazy(() => import('./components/roster/RosterPage').then(m => ({ default: m.RosterPage })));
+const PlannerPage = lazy(() => import('./components/planner/PlannerPage').then(m => ({ default: m.PlannerPage })));
+const VehiclesPage = lazy(() => import('./components/vehicles/VehiclesPage').then(m => ({ default: m.VehiclesPage })));
+const TicketsPage = lazy(() => import('./components/tickets/TicketsPage').then(m => ({ default: m.TicketsPage })));
+const AiAssistantPage = lazy(() => import('./components/ai/AiAssistantPage').then(m => ({ default: m.AiAssistantPage })));
+const AiRoutePlannerPage = lazy(() => import('./components/airouter/AiRoutePlannerPage').then(m => ({ default: m.AiRoutePlannerPage })));
+const CityRoutesPage = lazy(() => import('./components/cityroutes/CityRoutesPage').then(m => ({ default: m.CityRoutesPage })));
+const SmartRoutePlannerPage = lazy(() => import('./components/smartrouter/SmartRoutePlannerPage').then(m => ({ default: m.SmartRoutePlannerPage })));
 
 type NavTab =
   | 'OVERVIEW'
@@ -308,6 +310,7 @@ export default function App() {
 
         {/* Page Content Viewport */}
         <main className={`flex-1 overflow-hidden ${activeTab === 'PLANNER' || activeTab === 'AI ASSISTANT' || activeTab === 'AI ROUTE' || activeTab === 'SMART ROUTE' ? '' : 'overflow-y-auto p-4 sm:p-6 lg:p-8'}`}>
+          <Suspense fallback={<div className="p-8 text-sm text-slate-400">Loading…</div>}>
           {activeTab === 'OVERVIEW' && (
             <OverviewPage
               onNavigate={(tab) => setActiveTab(tab as NavTab)}
@@ -398,6 +401,7 @@ export default function App() {
           {activeTab === 'VEHICLES' && (
             <VehiclesPage />
           )}
+                  </Suspense>
         </main>
       </div>
 
