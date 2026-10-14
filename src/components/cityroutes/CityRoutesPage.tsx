@@ -643,47 +643,64 @@ function CityMap({ city, plans, techs, centers, colorOf, onRoad }: {
     if (!map || !layer) return;
     let cancelled = false;
     layer.clearLayers();
-    const bounds: L.LatLngExpression[] = [];     // routes + bases (what matters)
-    const allBounds: L.LatLngExpression[] = [];  // every center (fallback for an empty city)
-    centers.forEach(c => {
-      if (!Number.isFinite(c.latitude) || !Number.isFinite(c.longitude)) return;
-      L.circleMarker([c.latitude, c.longitude], { radius: 3, color: '#94A3B8', weight: 1, fillOpacity: 0.6 })
-        .bindTooltip(c.name).addTo(layer);
-      allBounds.push([c.latitude, c.longitude]);
-    });
-    techs.forEach(t => {
-      const color = colorOf(t.id);
-      const ll: L.LatLngExpression = [t.startingLatitude!, t.startingLongitude!];
-      L.marker(ll, { icon: L.divIcon({ className: '', iconSize: [26, 26], iconAnchor: [13, 13],
-        html: `<div style="width:26px;height:26px;border-radius:50%;background:${color};color:#fff;font:700 10px sans-serif;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.3)">${t.name.slice(0, 2).toUpperCase()}</div>` }) })
-        .bindTooltip(`${t.name} — base`).addTo(layer);
-      bounds.push(ll);
-    });
-    plans.forEach(p => {
-      const color = colorOf(p.technicianId);
-      const path: L.LatLngExpression[] = [[p.startLat, p.startLng], ...p.stops.map(s => [s.latitude, s.longitude] as L.LatLngExpression)];
-      // Dashed straight line while the road path loads (or if it can't be loaded)
-      const line = L.polyline(path, { color, weight: 2, opacity: 0.5, dashArray: '6 6' }).addTo(layer);
-      const k = routeKey(p);
-      fetchRoadRoute(path as LatLng[]).then(r => {
-        if (cancelled) return;
-        if (!r) { onRoad(k, 'failed'); return; }
-        layer.removeLayer(line);
-        L.polyline(r.path, { color, weight: 4, opacity: 0.85 }).addTo(layer);
-        onRoad(k, { km: r.km, mins: r.mins });
+    const bounds: L.LatLngExpression[] = [];
+    const allBounds: L.LatLngExpression[] = [];
+
+    // Render in next frame so the UI thread isn't blocked synchronously
+    const raf = requestAnimationFrame(() => {
+      if (cancelled) return;
+
+      // Centers — cap at 200 to avoid freezing with large datasets
+      const visibleCenters = centers.slice(0, 200);
+      visibleCenters.forEach(c => {
+        if (!Number.isFinite(c.latitude) || !Number.isFinite(c.longitude)) return;
+        L.circleMarker([c.latitude, c.longitude], { radius: 3, color: '#94A3B8', weight: 1, fillOpacity: 0.6 })
+          .bindTooltip(c.name).addTo(layer);
+        allBounds.push([c.latitude, c.longitude]);
       });
-      p.stops.forEach(s => {
-        const done = s.ticketStatus === 'Resolved' || s.ticketStatus === 'Closed';
-        L.marker([s.latitude, s.longitude], { icon: L.divIcon({ className: '', iconSize: [20, 20], iconAnchor: [10, 10],
-          html: `<div style="width:20px;height:20px;border-radius:50%;background:${done ? '#10B981' : '#fff'};color:${done ? '#fff' : color};border:2px solid ${color};font:700 10px sans-serif;display:flex;align-items:center;justify-content:center">${done ? '✓' : s.stopOrder}</div>` }) })
-          .bindTooltip(`${p.technicianName} · stop ${s.stopOrder}<br>${s.ticketId} — ${s.centerName}`).addTo(layer);
-        bounds.push([s.latitude, s.longitude]);
+
+      techs.forEach(t => {
+        const color = colorOf(t.id);
+        const ll: L.LatLngExpression = [t.startingLatitude!, t.startingLongitude!];
+        L.marker(ll, { icon: L.divIcon({ className: '', iconSize: [26, 26], iconAnchor: [13, 13],
+          html: `<div style="width:26px;height:26px;border-radius:50%;background:${color};color:#fff;font:700 10px sans-serif;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.3)">${t.name.slice(0, 2).toUpperCase()}</div>` }) })
+          .bindTooltip(`${t.name} — base`).addTo(layer);
+        bounds.push(ll);
       });
+
+      // Road routes — stagger fetches so they don't all fire simultaneously
+      plans.forEach((p, pi) => {
+        const color = colorOf(p.technicianId);
+        const path: L.LatLngExpression[] = [[p.startLat, p.startLng], ...p.stops.map(s => [s.latitude, s.longitude] as L.LatLngExpression)];
+        const line = L.polyline(path, { color, weight: 2, opacity: 0.5, dashArray: '6 6' }).addTo(layer);
+        const k = routeKey(p);
+        // Stagger road-route fetches by 200 ms per plan to avoid overwhelming the network
+        setTimeout(() => {
+          if (cancelled) return;
+          fetchRoadRoute(path as LatLng[]).then(r => {
+            if (cancelled) return;
+            if (!r) { onRoad(k, 'failed'); return; }
+            layer.removeLayer(line);
+            L.polyline(r.path, { color, weight: 4, opacity: 0.85 }).addTo(layer);
+            onRoad(k, { km: r.km, mins: r.mins });
+          }).catch(() => { if (!cancelled) onRoad(k, 'failed'); });
+        }, pi * 200);
+
+        p.stops.forEach(s => {
+          const done = s.ticketStatus === 'Resolved' || s.ticketStatus === 'Closed';
+          L.marker([s.latitude, s.longitude], { icon: L.divIcon({ className: '', iconSize: [20, 20], iconAnchor: [10, 10],
+            html: `<div style="width:20px;height:20px;border-radius:50%;background:${done ? '#10B981' : '#fff'};color:${done ? '#fff' : color};border:2px solid ${color};font:700 10px sans-serif;display:flex;align-items:center;justify-content:center">${done ? '✓' : s.stopOrder}</div>` }) })
+            .bindTooltip(`${p.technicianName} · stop ${s.stopOrder}<br>${s.ticketId} — ${s.centerName}`).addTo(layer);
+          bounds.push([s.latitude, s.longitude]);
+        });
+      });
+
+      const fit = plans.length ? bounds : [...bounds, ...allBounds];
+      if (fit.length > 1) map.fitBounds(L.latLngBounds(fit), { padding: [30, 30], maxZoom: 13 });
+      else if (fit.length === 1) map.setView(fit[0], 12);
     });
-    const fit = plans.length ? bounds : [...bounds, ...allBounds];
-    if (fit.length > 1) map.fitBounds(L.latLngBounds(fit), { padding: [30, 30], maxZoom: 13 });
-    else if (fit.length === 1) map.setView(fit[0], 12);
-    return () => { cancelled = true; };
+
+    return () => { cancelled = true; cancelAnimationFrame(raf); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [city, plans, techs, centers]);
 
