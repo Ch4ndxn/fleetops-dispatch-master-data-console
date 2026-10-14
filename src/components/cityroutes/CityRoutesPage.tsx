@@ -668,23 +668,23 @@ function CityMap({ city, plans, techs, centers, colorOf, onRoad }: {
         bounds.push(ll);
       });
 
-      // Road routes — stagger fetches so they don't all fire simultaneously
-      plans.forEach((p, pi) => {
+      // Road routes — draw dashed placeholder, replace with real road path when OSRM responds
+      const dashes = new Map<string, L.Polyline>(); // track live dashed lines by route key
+      plans.forEach(p => {
         const color = colorOf(p.technicianId);
         const path: L.LatLngExpression[] = [[p.startLat, p.startLng], ...p.stops.map(s => [s.latitude, s.longitude] as L.LatLngExpression)];
         const line = L.polyline(path, { color, weight: 2, opacity: 0.5, dashArray: '6 6' }).addTo(layer);
         const k = routeKey(p);
-        // Stagger road-route fetches by 200 ms per plan to avoid overwhelming the network
-        setTimeout(() => {
+        dashes.set(k, line);
+        fetchRoadRoute(path as LatLng[]).then(r => {
           if (cancelled) return;
-          fetchRoadRoute(path as LatLng[]).then(r => {
-            if (cancelled) return;
-            if (!r) { onRoad(k, 'failed'); return; }
-            layer.removeLayer(line);
-            L.polyline(r.path, { color, weight: 4, opacity: 0.85 }).addTo(layer);
-            onRoad(k, { km: r.km, mins: r.mins });
-          }).catch(() => { if (!cancelled) onRoad(k, 'failed'); });
-        }, pi * 200);
+          const dash = dashes.get(k);
+          if (dash && layer.hasLayer(dash)) layer.removeLayer(dash);
+          dashes.delete(k);
+          if (!r) { onRoad(k, 'failed'); return; }
+          L.polyline(r.path, { color, weight: 4, opacity: 0.85 }).addTo(layer);
+          onRoad(k, { km: r.km, mins: r.mins });
+        }).catch(() => { if (!cancelled) onRoad(k, 'failed'); });
 
         p.stops.forEach(s => {
           const done = s.ticketStatus === 'Resolved' || s.ticketStatus === 'Closed';
