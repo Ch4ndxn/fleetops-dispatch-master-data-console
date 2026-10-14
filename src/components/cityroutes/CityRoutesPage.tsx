@@ -164,24 +164,31 @@ export function CityRoutesPage({ engine = 'builtin' }: { engine?: 'builtin' | 'v
   const [planning, setPlanning] = useState(false);
   const [notPlannedLimit, setNotPlannedLimit] = useState(50);
   const [roadStats, setRoadStats] = useState<RoadStats>({});
+  const [planningStatus, setPlanningStatus] = useState('');
   const optimise = async () => {
     setPlanning(true);
-    // Road distances between every technician base and every ticket center in this city
-    const points: LatLng[] = [
-      ...includedTechs.map(t => [t.startingLatitude!, t.startingLongitude!] as LatLng),
-      ...includedTickets.map(t => centers.find(c => c.name.trim().toLowerCase() === t.centerName.trim().toLowerCase()))
-        .filter(Boolean).map(c => [c!.latitude, c!.longitude] as LatLng),
-    ];
-    const roadMatrix = await fetchRoadMatrix(points);
-    const builtin = planBalancedRoutes({
-      roadMatrix,
-      balanceKm: MODE_KM[params.mode],
-      cityFilter: city, maxStopsPerTech: params.maxStops, maxKmPerTech: params.maxKm,
-      priorityFilter: 'all', skillMatch: false, shiftStartHour: params.shiftStart, shiftEndHour: params.shiftEnd,
-    });
-    let r: { plans: TechnicianRoutePlan[]; unrouted: Ticket[] } = builtin;
-    if (isVroom) {
-      try {
+    setPlanningStatus(isVroom ? 'Waking VROOM service (may take ~60 s on first use)…' : 'Computing road distances…');
+
+    let roadMatrix: Awaited<ReturnType<typeof fetchRoadMatrix>> = null;
+    let r: { plans: TechnicianRoutePlan[]; unrouted: Ticket[] };
+
+    try {
+      // Road distances between every technician base and every ticket center in this city
+      const points: LatLng[] = [
+        ...includedTechs.map(t => [t.startingLatitude!, t.startingLongitude!] as LatLng),
+        ...includedTickets.map(t => centers.find(c => c.name.trim().toLowerCase() === t.centerName.trim().toLowerCase()))
+          .filter(Boolean).map(c => [c!.latitude, c!.longitude] as LatLng),
+      ];
+      roadMatrix = await fetchRoadMatrix(points);
+      setPlanningStatus(isVroom ? 'Sending problem to VROOM solver…' : 'Optimising routes…');
+      const builtin = planBalancedRoutes({
+        roadMatrix,
+        balanceKm: MODE_KM[params.mode],
+        cityFilter: city, maxStopsPerTech: params.maxStops, maxKmPerTech: params.maxKm,
+        priorityFilter: 'all', skillMatch: false, shiftStartHour: params.shiftStart, shiftEndHour: params.shiftEnd,
+      });
+      r = builtin;
+      if (isVroom) {
         const v = await solveWithVroom({
           techs: includedTechs, tickets: includedTickets, centers,
           maxStops: params.maxStops, maxKm: params.maxKm, shiftStart: params.shiftStart, shiftEnd: params.shiftEnd,
@@ -194,16 +201,24 @@ export function CityRoutesPage({ engine = 'builtin' }: { engine?: 'builtin' | 'v
         setComparison(c => ({ ...c, [city]:
           `VROOM: ${n(v.plans)} tickets, ${km(v.plans)} km, ${v.plans.length} technicians (solved in ${v.solveMs} ms, up to ${v.capUsed} stops each) · ` +
           `Built-in: ${n(builtin.plans)} tickets, ${km(builtin.plans)} km, ${builtin.plans.filter(p => p.stops.length).length} technicians` }));
-      } catch (e) {
-        setPlanning(false);
-        showToast(`VROOM failed: ${(e as Error).message} — check the service URL`);
-        setVroomStatus('down');
-        return;
       }
+    } catch (e) {
+      setPlanning(false);
+      setPlanningStatus('');
+      const msg = (e as Error).message ?? String(e);
+      if (isVroom) {
+        showToast(`VROOM failed: ${msg} — the service may still be waking up, try again in a moment`);
+        setVroomStatus('down');
+      } else {
+        showToast(`Planning failed: ${msg}`);
+      }
+      return;
     }
+
     setPlanning(false);
-    const used = r.plans.filter(p => p.stops.length > 0);
-    setDrafts(d => ({ ...d, [city]: { plans: used, unrouted: r.unrouted, createdAt: new Date().toISOString(), selectionSig, roadPlanned: Boolean(roadMatrix) } }));
+    setPlanningStatus('');
+    const used = r!.plans.filter(p => p.stops.length > 0);
+    setDrafts(d => ({ ...d, [city]: { plans: used, unrouted: r!.unrouted, createdAt: new Date().toISOString(), selectionSig, roadPlanned: Boolean(roadMatrix) } }));
     showToast(roadMatrix
       ? `${city}: ${isVroom ? 'VROOM ' : ''}planned by road distance — ${used.reduce((a, p) => a + p.stops.length, 0)} tickets across ${used.length} technicians`
       : `${city}: road data unavailable — planned with estimated distances (straight line × 1.3)`);
@@ -386,10 +401,13 @@ export function CityRoutesPage({ engine = 'builtin' }: { engine?: 'builtin' | 'v
               </select>
             </label>
             <div className="flex flex-wrap gap-2 ml-auto">
-              <button onClick={optimise} disabled={planning || stats.present === 0 || stats.tickets === 0 || (isVroom && vroomStatus !== 'ok')}
-                className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-bold flex items-center gap-1.5">
-                <Play className="w-3.5 h-3.5" /> {planning ? (isVroom ? 'Solving with VROOM…' : 'Fetching road distances…') : `${isVroom ? 'Solve with VROOM: ' : 'Optimise '}${city}`}
-              </button>
+              <div className="flex flex-col items-end gap-0.5">
+                <button onClick={optimise} disabled={planning || stats.present === 0 || stats.tickets === 0 || (isVroom && vroomStatus !== 'ok')}
+                  className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-bold flex items-center gap-1.5">
+                  <Play className="w-3.5 h-3.5" /> {planning ? (planningStatus || (isVroom ? 'Solving with VROOM…' : 'Optimising…')) : `${isVroom ? 'Solve with VROOM: ' : 'Optimise '}${city}`}
+                </button>
+                {planning && isVroom && <span className="text-[10px] text-slate-500 pr-1">{planningStatus}</span>}
+              </div>
               {draft && (
                 <>
                   <button onClick={saveAndAssign} className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5">
