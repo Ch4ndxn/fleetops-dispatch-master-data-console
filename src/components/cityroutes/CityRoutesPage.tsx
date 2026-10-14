@@ -83,14 +83,20 @@ export function CityRoutesPage({ engine = 'builtin' }: { engine?: 'builtin' | 'v
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isVroom]);
 
-  const [, setTick] = useState(0);
-  useEffect(() => subscribeToDataChanges(() => setTick(n => n + 1)), []);
+  // ── cached live data (avoids re-parsing localStorage on every render) ──
+  const [centers, setCenters] = useState(() => getCenters());
+  const [tickets, setTickets] = useState(() => getTickets());
+  const [techs, setTechs] = useState(() => getTechnicians());
+  const [attendance, setAttendance] = useState(() => getAttendance());
+  const [routePlans, setRoutePlans] = useState(() => getRoutePlans());
+  useEffect(() => subscribeToDataChanges(() => {
+    setCenters(getCenters());
+    setTickets(getTickets());
+    setTechs(getTechnicians());
+    setAttendance(getAttendance());
+    setRoutePlans(getRoutePlans());
+  }), []);
 
-  // ── live data, grouped by city ─────────────────────────────────
-  const centers = getCenters();
-  const tickets = getTickets();
-  const techs = getTechnicians();
-  const attendance = getAttendance();
   const today = localDate();
   const centerCity = useMemo(() => new Map(centers.map(c => [c.name.trim().toLowerCase(), cityKey(c.city)])), [centers]);
   const ticketCity = (t: Ticket) => centerCity.get(t.centerName.trim().toLowerCase()) ?? null;
@@ -120,8 +126,7 @@ export function CityRoutesPage({ engine = 'builtin' }: { engine?: 'builtin' | 'v
     return [...stats.entries()]
       .filter(([, s]) => s.tickets > 0 || s.techs > 0)
       .sort((a, b) => b[1].tickets - a[1].tickets || a[0].localeCompare(b[0]));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tickets, techs, attendance, centerCity]);
+  }, [tickets, techs, attendance, centerCity, today]);
 
   const [city, setCity] = useState<string>('');
   useEffect(() => { if (!city && cities.length) setCity(cities[0][0]); }, [city, cities]);
@@ -146,7 +151,7 @@ export function CityRoutesPage({ engine = 'builtin' }: { engine?: 'builtin' | 'v
   const selectionSig = includedTickets.map(t => t.id).join(',') + '|' + includedTechs.map(t => t.id).join(',');
 
   // Current state = saved/assigned routes of this city's technicians (live from tickets)
-  const currentPlans = getRoutePlans().filter(p => cityTechIds.has(p.technicianId));
+  const currentPlans = routePlans.filter(p => cityTechIds.has(p.technicianId));
   const plans = draft ? draft.plans : currentPlans;
   const cityOpenTickets = tickets.filter(t => isOpen(t) && !t.ignoreForRouting && ticketCity(t) === city);
   const inPlans = new Set(plans.flatMap(p => p.stops.map(s => s.ticketId)));
