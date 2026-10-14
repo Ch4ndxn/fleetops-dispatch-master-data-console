@@ -50,12 +50,14 @@ function retime(p: TechnicianRoutePlan, shiftStart: number): TechnicianRoutePlan
 const isOpen = (t: Ticket) => t.status !== 'Resolved' && t.status !== 'Closed';
 const isDone = (s?: string) => s === 'Resolved' || s === 'Closed';
 
-interface Params { maxStops: number; maxKm: number; shiftStart: number; shiftEnd: number }
-const DEFAULT_PARAMS: Params = { maxStops: 8, maxKm: 60, shiftStart: 9, shiftEnd: 18 };
+interface Params { maxStops: number; maxKm: number; shiftStart: number; shiftEnd: number; mode: Mode }
+type Mode = 'short' | 'balanced' | 'even';
+const MODE_KM: Record<Mode, number> = { short: 3, balanced: 8, even: 25 };
+const DEFAULT_PARAMS: Params = { maxStops: 8, maxKm: 60, shiftStart: 9, shiftEnd: 18, mode: 'balanced' };
 /** Start each city from its tuned preset (CITY_PRESETS), if it has one */
 const presetParams = (city: string): Params => {
   const p = CITY_PRESETS[city];
-  return p ? { maxStops: p.maxStopsPerTech, maxKm: p.maxKmPerTech, shiftStart: p.shiftStartHour, shiftEnd: p.shiftEndHour } : DEFAULT_PARAMS;
+  return p ? { maxStops: p.maxStopsPerTech, maxKm: p.maxKmPerTech, shiftStart: p.shiftStartHour, shiftEnd: p.shiftEndHour, mode: 'balanced' } : DEFAULT_PARAMS;
 };
 interface Draft { plans: TechnicianRoutePlan[]; unrouted: Ticket[]; createdAt: string; selectionSig: string; roadPlanned: boolean }
 /** Road km / minutes for a technician's drawn route (from OSRM), keyed by technician id */
@@ -110,7 +112,7 @@ export function CityRoutesPage() {
   const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(null), 3000); };
 
   const params = paramsByCity[city] ?? presetParams(city);
-  const setParam = (k: keyof Params, v: number) => setParamsByCity(p => ({ ...p, [city]: { ...params, [k]: v } }));
+  const setParam = <K extends keyof Params>(k: K, v: Params[K]) => setParamsByCity(p => ({ ...p, [city]: { ...params, [k]: v } }));
   const stats = cities.find(([c]) => c === city)?.[1];
   const cityTechIds = new Set(techs.filter(t => cityKey(t.city) === city).map(t => t.id));
   const draft = drafts[city];
@@ -149,6 +151,7 @@ export function CityRoutesPage() {
     setPlanning(false);
     const r = planBalancedRoutes({
       roadMatrix,
+      balanceKm: MODE_KM[params.mode],
       cityFilter: city, maxStopsPerTech: params.maxStops, maxKmPerTech: params.maxKm,
       priorityFilter: 'all', skillMatch: false, shiftStartHour: params.shiftStart, shiftEndHour: params.shiftEnd,
     });
@@ -301,6 +304,16 @@ export function CityRoutesPage() {
                   className="mt-1 block w-24 px-2 py-1.5 border border-slate-300 rounded-lg text-sm text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500" />
               </label>
             ))}
+            <label className="text-[11px] font-semibold text-slate-500">
+              Plan for
+              <select value={params.mode} onChange={e => setParam('mode', e.target.value as Mode)}
+                className="mt-1 block px-2 py-1.5 border border-slate-300 rounded-lg text-sm text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                title="Trade-off between using every technician and keeping drives short">
+                <option value="short">Short drives</option>
+                <option value="balanced">Balanced</option>
+                <option value="even">Even workload (use everyone)</option>
+              </select>
+            </label>
             <div className="flex flex-wrap gap-2 ml-auto">
               <button onClick={optimise} disabled={planning || stats.present === 0 || stats.tickets === 0}
                 className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-bold flex items-center gap-1.5">
@@ -424,6 +437,31 @@ export function CityRoutesPage() {
                   </div>
                 );
               })}
+
+              {(() => {
+                const idle = includedTechs.filter(t => !plans.some(p => p.technicianId === t.id && p.stops.length));
+                if (!idle.length || !plans.length) return null;
+                const pts = includedTickets.map(t => centers.find(c => c.name.trim().toLowerCase() === t.centerName.trim().toLowerCase())).filter(Boolean);
+                return (
+                  <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                    <div className="px-4 py-2.5 bg-slate-50 text-xs font-bold text-slate-700">
+                      Not used ({idle.length}) — every ticket had a closer technician{params.mode !== 'even' ? ' · choose “Even workload” to use everyone' : ''}
+                    </div>
+                    <ul className="divide-y divide-slate-50">
+                      {idle.map(t => {
+                        const near = pts.length ? Math.min(...pts.map(c => hav(t.startingLatitude!, t.startingLongitude!, c!.latitude, c!.longitude))) : NaN;
+                        return (
+                          <li key={t.id} className="px-4 py-2 text-xs flex items-center gap-2">
+                            <span className="font-semibold text-slate-800">{t.name}</span>
+                            <span className="text-slate-500">{t.zone || t.city}</span>
+                            <span className="ml-auto text-slate-500">{Number.isFinite(near) ? `nearest open ticket ${near.toFixed(1)} km away` : 'no open tickets'}</span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                );
+              })()}
 
               {notPlanned.length > 0 && (
                 <div className="bg-white rounded-xl border border-rose-200 overflow-hidden">

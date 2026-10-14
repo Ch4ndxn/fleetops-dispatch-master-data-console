@@ -207,6 +207,11 @@ export interface BalancedPlanConstraints {
   excludedTicketIds?: Set<string>;
   /** Real road distances/times (OSRM). When given, planning uses road km instead of straight line × 1.3. */
   roadMatrix?: RoadMatrix | null;
+  /**
+   * Even workload vs short drives: how many extra km a technician is "charged" for each stop
+   * above their fair share. Higher = spread work more evenly; lower = less driving. Default 8.
+   */
+  balanceKm?: number;
 }
 
 // ─── Per-city routing constraint presets ─────────────────────────────────────
@@ -406,208 +411,210 @@ export function planBalancedRoutes(constraints: BalancedPlanConstraints): Balanc
   // Sort by priority descending (CRITICAL first)
   routableTickets.sort((a, b) => (priorityWeights[b.priority] || 0) - (priorityWeights[a.priority] || 0));
 
-  // Tech state tracking
-  type TechState = {
-    plan: TechnicianRoutePlan;
-    curLat: number;
-    curLng: number;
-    totalKm: number;
-    totalMins: number;    // running elapsed minutes since shift start
-    stopCount: number;
-  };
+  // ═══════════════════════════════════════════════════════════════════════
+  // Assignment + routing
+  //   1. Assign tickets to technicians by distance from BASE, with a fair-share
+  //      capacity (tickets ÷ technicians), CRITICAL first. Within a priority, the
+  //      ticket that loses most by not getting its nearest technician (regret)
+  //      is placed first. Nearest technicians fill up, overflow goes to the next
+  //      nearest — so everyone gets work and nobody is sent across the city
+  //      while a closer technician has room.
+  //   2. Order each route: nearest-next from base, then 2-opt (removes crossings).
+  //   3. Enforce km / shift limits: drop the lowest-priority, most costly stop;
+  //      try to fit dropped stops into another route (cheapest insertion).
+  //   4. Improve: move single stops between technicians when it cuts total km
+  //      without unbalancing loads.
+  // ═══════════════════════════════════════════════════════════════════════
+  type Job = { ticket: Ticket; lat: number; lng: number; mins: number; rank: number };
+  const RANK: Record<string, number> = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
+  const jobs: Job[] = routableTickets.map(t => {
+    const c = centerMap.get(t.centerName.trim().toLowerCase())!;
+    return { ticket: t, lat: c.latitude, lng: c.longitude, rank: RANK[t.priority] ?? 3,
+      mins: t.priority === 'CRITICAL' ? 70 : t.priority === 'HIGH' ? 55 : 45 };
+  });
+  const T = availableTechs.length;
+  const base: [number, number][] = availableTechs.map(t => [t.startingLatitude!, t.startingLongitude!]);
+  const shiftMins = (constraints.shiftEndHour - constraints.shiftStartHour) * 60 + 30; // 30-min overtime buffer
+  const baseDist = jobs.map(j => base.map(([la, ln]) => distKmOf(la, ln, j.lat, j.lng)));
+  const skillOk = (ji: number, ti: number) => !constraints.skillMatch || techCanHandleIssue(availableTechs[ti], jobs[ji].ticket.issue);
+  const reachable = (ji: number, ti: number) => baseDist[ji][ti] <= constraints.maxKmPerTech;
 
-  const techStates: TechState[] = availableTechs.map(tech => ({
-    plan: {
-      technicianId: tech.id,
-      technicianName: tech.name,
-      employeeId: tech.employeeId,
-      startLat: tech.startingLatitude!,
-      startLng: tech.startingLongitude!,
-      defaultDc: tech.defaultDc ?? '',
-      stops: [],
-      totalDistanceKm: 0,
-      totalEstimatedMins: 0,
-      status: 'Draft' as const,
-    },
-    curLat: tech.startingLatitude!,
-    curLng: tech.startingLongitude!,
-    totalKm: 0,
-    totalMins: 30, // 30-min buffer from shift start before first stop
-    stopCount: 0,
-  }));
-
-  // Pre-compute each tech's home-base distance to every center
-  // Used for cluster ownership: the tech whose starting point is nearest to a center "owns" that cluster
-  function homeDistKm(ts: TechState, lat: number, lng: number): number {
-    return calculateDistanceKmStraight(ts.plan.startLat, ts.plan.startLng, lat, lng);
+  /** km and minutes (from shift start, incl. 30-min start buffer) of a route */
+  function evalRoute(ti: number, seq: number[]): { km: number; mins: number } {
+    let km = 0, mins = 30, [la, ln] = base[ti];
+    for (const ji of seq) {
+      const j = jobs[ji];
+      const hour = constraints.shiftStartHour + Math.floor(mins / 60);
+      km += distKmOf(la, ln, j.lat, j.lng);
+      mins += travelMinsOf(la, ln, j.lat, j.lng, hour) + j.mins;
+      la = j.lat; ln = j.lng;
+    }
+    return { km, mins };
   }
+  const feasible = (ti: number, seq: number[]) => {
+    if (seq.length > constraints.maxStopsPerTech) return false;
+    const r = evalRoute(ti, seq);
+    return r.km <= constraints.maxKmPerTech + 1e-9 && r.mins <= shiftMins;
+  };
+  const routeKm = (ti: number, seq: number[]) => evalRoute(ti, seq).km;
 
-  const shiftDurationMins = (constraints.shiftEndHour - constraints.shiftStartHour) * 60;
-  const unrouted: Ticket[] = [];
-
-  for (const ticket of routableTickets) {
-    const center = centerMap.get(ticket.centerName.trim().toLowerCase())!;
-    const durationMins = ticket.priority === 'CRITICAL' ? 70 : ticket.priority === 'HIGH' ? 55 : 45;
-
-    // Find the "home" tech for this ticket = the tech whose START POINT is nearest to this center
-    // That tech is treated as owning this cluster
-    let minHomeDist = Infinity;
-    techStates.forEach(ts => {
-      const d = homeDistKm(ts, center.latitude, center.longitude);
-      if (d < minHomeDist) minHomeDist = d;
-    });
-
-    // Compute score for each tech (lower = better)
-    let bestIdx = -1;
-    let bestScore = Infinity;
-
-    for (let i = 0; i < techStates.length; i++) {
-      const ts = techStates[i];
-
-      // Hard constraints — the km limit must hold *after* driving to this stop
-      if (ts.stopCount >= constraints.maxStopsPerTech) continue;
-      const legKm = distKmOf(ts.curLat, ts.curLng, center.latitude, center.longitude);
-      if (ts.totalKm + legKm > constraints.maxKmPerTech) continue;
-
-      // Skill matching
-      const tech = availableTechs[i];
-      if (constraints.skillMatch && !techCanHandleIssue(tech, ticket.issue)) continue;
-
-      // Remaining capacity (as a fraction, 0=full, 1=empty)
-      const stopCapLeft = 1 - ts.stopCount / constraints.maxStopsPerTech;
-      const kmCapLeft   = 1 - ts.totalKm   / constraints.maxKmPerTech;
-      const timeCapLeft = 1 - ts.totalMins  / shiftDurationMins;
-      const capacityLeft = Math.min(stopCapLeft, kmCapLeft, timeCapLeft);
-      if (capacityLeft <= 0) continue;
-
-      // Proximity: travel time to next stop given current hour
-      const currentHour = constraints.shiftStartHour + Math.floor(ts.totalMins / 60);
-      const travelMins = travelMinsOf(ts.curLat, ts.curLng, center.latitude, center.longitude, currentHour);
-      const distKm = distKmOf(ts.curLat, ts.curLng, center.latitude, center.longitude);
-
-      // Remaining shift time after this stop
-      const minsAfterStop = ts.totalMins + travelMins + durationMins;
-      if (minsAfterStop > shiftDurationMins + 30) continue; // 30-min OT buffer
-
-      // CLUSTER OWNERSHIP: tech whose start point is nearest to this center
-      // gets a bonus (negative score adjustment) — their cluster, their ticket first
-      const myHomeDist = homeDistKm(ts, center.latitude, center.longitude);
-      const isClusterOwner = myHomeDist <= minHomeDist * 1.15; // within 15% of nearest
-      // Bonus = reduce score by up to 25 points if they're the cluster owner
-      // This means: prefer this tech for their zone, but can be overridden by heavy load
-      const clusterBonus = isClusterOwner ? -25 : 0;
-
-      // LOAD PENALTY: techs with more stops than average get a heavy penalty
-      // This forces even distribution — an overloaded tech loses the bid even if nearest
-      const eligibleCounts = techStates.map(t => t.stopCount);
-      const avgStops = eligibleCounts.reduce((s, n) => s + n, 0) / Math.max(1, techStates.length);
-      const minStops  = Math.min(...eligibleCounts);
-
-      // Hard skip: if this tech has 2+ more stops than the least-loaded tech, skip entirely
-      // This forces work to spread before any tech gets deeply overloaded
-      if (ts.stopCount >= minStops + 2 && minStops < constraints.maxStopsPerTech - 1) continue;
-
-      // Strong penalty: each stop above average multiplies score significantly
-      const loadPenaltyFactor = 1 + Math.max(0, ts.stopCount - avgStops) * 4.0;
-
-      // SCORE = (travel_time × load_penalty) + distance_penalty + cluster_bonus
-      // Cluster ownership pulls score down (favours home cluster)
-      // Load penalty pushes score up (forces spillover to idle neighbours)
-      const score = travelMins * loadPenaltyFactor + distKm * 0.3 + clusterBonus;
-
-      if (score < bestScore) {
-        bestScore = score;
-        bestIdx = i;
+  /** Visit order: nearest-next from base, then 2-opt on the open path */
+  function sequence(ti: number, set: number[]): number[] {
+    if (set.length < 2) return [...set];
+    const rest = [...set];
+    let seq: number[] = [];
+    let [la, ln] = base[ti];
+    while (rest.length) {
+      let bi = 0, bd = Infinity;
+      rest.forEach((ji, k) => { const d = distKmOf(la, ln, jobs[ji].lat, jobs[ji].lng); if (d < bd) { bd = d; bi = k; } });
+      const ji = rest.splice(bi, 1)[0];
+      seq.push(ji); la = jobs[ji].lat; ln = jobs[ji].lng;
+    }
+    let best = routeKm(ti, seq), improved = true, guard = 0;
+    while (improved && guard++ < 30) {
+      improved = false;
+      for (let i = 0; i < seq.length - 1; i++) {
+        for (let k = i + 1; k < seq.length; k++) {
+          const cand = [...seq.slice(0, i), ...seq.slice(i, k + 1).reverse(), ...seq.slice(k + 1)];
+          const km = routeKm(ti, cand);
+          if (km < best - 1e-6) { seq = cand; best = km; improved = true; }
+        }
       }
     }
+    return seq;
+  }
 
-    if (bestIdx === -1) {
-      unrouted.push(ticket);
-      continue;
+  /** Cheapest feasible position for job ji in technician ti's route */
+  function bestInsertion(ti: number, seq: number[], ji: number): { seq: number[]; deltaKm: number } | null {
+    if (seq.length >= constraints.maxStopsPerTech || !skillOk(ji, ti) || !reachable(ji, ti)) return null;
+    const before = routeKm(ti, seq);
+    let best: { seq: number[]; deltaKm: number } | null = null;
+    for (let pos = 0; pos <= seq.length; pos++) {
+      const cand = [...seq.slice(0, pos), ji, ...seq.slice(pos)];
+      if (!feasible(ti, cand)) continue;
+      const d = routeKm(ti, cand) - before;
+      if (!best || d < best.deltaKm) best = { seq: cand, deltaKm: d };
     }
-
-    const ts = techStates[bestIdx];
-    const currentHour = constraints.shiftStartHour + Math.floor(ts.totalMins / 60);
-    const travelMins = travelMinsOf(ts.curLat, ts.curLng, center.latitude, center.longitude, currentHour);
-    const distKm = distKmOf(ts.curLat, ts.curLng, center.latitude, center.longitude);
-
-    ts.totalMins += travelMins + durationMins;
-    ts.totalKm   += distKm;
-    ts.stopCount++;
-
-    const arrivalMins = constraints.shiftStartHour * 60 + ts.totalMins - durationMins;
-    const arrH = Math.floor(arrivalMins / 60);
-    const arrM = arrivalMins % 60;
-
-    const stop: RouteStop = {
-      stopOrder: ts.plan.stops.length + 1,
-      ticketId: ticket.ticketId,
-      centerName: ticket.centerName,
-      vehicleNumber: ticket.vehicleNumber,
-      issue: ticket.issue,
-      priority: ticket.priority as RouteStop['priority'],
-      latitude: center.latitude,
-      longitude: center.longitude,
-      estimatedArrival: `${String(arrH).padStart(2, '0')}:${String(arrM).padStart(2, '0')}`,
-      estimatedDurationMins: durationMins,
-    };
-
-    ts.plan.stops.push(stop);
-    ts.plan.totalDistanceKm = Math.round(ts.totalKm * 10) / 10;
-    ts.plan.totalEstimatedMins = ts.totalMins;
-    ts.curLat = center.latitude;
-    ts.curLng = center.longitude;
+    return best;
   }
 
-  // Recompute a technician's route totals, ETAs and position from their stop list
-  function recomputeState(ts: TechState) {
-    let km = 0, mins = 30, lat = ts.plan.startLat, lng = ts.plan.startLng;
-    ts.plan.stops = ts.plan.stops.map((stop, idx) => {
-      const hour = constraints.shiftStartHour + Math.floor(mins / 60);
-      km += distKmOf(lat, lng, stop.latitude, stop.longitude);
-      mins += travelMinsOf(lat, lng, stop.latitude, stop.longitude, hour);
-      const arrival = constraints.shiftStartHour * 60 + mins;
-      mins += stop.estimatedDurationMins;
-      lat = stop.latitude; lng = stop.longitude;
-      return { ...stop, stopOrder: idx + 1, estimatedArrival: `${String(Math.floor(arrival / 60)).padStart(2, '0')}:${String(arrival % 60).padStart(2, '0')}` };
-    });
-    ts.totalKm = km; ts.totalMins = mins; ts.stopCount = ts.plan.stops.length;
-    ts.curLat = lat; ts.curLng = lng;
-    ts.plan.totalDistanceKm = Math.round(km * 10) / 10;
-    ts.plan.totalEstimatedMins = mins;
+  // ── 1. Balanced assignment by distance from base ─────────────────────────
+  // Everyone's fair minimum is floor(tickets ÷ technicians), at least 1. Each stop
+  // beyond that costs EXTRA_STOP_KM, so a nearby technician only takes another
+  // stop when every less-loaded technician is more than that much further away.
+  const EXTRA_STOP_KM = constraints.balanceKm ?? 8;
+  const target = Math.max(1, Math.ceil(jobs.length / Math.max(1, T)));
+  const fairFloor = Math.max(1, Math.floor(jobs.length / Math.max(1, T)));
+  const assigned: number[][] = availableTechs.map(() => []);
+  const pending = new Set(jobs.map((_, i) => i));
+  const unroutedJobs: number[] = [];
+  const cost = (ji: number, ti: number) =>
+    baseDist[ji][ti] + EXTRA_STOP_KM * Math.max(0, assigned[ti].length + 1 - fairFloor);
+  for (let rank = 0; rank <= 3; rank++) {
+    for (;;) {
+      const tierJobs = [...pending].filter(ji => jobs[ji].rank === rank);
+      if (!tierJobs.length) break;
+      let pick = -1, pickTech = -1, pickRegret = -Infinity;
+      for (const ji of tierJobs) {
+        const opts: Array<[number, number]> = [];
+        for (let ti = 0; ti < T; ti++) {
+          if (assigned[ti].length < constraints.maxStopsPerTech && reachable(ji, ti) && skillOk(ji, ti)) opts.push([ti, cost(ji, ti)]);
+        }
+        if (!opts.length) { pending.delete(ji); unroutedJobs.push(ji); continue; }
+        opts.sort((x, y) => x[1] - y[1]);
+        const regret = opts.length > 1 ? opts[1][1] - opts[0][1] : 1e6 - opts[0][1];
+        if (regret > pickRegret) { pickRegret = regret; pick = ji; pickTech = opts[0][0]; }
+      }
+      if (pick === -1) continue; // every remaining ticket in this tier was unreachable (moved to unrouted above)
+      assigned[pickTech].push(pick);
+      pending.delete(pick);
+    }
   }
 
-  // ── REBALANCE PASS: move stops from overloaded to underloaded techs ──────────
-  // Up to 3 moves; a move only happens if the receiving tech stays within every limit.
+  // ── 2 + 3. Order routes; enforce km / shift limits ───────────────────────
+  const routes: number[][] = assigned.map((set, ti) => sequence(ti, set));
+  const dropped: number[] = [];
+  routes.forEach((seq, ti) => {
+    while (seq.length && !feasible(ti, seq)) {
+      // drop the lowest-priority stop whose removal saves the most km
+      const worstRank = Math.max(...seq.map(ji => jobs[ji].rank));
+      const full = routeKm(ti, seq);
+      let bestK = -1, bestSave = -Infinity;
+      seq.forEach((ji, k) => {
+        if (jobs[ji].rank !== worstRank) return;
+        const save = full - routeKm(ti, [...seq.slice(0, k), ...seq.slice(k + 1)]);
+        if (save > bestSave) { bestSave = save; bestK = k; }
+      });
+      dropped.push(seq[bestK]);
+      seq.splice(bestK, 1);
+    }
+    routes[ti] = sequence(ti, seq);
+  });
+  dropped.sort((x, y) => jobs[x].rank - jobs[y].rank).forEach(ji => {
+    let best: { ti: number; seq: number[]; cost: number } | null = null;
+    for (let ti = 0; ti < T; ti++) {
+      const ins = bestInsertion(ti, routes[ti], ji);
+      if (!ins) continue;
+      const cost = ins.deltaKm + EXTRA_STOP_KM * Math.max(0, routes[ti].length + 1 - fairFloor); // prefer less-loaded techs
+      if (!best || cost < best.cost) best = { ti, seq: ins.seq, cost };
+    }
+    if (best) routes[best.ti] = best.seq; else unroutedJobs.push(ji);
+  });
+
+  // ── 4. Improve: relocate single stops when it cuts total km and keeps balance ─
   for (let pass = 0; pass < 3; pass++) {
-    const sorted = [...techStates].sort((a, b) => b.stopCount - a.stopCount);
-    const mostLoaded = sorted[0];
-    const leastLoaded = sorted[sorted.length - 1];
-    if (mostLoaded.stopCount - leastLoaded.stopCount < 2) break;
-
-    const stopToMove = mostLoaded.plan.stops[mostLoaded.plan.stops.length - 1];
-    if (!stopToMove) break;
-    if (leastLoaded.stopCount >= constraints.maxStopsPerTech) break;
-    const moveDist = distKmOf(leastLoaded.curLat, leastLoaded.curLng, stopToMove.latitude, stopToMove.longitude);
-    if (leastLoaded.totalKm + moveDist > constraints.maxKmPerTech) break;
-
-    mostLoaded.plan.stops = mostLoaded.plan.stops.slice(0, -1);
-    leastLoaded.plan.stops = [...leastLoaded.plan.stops, stopToMove];
-    recomputeState(mostLoaded);
-    recomputeState(leastLoaded);
+    let moved = false;
+    for (let a = 0; a < T; a++) {
+      for (const ji of [...routes[a]]) {
+        const fromSeq = routes[a].filter(x => x !== ji);
+        const fromNow = routeKm(a, routes[a]);
+        const fromAfter = routeKm(a, fromSeq);
+        let best: { b: number; seq: number[]; gain: number } | null = null;
+        for (let b = 0; b < T; b++) {
+          if (b === a) continue;
+          // balance guards: never leave a technician idle, never make loads more uneven
+          if (routes[a].length <= 1) continue;
+          if (routes[b].length + 1 > Math.max(fairFloor, routes[a].length - 1)) continue;
+          const ins = bestInsertion(b, routes[b], ji);
+          if (!ins) continue;
+          const gain = (fromNow - fromAfter) - ins.deltaKm;
+          if (gain > 0.5 && (!best || gain > best.gain)) best = { b, seq: ins.seq, gain };
+        }
+        if (best) {
+          routes[a] = sequence(a, fromSeq);
+          routes[best.b] = sequence(best.b, best.seq);
+          moved = true;
+        }
+      }
+    }
+    if (!moved) break;
   }
 
-  // ── Final guarantee: no route exceeds the km limit (drop from the end into unrouted) ──
-  const ticketById = new Map(routableTickets.map(t => [t.ticketId, t]));
-  techStates.forEach(ts => {
-    recomputeState(ts);
-    while (ts.plan.stops.length && ts.totalKm > constraints.maxKmPerTech + 0.05) {
-      const dropped = ts.plan.stops[ts.plan.stops.length - 1];
-      ts.plan.stops = ts.plan.stops.slice(0, -1);
-      const tk = ticketById.get(dropped.ticketId);
-      if (tk) unrouted.push(tk);
-      recomputeState(ts);
-    }
+  // ── Build plans (ETAs from road/estimated travel time) ───────────────────
+  const unrouted: Ticket[] = unroutedJobs.map(ji => jobs[ji].ticket);
+  const techStates = availableTechs.map((tech, ti) => {
+    let mins = 30, km = 0, [la, ln] = base[ti];
+    const stops: RouteStop[] = routes[ti].map((ji, k) => {
+      const j = jobs[ji];
+      const hour = constraints.shiftStartHour + Math.floor(mins / 60);
+      km += distKmOf(la, ln, j.lat, j.lng);
+      mins += travelMinsOf(la, ln, j.lat, j.lng, hour);
+      const arrival = constraints.shiftStartHour * 60 + mins;
+      mins += j.mins;
+      la = j.lat; ln = j.lng;
+      return {
+        stopOrder: k + 1, ticketId: j.ticket.ticketId, centerName: j.ticket.centerName,
+        vehicleNumber: j.ticket.vehicleNumber, issue: j.ticket.issue, priority: j.ticket.priority as RouteStop['priority'],
+        latitude: j.lat, longitude: j.lng, estimatedDurationMins: j.mins,
+        estimatedArrival: `${String(Math.floor(arrival / 60)).padStart(2, '0')}:${String(Math.round(arrival % 60)).padStart(2, '0')}`,
+      };
+    });
+    const plan: TechnicianRoutePlan = {
+      technicianId: tech.id, technicianName: tech.name, employeeId: tech.employeeId,
+      startLat: base[ti][0], startLng: base[ti][1], defaultDc: tech.defaultDc ?? '',
+      stops, totalDistanceKm: Math.round(km * 10) / 10, totalEstimatedMins: Math.round(mins), status: 'Draft',
+    };
+    return { plan, stopCount: stops.length };
   });
 
   const plans = techStates
