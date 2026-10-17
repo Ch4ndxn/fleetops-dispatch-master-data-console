@@ -54,9 +54,10 @@ export const TechTrackerPage: React.FC = () => {
 
       if (error) {
         console.error('[Tracker] upsert error', error);
-        setErrorMsg(error.message);
-        // Don't stop tracking — might be transient
+        setErrorMsg(`DB error: ${error.message}`);
+        // Don't stop tracking — GPS still works
       } else {
+        setErrorMsg(''); // clear any previous error on success
         setUpsertCount(c => c + 1);
       }
     },
@@ -81,6 +82,9 @@ export const TechTrackerPage: React.FC = () => {
 
     setState('requesting');
     setErrorMsg('');
+
+    // Force immediate upsert on first fix (bypass the 30 s debounce)
+    lastUpsertRef.current = 0;
 
     watchIdRef.current = navigator.geolocation.watchPosition(
       (pos) => {
@@ -185,18 +189,26 @@ export const TechTrackerPage: React.FC = () => {
 
         {/* Status display */}
         {state === 'tracking' && lastFix && (
-          <div className="bg-emerald-950 border border-emerald-700 rounded-xl p-4 space-y-2">
-            <div className="flex items-center gap-2">
-              <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span className="text-sm font-semibold text-emerald-300">Tracking Active</span>
+          <div className="space-y-2">
+            <div className="bg-emerald-950 border border-emerald-700 rounded-xl p-4 space-y-2">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span className="text-sm font-semibold text-emerald-300">Tracking Active</span>
+              </div>
+              <div className="text-xs text-emerald-400 space-y-0.5 font-mono">
+                <div>Lat: {lastFix.lat.toFixed(5)}</div>
+                <div>Lng: {lastFix.lng.toFixed(5)}</div>
+                <div>Accuracy: ±{lastFix.accuracy} m</div>
+                <div>Last sent: {lastFix.ts.toLocaleTimeString()}</div>
+                <div>Updates sent: {upsertCount}</div>
+              </div>
             </div>
-            <div className="text-xs text-emerald-400 space-y-0.5 font-mono">
-              <div>Lat: {lastFix.lat.toFixed(5)}</div>
-              <div>Lng: {lastFix.lng.toFixed(5)}</div>
-              <div>Accuracy: ±{lastFix.accuracy} m</div>
-              <div>Last sent: {lastFix.ts.toLocaleTimeString()}</div>
-              <div>Updates sent: {upsertCount}</div>
-            </div>
+            {errorMsg && (
+              <div className="bg-red-950 border border-red-700 rounded-xl p-3 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
+                <div className="text-xs text-red-300 break-all">{errorMsg}</div>
+              </div>
+            )}
           </div>
         )}
 
