@@ -29,6 +29,7 @@ interface TechGroup {
   employee_id: string;
   tech_name: string;
   logs: VisitLog[];
+  autoArrived: number;
   arrived: number;
   completed: number;
   lastSeen: string;
@@ -49,11 +50,12 @@ function fmtTime(iso: string): string {
 }
 
 const ACTION_STYLE: Record<string, string> = {
-  arrived:   'bg-blue-900/60 text-blue-300 border-blue-800',
-  completed: 'bg-emerald-900/60 text-emerald-300 border-emerald-800',
+  auto_arrived: 'bg-violet-900/60 text-violet-300 border-violet-800',
+  arrived:      'bg-blue-900/60 text-blue-300 border-blue-800',
+  completed:    'bg-emerald-900/60 text-emerald-300 border-emerald-800',
 };
 const ACTION_LABEL: Record<string, string> = {
-  arrived: 'Arrived', completed: 'Completed',
+  auto_arrived: '⚡ Auto', arrived: 'Arrived', completed: 'Completed',
 };
 
 export const VisitLogPage: React.FC = () => {
@@ -113,6 +115,7 @@ export const VisitLogPage: React.FC = () => {
         employee_id: log.employee_id,
         tech_name: log.tech_name || log.employee_id,
         logs: [],
+        autoArrived: 0,
         arrived: 0,
         completed: 0,
         lastSeen: log.visited_at,
@@ -120,8 +123,9 @@ export const VisitLogPage: React.FC = () => {
     }
     const g = groupMap.get(key)!;
     g.logs.push(log);
-    if (log.action === 'arrived')   g.arrived++;
-    if (log.action === 'completed') g.completed++;
+    if (log.action === 'auto_arrived') g.autoArrived++;
+    if (log.action === 'arrived')      g.arrived++;
+    if (log.action === 'completed')    g.completed++;
     if (log.visited_at > g.lastSeen) g.lastSeen = log.visited_at;
   });
 
@@ -217,7 +221,8 @@ export const VisitLogPage: React.FC = () => {
                       <span className="flex items-center gap-1">
                         <Clock className="w-3 h-3" /> Last: {timeAgo(group.lastSeen)}
                       </span>
-                      <span className="text-blue-400 font-semibold">{group.arrived} arrived</span>
+                      {group.autoArrived > 0 && <span className="text-violet-400 font-semibold">{group.autoArrived} auto</span>}
+                      {group.arrived > 0 && <span className="text-blue-400 font-semibold">{group.arrived} arrived</span>}
                       <span className="text-emerald-400 font-semibold">{group.completed} completed</span>
                       <span>{group.logs.length} total</span>
                     </div>

@@ -82,6 +82,13 @@ export const TechTrackerPage: React.FC = () => {
   const watchIdRef    = useRef<number | null>(null);
   const lastUpsertRef = useRef<number>(0);
   const centerMapRef  = useRef<Map<string, Center>>(new Map());
+  // Auto-arrive: set of ticketIds already auto-logged this session (prevents re-fire)
+  const autoLoggedRef = useRef<Set<string>>(new Set());
+  // Ref mirrors for use inside callbacks without stale closure
+  const employeeIdRef = useRef(employeeId);
+  const techNameRef   = useRef(techName);
+  useEffect(() => { employeeIdRef.current = employeeId; }, [employeeId]);
+  useEffect(() => { techNameRef.current   = techName;   }, [techName]);
 
   // ── Load centers once ────────────────────────────────────────────
   useEffect(() => {
@@ -106,19 +113,56 @@ export const TechTrackerPage: React.FC = () => {
     setMyPlan(plans.find(p => p.technicianId === tech.id) ?? null);
   }, [employeeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Auto-log "arrived" when crossing within MARK_RADIUS_M ───────
+  const autoLogVisit = useCallback(async (
+    ticketId: string, centerName: string, lat: number, lng: number, accuracy: number
+  ) => {
+    if (!supabase) return;
+    if (autoLoggedRef.current.has(ticketId)) return; // already fired this session
+    autoLoggedRef.current.add(ticketId); // optimistic lock
+
+    const eid  = employeeIdRef.current.trim().toUpperCase();
+    const name = techNameRef.current.trim() || eid;
+
+    const { error } = await supabase.from('visit_logs').insert({
+      employee_id: eid,
+      tech_name:   name,
+      ticket_id:   ticketId,
+      center_name: centerName,
+      lat, lng, accuracy,
+      action:      'auto_arrived',
+      visited_at:  new Date().toISOString(),
+    });
+
+    if (error) {
+      console.error('[Tracker] auto-visit error', error);
+      autoLoggedRef.current.delete(ticketId); // allow retry
+    } else {
+      setVisits(prev => {
+        const m = new Map(prev);
+        // Only set if not already marked completed manually
+        if (!m.has(ticketId)) m.set(ticketId, { ticketId, action: 'arrived', time: new Date() });
+        return m;
+      });
+    }
+  }, []);
+
   // ── Recalculate distances + nearby tickets on every GPS fix ─────
-  const recalc = useCallback((lat: number, lng: number) => {
-    // Assigned stop distances
+  const recalc = useCallback((lat: number, lng: number, accuracy: number) => {
+    // Assigned stop distances + auto-arrive
     if (myPlan) {
       const m = new Map<string, number>();
       myPlan.stops.forEach(s => {
-        if (s.latitude && s.longitude)
-          m.set(s.ticketId, distanceM(lat, lng, s.latitude, s.longitude));
+        if (s.latitude && s.longitude) {
+          const d = distanceM(lat, lng, s.latitude, s.longitude);
+          m.set(s.ticketId, d);
+          if (d <= MARK_RADIUS_M) void autoLogVisit(s.ticketId, s.centerName, lat, lng, accuracy);
+        }
       });
       setStopDists(m);
     }
 
-    // Nearby open tickets from all centers
+    // Nearby open tickets from all centers + auto-arrive
     const cm = centerMapRef.current;
     const tickets = getTickets().filter(t => !DONE_STATUSES.has(t.status) && t.centerName);
     const enriched: NearbyTicket[] = [];
@@ -127,10 +171,11 @@ export const TechTrackerPage: React.FC = () => {
       if (!center) return;
       const d = distanceM(lat, lng, center.latitude, center.longitude);
       if (d <= NEARBY_RADIUS_KM * 1000) enriched.push({ ticket: t, center, distM: d });
+      if (d <= MARK_RADIUS_M) void autoLogVisit(t.ticketId, t.centerName, lat, lng, accuracy);
     });
     enriched.sort((a, b) => a.distM - b.distM);
     setNearbyTickets(enriched);
-  }, [myPlan]);
+  }, [myPlan, autoLogVisit]);
 
   // ── Upsert location to Supabase ─────────────────────────────────
   const upsertLocation = useCallback(async (lat: number, lng: number, accuracy: number) => {
@@ -171,7 +216,7 @@ export const TechTrackerPage: React.FC = () => {
         const { latitude, longitude, accuracy } = pos.coords;
         setLastFix({ lat: latitude, lng: longitude, accuracy: Math.round(accuracy), ts: new Date() });
         setState('tracking');
-        recalc(latitude, longitude);
+        recalc(latitude, longitude, accuracy);
         void upsertLocation(latitude, longitude, accuracy);
       },
       (err) => {
@@ -197,6 +242,7 @@ export const TechTrackerPage: React.FC = () => {
     setLastFix(null);
     setUpsertCount(0);
     setNearbyTickets([]);
+    autoLoggedRef.current.clear();
   }, []);
 
   useEffect(() => () => stopTracking(), [stopTracking]);
@@ -257,15 +303,23 @@ export const TechTrackerPage: React.FC = () => {
     if (!isTracking) return <p className="text-[11px] text-slate-600 mt-1.5">Start GPS to enable visit marking</p>;
     return (
       <div className="flex gap-2 mt-2">
-        {!visit && (
+        {/* Auto-arrived: show info label, not a button */}
+        {!visit && !nearby && (
+          <div className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold bg-slate-800 text-slate-600">
+            <MapPin className="w-3.5 h-3.5" />
+            {distM !== undefined ? fmtDist(distM) + ' away' : '—'}
+          </div>
+        )}
+        {/* Manual Mark Arrived — only shown if not yet arrived AND currently nearby */}
+        {!visit && nearby && (
           <button onClick={() => void markVisit(ticketId, centerName, 'arrived')}
-            disabled={!nearby || isMarking}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-colors
-              ${nearby ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-slate-800 text-slate-600 cursor-not-allowed'}`}>
+            disabled={isMarking}
+            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white transition-colors">
             {isMarking ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MapPin className="w-3.5 h-3.5" />}
-            {nearby ? 'Mark Arrived' : (distM !== undefined ? fmtDist(distM) + ' away' : '—')}
+            Mark Arrived
           </button>
         )}
+        {/* Mark Done */}
         <button onClick={() => void markVisit(ticketId, centerName, 'completed')}
           disabled={!nearby || isMarking}
           className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-colors
