@@ -88,6 +88,7 @@ const ActiveCasesPage = lazyPage(() => import('./components/tickets/ActiveCasesP
 const RoutePlannerPage = lazyPage(() => import('./components/routes/RoutePlannerPage').then(m => ({ default: m.RoutePlannerPage })));
 const TicketAssignmentPage = lazyPage(() => import('./components/tickets/TicketAssignmentPage').then(m => ({ default: m.TicketAssignmentPage })));
 const LiveTrackingPage = lazyPage(() => import('./components/tracking/LiveTrackingPage').then(m => ({ default: m.LiveTrackingPage })));
+const VisitLogPage = lazyPage(() => import('./components/tracking/VisitLogPage').then(m => ({ default: m.VisitLogPage })));
 const TechnicianPerformancePage = lazyPage(() => import('./components/performance/TechnicianPerformancePage').then(m => ({ default: m.TechnicianPerformancePage })));
 const TechnicianManagement = lazyPage(() => import('./components/technicians/TechnicianManagement').then(m => ({ default: m.TechnicianManagement })));
 const CenterManagement = lazyPage(() => import('./components/centers/CenterManagement').then(m => ({ default: m.CenterManagement })));
@@ -128,7 +129,8 @@ type NavTab =
   | 'AI ROUTE'
   | 'SMART ROUTE'
   | 'CITY ROUTES'
-  | 'VROOM ROUTES';
+  | 'VROOM ROUTES'
+  | 'VISIT LOG';
 
 interface NavItem {
   id: NavTab;
@@ -164,6 +166,7 @@ const NAV_GROUPS: NavGroup[] = [
       { id: 'CITY ROUTES',        label: 'City Routes',       icon: Waypoints },
       { id: 'VROOM ROUTES',       label: 'VROOM Routes',      icon: Route },
       { id: 'LIVE TRACKING',      label: 'Live Tracking',     icon: Radio },
+      { id: 'VISIT LOG',          label: 'Visit Log',         icon: CheckSquare },
       { id: 'HEX ZONE MAP',       label: 'Hex Zone Map',      icon: Hexagon },
     ],
   },
@@ -391,6 +394,10 @@ export default function App() {
 
           {activeTab === 'LIVE TRACKING' && (
             <LiveTrackingPage />
+          )}
+
+          {activeTab === 'VISIT LOG' && (
+            <VisitLogPage />
           )}
 
           {activeTab === 'TECHNICIAN PERFORMANCE' && (
