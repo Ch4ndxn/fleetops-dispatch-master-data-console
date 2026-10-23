@@ -16,7 +16,7 @@ import { getRoutePlans, getTechnicians, getTickets, getCenters } from '../../ser
 import { TechnicianRoutePlan, RouteStop, Ticket, Center } from '../../types';
 import {
   MapPin, Radio, CheckCircle, AlertCircle, Loader2,
-  WifiOff, Navigation, Clock, Wrench, ChevronDown, ChevronUp, Search,
+  WifiOff, Navigation, Clock, Wrench, ChevronDown, ChevronUp, Search, BatteryCharging,
 } from 'lucide-react';
 
 type TrackState = 'idle' | 'requesting' | 'tracking' | 'error' | 'no_gps' | 'no_db';
@@ -79,14 +79,20 @@ export const TechTrackerPage: React.FC = () => {
   const [showMyStops, setShowMyStops]     = useState(true);
   const [showNearby, setShowNearby]       = useState(true);
 
-  const watchIdRef    = useRef<number | null>(null);
-  const lastUpsertRef = useRef<number>(0);
-  const centerMapRef  = useRef<Map<string, Center>>(new Map());
+  const watchIdRef      = useRef<number | null>(null);
+  const lastUpsertRef   = useRef<number>(0);
+  const centerMapRef    = useRef<Map<string, Center>>(new Map());
   // Auto-arrive: set of ticketIds already auto-logged this session (prevents re-fire)
-  const autoLoggedRef = useRef<Set<string>>(new Set());
+  const autoLoggedRef   = useRef<Set<string>>(new Set());
   // Ref mirrors for use inside callbacks without stale closure
-  const employeeIdRef = useRef(employeeId);
-  const techNameRef   = useRef(techName);
+  const employeeIdRef   = useRef(employeeId);
+  const techNameRef     = useRef(techName);
+  // Wake Lock + heartbeat refs
+  const wakeLockRef     = useRef<WakeLockSentinel | null>(null);
+  const heartbeatRef    = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastFixRef      = useRef<{ lat: number; lng: number; accuracy: number; ts: Date } | null>(null);
+  const [wakeLockOn, setWakeLockOn] = useState(false);
+
   useEffect(() => { employeeIdRef.current = employeeId; }, [employeeId]);
   useEffect(() => { techNameRef.current   = techName;   }, [techName]);
 
@@ -210,11 +216,14 @@ export const TechTrackerPage: React.FC = () => {
     setState('requesting');
     setErrorMsg('');
     lastUpsertRef.current = 0;
+    lastFixRef.current    = null;
 
     watchIdRef.current = navigator.geolocation.watchPosition(
       (pos) => {
         const { latitude, longitude, accuracy } = pos.coords;
-        setLastFix({ lat: latitude, lng: longitude, accuracy: Math.round(accuracy), ts: new Date() });
+        const fix = { lat: latitude, lng: longitude, accuracy: Math.round(accuracy), ts: new Date() };
+        lastFixRef.current = fix;
+        setLastFix(fix);
         setState('tracking');
         recalc(latitude, longitude, accuracy);
         void upsertLocation(latitude, longitude, accuracy);
@@ -230,7 +239,22 @@ export const TechTrackerPage: React.FC = () => {
       },
       { enableHighAccuracy: true, maximumAge: 20_000, timeout: 30_000 }
     );
-  }, [employeeId, upsertLocation, recalc]);
+
+    // Acquire screen wake lock so the browser doesn't suspend GPS
+    void acquireWakeLock();
+
+    // Heartbeat: every 60 s force-upsert last known fix even if GPS goes quiet
+    // (handles Android killing watchPosition in background)
+    if (heartbeatRef.current) clearInterval(heartbeatRef.current);
+    heartbeatRef.current = setInterval(() => {
+      const fix = lastFixRef.current;
+      if (fix) {
+        lastUpsertRef.current = 0;
+        void upsertLocation(fix.lat, fix.lng, fix.accuracy);
+      }
+    }, 60_000);
+
+  }, [employeeId, upsertLocation, recalc, acquireWakeLock]);
 
   // ── Stop GPS ─────────────────────────────────────────────────────
   const stopTracking = useCallback(() => {
@@ -238,26 +262,82 @@ export const TechTrackerPage: React.FC = () => {
       navigator.geolocation.clearWatch(watchIdRef.current);
       watchIdRef.current = null;
     }
+    if (heartbeatRef.current) {
+      clearInterval(heartbeatRef.current);
+      heartbeatRef.current = null;
+    }
+    releaseWakeLock();
     setState('idle');
     setLastFix(null);
+    lastFixRef.current = null;
     setUpsertCount(0);
     setNearbyTickets([]);
     autoLoggedRef.current.clear();
-  }, []);
+  }, [releaseWakeLock]);
 
   useEffect(() => () => stopTracking(), [stopTracking]);
 
-  // Keep-alive on tab focus
+  // ── Wake Lock: keep screen/CPU alive while tracking ────────────
+  const acquireWakeLock = useCallback(async () => {
+    if (!('wakeLock' in navigator)) return;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
+      setWakeLockOn(true);
+      wakeLockRef.current.addEventListener('release', () => setWakeLockOn(false));
+    } catch {
+      // Wake Lock not granted (low battery, etc.) — not fatal
+    }
+  }, []);
+
+  const releaseWakeLock = useCallback(() => {
+    if (wakeLockRef.current) {
+      void wakeLockRef.current.release();
+      wakeLockRef.current = null;
+      setWakeLockOn(false);
+    }
+  }, []);
+
+  // Re-acquire wake lock when tab becomes visible again (screen-off releases it)
   useEffect(() => {
-    const onVisible = () => {
-      if (state === 'tracking' && lastFix) {
-        lastUpsertRef.current = 0;
-        void upsertLocation(lastFix.lat, lastFix.lng, lastFix.accuracy);
+    const onVisible = async () => {
+      if (state !== 'tracking') return;
+
+      // Re-acquire wake lock if it was released (screen turned off)
+      if (!wakeLockRef.current) await acquireWakeLock();
+
+      // If GPS went silent while screen was off, re-upsert last known fix immediately
+      const fix = lastFixRef.current;
+      if (fix) {
+        lastUpsertRef.current = 0; // force upsert even if < 30s
+        void upsertLocation(fix.lat, fix.lng, fix.accuracy);
+        recalc(fix.lat, fix.lng, fix.accuracy);
+      }
+
+      // If watchPosition died (some Android browsers kill it), restart it
+      if (watchIdRef.current === null) {
+        watchIdRef.current = navigator.geolocation.watchPosition(
+          (pos) => {
+            const { latitude, longitude, accuracy } = pos.coords;
+            const fix = { lat: latitude, lng: longitude, accuracy: Math.round(accuracy), ts: new Date() };
+            lastFixRef.current = fix;
+            setLastFix(fix);
+            setState('tracking');
+            recalc(latitude, longitude, accuracy);
+            void upsertLocation(latitude, longitude, accuracy);
+          },
+          (err) => { console.warn('[Tracker] GPS restart warn', err.message); },
+          { enableHighAccuracy: true, maximumAge: 20_000, timeout: 30_000 }
+        );
       }
     };
-    document.addEventListener('visibilitychange', onVisible);
-    return () => document.removeEventListener('visibilitychange', onVisible);
-  }, [state, lastFix, upsertLocation]);
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') void onVisible();
+    });
+    return () => document.removeEventListener('visibilitychange', () => void onVisible());
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state, acquireWakeLock, upsertLocation, recalc]);
 
   // ── Mark visit ───────────────────────────────────────────────────
   const markVisit = useCallback(async (
@@ -381,11 +461,21 @@ export const TechTrackerPage: React.FC = () => {
               <div className="flex items-center gap-2">
                 <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
                 <span className="text-xs font-semibold text-emerald-300">GPS Active</span>
+                {wakeLockOn && (
+                  <span className="flex items-center gap-0.5 text-[10px] text-amber-400 font-semibold">
+                    <BatteryCharging className="w-3 h-3" /> Stay-awake ON
+                  </span>
+                )}
                 <span className="ml-auto text-[10px] text-emerald-600 font-mono">±{lastFix.accuracy} m</span>
               </div>
               <div className="text-[11px] text-emerald-600 font-mono">
                 {lastFix.lat.toFixed(5)}, {lastFix.lng.toFixed(5)} · {lastFix.ts.toLocaleTimeString()}
               </div>
+              {!wakeLockOn && (
+                <div className="text-[10px] text-slate-500">
+                  ⚠ Keep screen on for continuous tracking
+                </div>
+              )}
               {errorMsg && (
                 <div className="text-[11px] text-red-400 flex items-center gap-1 pt-1">
                   <AlertCircle className="w-3 h-3 shrink-0" />{errorMsg}
@@ -616,7 +706,8 @@ export const TechTrackerPage: React.FC = () => {
 
         <div className="text-center text-[11px] text-slate-700 space-y-0.5">
           <p>Location shared only with your dispatch team.</p>
-          <p>Keep this page open while on-field.</p>
+          <p>Keep this page open and plugged in while on-field.</p>
+          <p>Screen can lock — GPS will try to stay active.</p>
         </div>
       </div>
     </div>
