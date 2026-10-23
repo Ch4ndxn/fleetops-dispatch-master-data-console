@@ -16,7 +16,7 @@ import { getRoutePlans, getTechnicians, getTickets, getCenters } from '../../ser
 import { TechnicianRoutePlan, RouteStop, Ticket, Center } from '../../types';
 import {
   MapPin, Radio, CheckCircle, AlertCircle, Loader2,
-  WifiOff, Navigation, Clock, Wrench, ChevronDown, ChevronUp, Search,
+  WifiOff, Navigation, Clock, Wrench, ChevronDown, ChevronUp, Search, Download,
 } from 'lucide-react';
 
 type TrackState = 'idle' | 'requesting' | 'tracking' | 'error' | 'no_gps' | 'no_db';
@@ -78,6 +78,31 @@ export const TechTrackerPage: React.FC = () => {
   const [marking, setMarking]             = useState<string | null>(null);
   const [showMyStops, setShowMyStops]     = useState(true);
   const [showNearby, setShowNearby]       = useState(true);
+
+  // ── PWA install prompt ───────────────────────────────────────────
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [installPrompt, setInstallPrompt] = useState<any>(null);
+  const [isInstalled, setIsInstalled]     = useState(false);
+
+  useEffect(() => {
+    // Check if already running as installed PWA
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      setIsInstalled(true);
+    }
+    // Capture the browser's install prompt
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const handler = (e: any) => { e.preventDefault(); setInstallPrompt(e); };
+    window.addEventListener('beforeinstallprompt', handler);
+    window.addEventListener('appinstalled', () => { setIsInstalled(true); setInstallPrompt(null); });
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstall = useCallback(async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    const { outcome } = await installPrompt.userChoice;
+    if (outcome === 'accepted') { setIsInstalled(true); setInstallPrompt(null); }
+  }, [installPrompt]);
 
   const watchIdRef    = useRef<number | null>(null);
   const lastUpsertRef = useRef<number>(0);
@@ -354,6 +379,21 @@ export const TechTrackerPage: React.FC = () => {
           </span>
         )}
       </div>
+
+      {/* ── PWA Install Banner ── */}
+      {!isInstalled && installPrompt && (
+        <div className="bg-emerald-900/80 border-b border-emerald-700 px-4 py-2.5 flex items-center gap-3">
+          <Download className="w-4 h-4 text-emerald-300 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-emerald-200">Install for background GPS</p>
+            <p className="text-[10px] text-emerald-500">Keeps tracking when screen turns off</p>
+          </div>
+          <button onClick={() => void handleInstall()}
+            className="shrink-0 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-colors">
+            Install
+          </button>
+        </div>
+      )}
 
       <div className="px-4 pt-4 space-y-4 max-w-md mx-auto">
 
