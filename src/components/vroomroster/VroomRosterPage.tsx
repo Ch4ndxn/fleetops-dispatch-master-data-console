@@ -28,12 +28,17 @@ import type { TechnicianRoutePlan, Ticket, Technician, Center } from '../../type
 import { localDate } from '../../lib/date';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
-/** Use the raw city name (trimmed, title-cased) so every distinct city appears separately.
- *  We do NOT collapse to presets here — that would merge unrelated cities into "Delhi NCR". */
+/** NCR cities that should all map to "Delhi NCR" */
+const NCR_CITIES = ['delhi', 'noida', 'gurgaon', 'gurugram', 'faridabad', 'ghaziabad', 'greater noida', 'delhi ncr'];
+
+/** Normalise a raw city string to a canonical cluster name. */
 const cityKey = (s?: string | null): string => {
   const t = (s || '').trim();
   if (!t) return '';
-  // title-case so "mumbai" and "Mumbai" group together
+  const lower = t.toLowerCase();
+  // Collapse all NCR cities into one group
+  if (NCR_CITIES.some(ncr => lower === ncr || lower.startsWith(ncr))) return 'Delhi NCR';
+  // Title-case so "mumbai" and "Mumbai" group together
   return t.replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
 };
 
