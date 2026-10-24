@@ -449,7 +449,7 @@ export default function App() {
           )}
 
           {activeTab === 'CITY ROUTES' && <CityRoutesPage />}
-          {activeTab === 'VROOM ROUTES' && <VroomRosterPage />}
+          {activeTab === 'VROOM ROUTES' && <CityRoutesPage engine="vroom" />}
           {activeTab === 'CLUSTER ROUTES' && <ClusterRoutesPage />}
 
           {activeTab === 'TICKETS' && (
