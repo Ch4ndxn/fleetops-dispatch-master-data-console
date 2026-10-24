@@ -13,7 +13,6 @@ import {
   Clock, Download, FileText, Loader2, Map as MapIcon, MapPin,
   RefreshCw, Route, Truck, Users, Wifi, WifiOff,
 } from 'lucide-react';
-import { MapContainer, TileLayer, Marker, Polyline, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { getCenters, getTechnicians, getTickets, subscribeToDataChanges } from '../../services/storage';
@@ -142,76 +141,99 @@ function buildClusterGroups(): ClusterGroup[] {
     }));
 }
 
-// ── Leaflet map ───────────────────────────────────────────────────────────────
-function makeIcon(color: string, label: string | number, size = 24) {
-  return L.divIcon({
-    className: '',
-    iconAnchor: [size / 2, size / 2],
-    html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};color:#fff;display:flex;align-items:center;justify-content:center;font-size:${size < 22 ? 9 : 11}px;font-weight:800;border:2px solid rgba(255,255,255,0.9);box-shadow:0 1px 4px rgba(0,0,0,.3)">${label}</div>`,
-  });
-}
-
-function makeBaseIcon(initials: string, color: string) {
-  return L.divIcon({
-    className: '',
-    iconAnchor: [14, 14],
-    html: `<div style="width:28px;height:28px;border-radius:50%;background:${color};color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.3)">${initials}</div>`,
-  });
-}
-
+// ── Leaflet map (raw, no react-leaflet) ──────────────────────────────────────
 interface ClusterMapProps { plan: ClusterPlan; color: string }
 
-function ClusterMap({ plan, color }: ClusterMapProps) {
+function ClusterMap({ plan }: ClusterMapProps) {
+  const divRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<L.Map | null>(null);
+
   const allPoints: [number, number][] = [];
   for (const p of plan.plans) {
     if (p.startLat && p.startLng) allPoints.push([p.startLat, p.startLng]);
     for (const s of p.stops) allPoints.push([s.latitude, s.longitude]);
   }
+
+  useEffect(() => {
+    if (!divRef.current || !allPoints.length) return;
+
+    // Destroy old map instance if cluster changes
+    if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; }
+
+    const lats = allPoints.map(p => p[0]);
+    const lngs = allPoints.map(p => p[1]);
+    const centerLat = (Math.min(...lats) + Math.max(...lats)) / 2;
+    const centerLng = (Math.min(...lngs) + Math.max(...lngs)) / 2;
+
+    const map = L.map(divRef.current, { zoomControl: true, scrollWheelZoom: false });
+    mapRef.current = map;
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap',
+    }).addTo(map);
+
+    map.setView([centerLat, centerLng], 11);
+
+    plan.plans.forEach((p, pi) => {
+      const tc = TECH_COLORS[pi % TECH_COLORS.length];
+      const initials = p.technicianName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+
+      // Base marker
+      if (p.startLat && p.startLng) {
+        const icon = L.divIcon({
+          className: '',
+          iconAnchor: [14, 14],
+          html: `<div style="width:28px;height:28px;border-radius:50%;background:${tc};color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.3)">${initials}</div>`,
+        });
+        L.marker([p.startLat, p.startLng], { icon })
+          .bindPopup(`<b>${p.technicianName}</b><br/>Base (${p.employeeId})`)
+          .addTo(map);
+      }
+
+      // Stop markers
+      const route: [number, number][] = p.startLat && p.startLng ? [[p.startLat, p.startLng]] : [];
+      p.stops.forEach((s, si) => {
+        route.push([s.latitude, s.longitude]);
+        const stopColor = s.ticketStatus === 'Resolved' ? '#10b981' : tc;
+        const icon = L.divIcon({
+          className: '',
+          iconAnchor: [12, 12],
+          html: `<div style="width:24px;height:24px;border-radius:50%;background:${stopColor};color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;border:2px solid rgba(255,255,255,0.9);box-shadow:0 1px 4px rgba(0,0,0,.3)">${si + 1}</div>`,
+        });
+        L.marker([s.latitude, s.longitude], { icon })
+          .bindPopup(`<b>${s.ticketId}</b><br/>${s.centerName}<br/>${s.vehicleNumber}<br/>ETA ${s.estimatedArrival} · ${s.priority}`)
+          .addTo(map);
+      });
+
+      // Route polyline
+      if (route.length > 1) {
+        L.polyline(route, { color: tc, weight: 2, opacity: 0.8 }).addTo(map);
+      }
+    });
+
+    // Fit bounds
+    if (allPoints.length) {
+      map.fitBounds(L.latLngBounds(allPoints), { padding: [24, 24] });
+    }
+
+    return () => { if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; } };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plan.cluster, plan.plans.length]);
+
   if (!allPoints.length) return (
     <div className="flex-1 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-center text-xs text-slate-400 min-h-[320px]">
       <MapIcon className="w-6 h-6 text-slate-300 mr-2" /> No route data to display
     </div>
   );
 
-  const lats = allPoints.map(p => p[0]);
-  const lngs = allPoints.map(p => p[1]);
-  const center: [number, number] = [(Math.min(...lats) + Math.max(...lats)) / 2, (Math.min(...lngs) + Math.max(...lngs)) / 2];
-
   return (
-    <div className="flex-1 rounded-xl overflow-hidden border border-slate-200 shadow-sm min-h-[320px]">
+    <div className="flex-1 rounded-xl overflow-hidden border border-slate-200 shadow-sm">
       <div className="bg-slate-50 border-b border-slate-200 px-3 py-2 text-xs text-slate-500 flex items-center gap-2">
         <MapIcon className="w-3.5 h-3.5" />
         <span className="font-semibold text-slate-700">{plan.cluster} map</span>
-        <span className="text-slate-300">bases · numbered stops · solid = road route</span>
+        <span className="text-slate-300 hidden sm:inline">bases · numbered stops · lines = route</span>
       </div>
-      <MapContainer center={center} zoom={11} style={{ height: '340px', width: '100%' }} zoomControl scrollWheelZoom={false}>
-        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="© OpenStreetMap" />
-        {plan.plans.map((p, pi) => {
-          const tc = TECH_COLORS[pi % TECH_COLORS.length];
-          const initials = p.technicianName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
-          const route: [number, number][] = p.startLat && p.startLng ? [[p.startLat, p.startLng]] : [];
-          p.stops.forEach(s => route.push([s.latitude, s.longitude]));
-
-          return (
-            <React.Fragment key={p.technicianId}>
-              {p.startLat && p.startLng && (
-                <Marker position={[p.startLat, p.startLng]} icon={makeBaseIcon(initials, tc)}>
-                  <Popup><b>{p.technicianName}</b><br />Base ({p.employeeId})</Popup>
-                </Marker>
-              )}
-              {p.stops.map((s, si) => (
-                <Marker key={s.ticketId} position={[s.latitude, s.longitude]} icon={makeIcon(s.ticketStatus === 'Resolved' ? '#10b981' : tc, si + 1)}>
-                  <Popup>
-                    <b>{s.ticketId}</b><br />{s.centerName}<br />{s.vehicleNumber}<br />
-                    ETA {s.estimatedArrival} · {s.priority}
-                  </Popup>
-                </Marker>
-              ))}
-              {route.length > 1 && <Polyline positions={route} color={tc} weight={2} opacity={0.8} />}
-            </React.Fragment>
-          );
-        })}
-      </MapContainer>
+      <div ref={divRef} style={{ height: '380px', width: '100%' }} />
     </div>
   );
 }
