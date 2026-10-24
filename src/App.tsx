@@ -106,6 +106,7 @@ const AiRoutePlannerPage = lazyPage(() => import('./components/airouter/AiRouteP
 const CityRoutesPage = lazyPage(() => import('./components/cityroutes/CityRoutesPage').then(m => ({ default: m.CityRoutesPage })));
 const SmartRoutePlannerPage = lazyPage(() => import('./components/smartrouter/SmartRoutePlannerPage').then(m => ({ default: m.SmartRoutePlannerPage })));
 const VroomRosterPage = lazyPage(() => import('./components/vroomroster/VroomRosterPage').then(m => ({ default: m.VroomRosterPage })));
+const ClusterRoutesPage = lazyPage(() => import('./components/clusterroutes/ClusterRoutesPage').then(m => ({ default: m.ClusterRoutesPage })));
 
 type NavTab =
   | 'OVERVIEW'
@@ -131,6 +132,7 @@ type NavTab =
   | 'SMART ROUTE'
   | 'CITY ROUTES'
   | 'VROOM ROUTES'
+  | 'CLUSTER ROUTES'
   | 'VISIT LOG';
 
 interface NavItem {
@@ -166,6 +168,7 @@ const NAV_GROUPS: NavGroup[] = [
       { id: 'SMART ROUTE',        label: 'Smart Route',       icon: Sparkles },
       { id: 'CITY ROUTES',        label: 'City Routes',       icon: Waypoints },
       { id: 'VROOM ROUTES',       label: 'VROOM Routes',      icon: Route },
+      { id: 'CLUSTER ROUTES',     label: 'Cluster Routes',    icon: Waypoints },
       { id: 'LIVE TRACKING',      label: 'Live Tracking',     icon: Radio },
       { id: 'VISIT LOG',          label: 'Visit Log',         icon: CheckSquare },
       { id: 'HEX ZONE MAP',       label: 'Hex Zone Map',      icon: Hexagon },
@@ -447,6 +450,7 @@ export default function App() {
 
           {activeTab === 'CITY ROUTES' && <CityRoutesPage />}
           {activeTab === 'VROOM ROUTES' && <VroomRosterPage />}
+          {activeTab === 'CLUSTER ROUTES' && <ClusterRoutesPage />}
 
           {activeTab === 'TICKETS' && (
             <TicketsPage onOpenUploadModal={handleOpenUpload} />

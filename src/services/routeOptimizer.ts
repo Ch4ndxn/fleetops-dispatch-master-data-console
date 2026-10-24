@@ -296,6 +296,17 @@ export const CITY_PRESETS: Record<string, CityConstraintPreset> = {
     baseSpeedKmh: 24,
     congestionMultiplierPeak: 1.4,
   },
+  // Raipur — smaller city, lower traffic
+  'Raipur': {
+    label: 'Raipur',
+    maxStopsPerTech: 8,
+    maxKmPerTech: 70,
+    shiftStartHour: 9,
+    shiftEndHour: 18,
+    detourFactor: 1.25,
+    baseSpeedKmh: 28,
+    congestionMultiplierPeak: 1.2,
+  },
 };
 
 /** Normalise any city string to a preset key */
@@ -307,7 +318,8 @@ export function normaliseCityToPreset(city: string): string {
   if (c.includes('pune')) return 'Pune';
   if (c.includes('hyderabad')) return 'Hyderabad';
   if (c.includes('chennai')) return 'Chennai';
-  return 'Delhi NCR'; // safe default
+  if (c.includes('raipur')) return 'Raipur';
+  return ''; // unknown city — caller decides what to do
 }
 
 export interface BalancedPlanResult {
