@@ -23,13 +23,19 @@ import {
 import {
   getCenters, getTechnicians, getTickets, subscribeToDataChanges,
 } from '../../services/storage';
-import { normaliseCityToPreset } from '../../services/routeOptimizer';
 import { solveWithVroom, getVroomUrl, setVroomUrl, checkVroom } from '../../services/vroom';
 import type { TechnicianRoutePlan, Ticket, Technician, Center } from '../../types';
 import { localDate } from '../../lib/date';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
-const cityKey = (s?: string | null) => normaliseCityToPreset(s || '');
+/** Use the raw city name (trimmed, title-cased) so every distinct city appears separately.
+ *  We do NOT collapse to presets here — that would merge unrelated cities into "Delhi NCR". */
+const cityKey = (s?: string | null): string => {
+  const t = (s || '').trim();
+  if (!t) return '';
+  // title-case so "mumbai" and "Mumbai" group together
+  return t.replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+};
 
 const isOpen = (t: Ticket) => t.status !== 'Resolved' && t.status !== 'Closed';
 
@@ -119,13 +125,35 @@ export function VroomRosterPage() {
       centersByCity.set(k, arr);
     }
 
-    // Match tickets to cities via center name
+    // Match tickets to cities via center name → center's city
+    // Fall back: if center has no city set, try to match ticket's centerName against
+    // a technician's defaultDc or city directly.
     const centerNameToCity = new Map<string, string>();
-    for (const c of centers) centerNameToCity.set(c.name.trim().toLowerCase(), cityKey(c.city));
+    for (const c of centers) {
+      const ck = cityKey(c.city);
+      if (ck) centerNameToCity.set(c.name.trim().toLowerCase(), ck);
+    }
+
+    // Also build a set of all known tech cities so we can fallback-match tickets whose
+    // center city is blank but centerName contains the city name.
+    const allTechCities = [...techsByCity.keys()];
 
     const ticketsByCity = new Map<string, Ticket[]>();
     for (const t of tickets) {
-      const ck = centerNameToCity.get(t.centerName.trim().toLowerCase());
+      let ck = centerNameToCity.get(t.centerName.trim().toLowerCase());
+
+      // Fallback: scan the center name itself for a known tech city
+      if (!ck) {
+        const cn = t.centerName.trim().toLowerCase();
+        ck = allTechCities.find(city => cn.includes(city.toLowerCase())) ?? '';
+      }
+
+      // Fallback 2: use ticket's own location field
+      if (!ck && t.location) {
+        const loc = t.location.trim().toLowerCase();
+        ck = allTechCities.find(city => loc.includes(city.toLowerCase())) ?? '';
+      }
+
       if (!ck) continue;
       const arr = ticketsByCity.get(ck) ?? [];
       arr.push(t);
