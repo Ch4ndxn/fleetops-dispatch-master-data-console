@@ -105,6 +105,7 @@ const AiAssistantPage = lazyPage(() => import('./components/ai/AiAssistantPage')
 const AiRoutePlannerPage = lazyPage(() => import('./components/airouter/AiRoutePlannerPage').then(m => ({ default: m.AiRoutePlannerPage })));
 const CityRoutesPage = lazyPage(() => import('./components/cityroutes/CityRoutesPage').then(m => ({ default: m.CityRoutesPage })));
 const SmartRoutePlannerPage = lazyPage(() => import('./components/smartrouter/SmartRoutePlannerPage').then(m => ({ default: m.SmartRoutePlannerPage })));
+const VroomRosterPage = lazyPage(() => import('./components/vroomroster/VroomRosterPage').then(m => ({ default: m.VroomRosterPage })));
 
 type NavTab =
   | 'OVERVIEW'
@@ -445,7 +446,7 @@ export default function App() {
           )}
 
           {activeTab === 'CITY ROUTES' && <CityRoutesPage />}
-          {activeTab === 'VROOM ROUTES' && <CityRoutesPage engine="vroom" />}
+          {activeTab === 'VROOM ROUTES' && <VroomRosterPage />}
 
           {activeTab === 'TICKETS' && (
             <TicketsPage onOpenUploadModal={handleOpenUpload} />
