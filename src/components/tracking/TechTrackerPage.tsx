@@ -104,16 +104,20 @@ export const TechTrackerPage: React.FC = () => {
     if (outcome === 'accepted') { setIsInstalled(true); setInstallPrompt(null); }
   }, [installPrompt]);
 
-  const watchIdRef    = useRef<number | null>(null);
-  const lastUpsertRef = useRef<number>(0);
-  const centerMapRef  = useRef<Map<string, Center>>(new Map());
+  const watchIdRef     = useRef<number | null>(null);
+  const lastUpsertRef  = useRef<number>(0);
+  const lastFixTimeRef = useRef<number>(0);   // epoch ms of last GPS callback
+  const keepAliveRef   = useRef<ReturnType<typeof setInterval> | null>(null);
+  const centerMapRef   = useRef<Map<string, Center>>(new Map());
   // Auto-arrive: set of ticketIds already auto-logged this session (prevents re-fire)
-  const autoLoggedRef = useRef<Set<string>>(new Set());
+  const autoLoggedRef  = useRef<Set<string>>(new Set());
   // Ref mirrors for use inside callbacks without stale closure
-  const employeeIdRef = useRef(employeeId);
-  const techNameRef   = useRef(techName);
+  const employeeIdRef  = useRef(employeeId);
+  const techNameRef    = useRef(techName);
+  const stateRef       = useRef<TrackState>('idle');
   useEffect(() => { employeeIdRef.current = employeeId; }, [employeeId]);
   useEffect(() => { techNameRef.current   = techName;   }, [techName]);
+  useEffect(() => { stateRef.current      = state;      }, [state]);
 
   // ── Load centers once ────────────────────────────────────────────
   useEffect(() => {
@@ -227,20 +231,36 @@ export const TechTrackerPage: React.FC = () => {
     }
   }, [employeeId, techName]);
 
-  // ── Start GPS ────────────────────────────────────────────────────
-  const startTracking = useCallback(() => {
-    if (!employeeId.trim()) { setErrorMsg('Please enter your Employee ID first.'); setState('error'); return; }
-    if (!navigator.geolocation) { setState('no_gps'); return; }
-    if (!supabase) { setState('no_db'); return; }
-    setState('requesting');
-    setErrorMsg('');
-    lastUpsertRef.current = 0;
+  // ── Wake Lock — prevents CPU/screen sleep in WebView ────────────
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null);
+  const acquireWakeLock = useCallback(async () => {
+    try {
+      if ('wakeLock' in navigator) {
+        wakeLockRef.current = await (navigator as Navigator & { wakeLock: { request: (type: string) => Promise<WakeLockSentinel> } }).wakeLock.request('screen');
+        console.log('[Tracker] Wake lock acquired');
+      }
+    } catch (e) {
+      console.warn('[Tracker] Wake lock failed', e);
+    }
+  }, []);
+  const releaseWakeLock = useCallback(() => {
+    wakeLockRef.current?.release().catch(() => {});
+    wakeLockRef.current = null;
+  }, []);
 
+  // ── Register one watchPosition call ─────────────────────────────
+  const registerWatch = useCallback(() => {
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
     watchIdRef.current = navigator.geolocation.watchPosition(
       (pos) => {
         const { latitude, longitude, accuracy } = pos.coords;
+        lastFixTimeRef.current = Date.now();
         setLastFix({ lat: latitude, lng: longitude, accuracy: Math.round(accuracy), ts: new Date() });
         setState('tracking');
+        stateRef.current = 'tracking';
         recalc(latitude, longitude, accuracy);
         void upsertLocation(latitude, longitude, accuracy);
       },
@@ -248,14 +268,43 @@ export const TechTrackerPage: React.FC = () => {
         if (err.code === err.PERMISSION_DENIED) {
           setErrorMsg('Location permission denied. Please allow location access and try again.');
           setState('error');
-          if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
+          stateRef.current = 'error';
+          if (watchIdRef.current !== null) { navigator.geolocation.clearWatch(watchIdRef.current); watchIdRef.current = null; }
+          if (keepAliveRef.current !== null) { clearInterval(keepAliveRef.current); keepAliveRef.current = null; }
+          releaseWakeLock();
         } else {
-          console.warn('[Tracker] GPS warn', err.message);
+          console.warn('[Tracker] GPS warn', err.code, err.message);
         }
       },
-      { enableHighAccuracy: true, maximumAge: 20_000, timeout: 30_000 }
+      { enableHighAccuracy: true, maximumAge: 15_000, timeout: 40_000 },
     );
-  }, [employeeId, upsertLocation, recalc]);
+  }, [recalc, upsertLocation, releaseWakeLock]);
+
+  // ── Start GPS ────────────────────────────────────────────────────
+  const startTracking = useCallback(() => {
+    if (!employeeId.trim()) { setErrorMsg('Please enter your Employee ID first.'); setState('error'); return; }
+    if (!navigator.geolocation) { setState('no_gps'); return; }
+    if (!supabase) { setState('no_db'); return; }
+    setState('requesting');
+    stateRef.current = 'requesting';
+    setErrorMsg('');
+    lastUpsertRef.current = 0;
+    lastFixTimeRef.current = Date.now();
+
+    void acquireWakeLock();
+    registerWatch();
+
+    // Heartbeat: every 45 s, if no GPS fix received in last 50 s → restart watchPosition
+    keepAliveRef.current = setInterval(() => {
+      if (stateRef.current !== 'tracking' && stateRef.current !== 'requesting') return;
+      const staleSec = (Date.now() - lastFixTimeRef.current) / 1000;
+      if (staleSec > 50) {
+        console.warn(`[Tracker] GPS stale for ${Math.round(staleSec)}s — restarting watchPosition`);
+        registerWatch();
+      }
+    }, 45_000);
+
+  }, [employeeId, acquireWakeLock, registerWatch]);
 
   // ── Stop GPS ─────────────────────────────────────────────────────
   const stopTracking = useCallback(() => {
@@ -263,26 +312,33 @@ export const TechTrackerPage: React.FC = () => {
       navigator.geolocation.clearWatch(watchIdRef.current);
       watchIdRef.current = null;
     }
+    if (keepAliveRef.current !== null) {
+      clearInterval(keepAliveRef.current);
+      keepAliveRef.current = null;
+    }
+    releaseWakeLock();
     setState('idle');
+    stateRef.current = 'idle';
     setLastFix(null);
     setUpsertCount(0);
     setNearbyTickets([]);
     autoLoggedRef.current.clear();
-  }, []);
+  }, [releaseWakeLock]);
 
   useEffect(() => () => stopTracking(), [stopTracking]);
 
-  // Keep-alive on tab focus
+  // Re-acquire wake lock and restart GPS when app comes back to foreground
   useEffect(() => {
     const onVisible = () => {
-      if (state === 'tracking' && lastFix) {
-        lastUpsertRef.current = 0;
-        void upsertLocation(lastFix.lat, lastFix.lng, lastFix.accuracy);
-      }
+      if (stateRef.current !== 'tracking' && stateRef.current !== 'requesting') return;
+      console.log('[Tracker] Visibility restored — restarting GPS & wake lock');
+      void acquireWakeLock();
+      lastUpsertRef.current = 0;
+      registerWatch();
     };
     document.addEventListener('visibilitychange', onVisible);
     return () => document.removeEventListener('visibilitychange', onVisible);
-  }, [state, lastFix, upsertLocation]);
+  }, [acquireWakeLock, registerWatch]);
 
   // ── Mark visit ───────────────────────────────────────────────────
   const markVisit = useCallback(async (
