@@ -11,14 +11,19 @@ import { Phone, X, User, Building2, ExternalLink } from 'lucide-react';
 function findPoc(centerName: string) {
   if (!centerName) return null;
   const norm = centerName.trim().toLowerCase();
-  // exact match first
-  let match = DC_POC_DATA.find(d => d.center.toLowerCase() === norm);
-  if (!match) {
-    // fuzzy: strip trailing _D/_H etc and try contains
-    const base = norm.replace(/[_\s]+(d|h|w|c)$/, '');
-    match = DC_POC_DATA.find(d => d.center.toLowerCase().includes(base));
-  }
-  return match ?? null;
+  // 1. exact match
+  let m = DC_POC_DATA.find(d => d.center.toLowerCase() === norm);
+  if (m) return m;
+  // 2. try adding _D suffix (tickets often omit it)
+  m = DC_POC_DATA.find(d => d.center.toLowerCase() === norm + '_d');
+  if (m) return m;
+  // 3. strip suffix from both sides and compare
+  const base = norm.replace(/[_\s]+(d|h|w|c)$/, '');
+  m = DC_POC_DATA.find(d => d.center.toLowerCase().replace(/[_\s]+(d|h|w|c)$/, '') === base);
+  if (m) return m;
+  // 4. loose contains
+  m = DC_POC_DATA.find(d => d.center.toLowerCase().includes(base));
+  return m ?? null;
 }
 
 function ContactRow({ label, name, phone, color }: {

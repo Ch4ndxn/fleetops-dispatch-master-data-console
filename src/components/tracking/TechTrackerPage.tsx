@@ -24,11 +24,18 @@ import { DC_POC_DATA } from '../dcpoc/dcPocData';
 function findDcPoc(centerName: string) {
   if (!centerName) return null;
   const norm = centerName.trim().toLowerCase();
+  // 1. exact match
   let m = DC_POC_DATA.find(d => d.center.toLowerCase() === norm);
-  if (!m) {
-    const base = norm.replace(/[_\s]+(d|h|w|c)$/, '');
-    m = DC_POC_DATA.find(d => d.center.toLowerCase().includes(base));
-  }
+  if (m) return m;
+  // 2. try adding _D suffix (tickets often omit it)
+  m = DC_POC_DATA.find(d => d.center.toLowerCase() === norm + '_d');
+  if (m) return m;
+  // 3. strip _D/_H/_W/_C from both sides and do contains match
+  const base = norm.replace(/[_\s]+(d|h|w|c)$/, '');
+  m = DC_POC_DATA.find(d => d.center.toLowerCase().replace(/[_\s]+(d|h|w|c)$/, '') === base);
+  if (m) return m;
+  // 4. loose contains
+  m = DC_POC_DATA.find(d => d.center.toLowerCase().includes(base));
   return m ?? null;
 }
 
