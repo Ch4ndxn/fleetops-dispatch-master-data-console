@@ -43,9 +43,9 @@ function PocContacts({ centerName }: { centerName: string }) {
   const poc = findDcPoc(centerName);
   if (!poc) return null;
   const rows = [
-    { label: 'POC', name: poc.poc, phone: poc.pocPhone, color: 'text-orange-300' },
-    { label: 'TL',  name: poc.tl,  phone: poc.tlPhone,  color: 'text-blue-300'   },
-    { label: 'ATL', name: poc.atl, phone: poc.atlPhone,  color: 'text-purple-300' },
+    { label: 'Central', name: poc.poc, phone: poc.pocPhone, color: 'text-orange-300' },
+    { label: 'TL',      name: poc.tl,  phone: poc.tlPhone,  color: 'text-blue-300'   },
+    { label: 'ATL',     name: poc.atl, phone: poc.atlPhone,  color: 'text-purple-300' },
   ].filter(r => r.name || r.phone);
   if (!rows.length) return null;
   return (
@@ -53,7 +53,7 @@ function PocContacts({ centerName }: { centerName: string }) {
       <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">DC Contacts</div>
       {rows.map(r => (
         <div key={r.label} className="flex items-center gap-2">
-          <span className={`text-[10px] font-bold w-6 ${r.color}`}>{r.label}</span>
+          <span className={`text-[10px] font-bold w-12 shrink-0 ${r.color}`}>{r.label}</span>
           <span className="text-[11px] text-slate-300 flex-1 truncate">{r.name || '—'}</span>
           {r.phone ? (
             <div className="flex items-center gap-1.5 shrink-0">
