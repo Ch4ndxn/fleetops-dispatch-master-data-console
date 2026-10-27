@@ -7,6 +7,7 @@ import {
 import { Ticket, TicketStatus, TicketPriority, Technician, Center } from '../../types';
 import { getTickets, saveTickets, getTechnicians, getCenters, newId, subscribeToDataChanges, clearResolvedTickets, clearAllTickets } from '../../services/storage';
 import { generateCSV, downloadCSV } from '../../services/csvParser';
+import { DcPocTrigger } from '../dcpoc/DcPocPopup';
 
 interface Props {
   onOpenUploadModal: (type: 'TICKET_CSV') => void;
@@ -606,7 +607,9 @@ export const TicketsPage: React.FC<Props> = ({ onOpenUploadModal }) => {
                     </div>
                   </td>
                   <td className="px-3 py-2.5 font-medium text-slate-800 whitespace-nowrap">{ticket.vehicleNumber}</td>
-                  <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">{ticket.centerName}</td>
+                  <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">
+                    <DcPocTrigger centerName={ticket.centerName} />
+                  </td>
                   <td className="px-3 py-2.5 text-slate-600" style={{ maxWidth: 200 }}>
                     <div className="truncate" title={ticket.issue}>{ticket.issue}</div>
                   </td>

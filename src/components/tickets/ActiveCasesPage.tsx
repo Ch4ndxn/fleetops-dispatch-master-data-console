@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { localDate } from '../../lib/date';
 import { usePaged, Pager } from '../common/Pager';
+import { DcPocTrigger } from '../dcpoc/DcPocPopup';
 
 interface Props {
   onOpenUploadModal: (type: 'TICKET_CSV') => void;
@@ -261,9 +262,8 @@ export const ActiveCasesPage: React.FC<Props> = ({ onOpenUploadModal }) => {
 
                       {/* Center */}
                       <td className="py-3 px-4">
-                        <div className="font-medium text-slate-900 flex items-center gap-1">
-                          <Building2 className="w-3 h-3 text-slate-400" />
-                          <span>{tk.centerName}</span>
+                        <div className="font-medium text-slate-900">
+                          <DcPocTrigger centerName={tk.centerName} />
                         </div>
                         <div className="text-[11px] text-slate-500">{tk.location || 'Delhi NCR'}</div>
                       </td>
