@@ -16,8 +16,57 @@ import { getRoutePlans, getTechnicians, getTickets, getCenters } from '../../ser
 import { TechnicianRoutePlan, RouteStop, Ticket, Center } from '../../types';
 import {
   MapPin, Radio, CheckCircle, AlertCircle, Loader2,
-  WifiOff, Navigation, Clock, Wrench, ChevronDown, ChevronUp, Search, Download,
+  WifiOff, Navigation, Clock, Wrench, ChevronDown, ChevronUp, Search, Download, Phone,
 } from 'lucide-react';
+import { DC_POC_DATA } from '../dcpoc/dcPocData';
+
+// ── DC POC inline contact block ──────────────────────────────────
+function findDcPoc(centerName: string) {
+  if (!centerName) return null;
+  const norm = centerName.trim().toLowerCase();
+  let m = DC_POC_DATA.find(d => d.center.toLowerCase() === norm);
+  if (!m) {
+    const base = norm.replace(/[_\s]+(d|h|w|c)$/, '');
+    m = DC_POC_DATA.find(d => d.center.toLowerCase().includes(base));
+  }
+  return m ?? null;
+}
+
+function PocContacts({ centerName }: { centerName: string }) {
+  const poc = findDcPoc(centerName);
+  if (!poc) return null;
+  const rows = [
+    { label: 'POC', name: poc.poc, phone: poc.pocPhone, color: 'text-orange-300' },
+    { label: 'TL',  name: poc.tl,  phone: poc.tlPhone,  color: 'text-blue-300'   },
+    { label: 'ATL', name: poc.atl, phone: poc.atlPhone,  color: 'text-purple-300' },
+  ].filter(r => r.name || r.phone);
+  if (!rows.length) return null;
+  return (
+    <div className="mt-2 rounded-lg bg-slate-800 border border-slate-700 p-2.5 space-y-1.5">
+      <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">DC Contacts</div>
+      {rows.map(r => (
+        <div key={r.label} className="flex items-center gap-2">
+          <span className={`text-[10px] font-bold w-6 ${r.color}`}>{r.label}</span>
+          <span className="text-[11px] text-slate-300 flex-1 truncate">{r.name || '—'}</span>
+          {r.phone ? (
+            <div className="flex items-center gap-1.5 shrink-0">
+              <a href={`tel:+91${r.phone}`}
+                className="flex items-center gap-1 text-[11px] font-mono text-slate-300 hover:text-white">
+                <Phone size={10} className="text-slate-500" />{r.phone}
+              </a>
+              <a href={`https://wa.me/91${r.phone}`} target="_blank" rel="noopener noreferrer"
+                className="text-[9px] bg-green-700/40 text-green-300 px-1.5 py-0.5 rounded font-bold">
+                WA
+              </a>
+            </div>
+          ) : (
+            <span className="text-[10px] text-slate-600">—</span>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 type TrackState = 'idle' | 'requesting' | 'tracking' | 'error' | 'no_gps' | 'no_db';
 
@@ -594,6 +643,7 @@ export const TechTrackerPage: React.FC = () => {
                           <div>Ticket: <span className="text-slate-300 font-mono">{stop.ticketId}</span></div>
                           <div>Est. duration: {stop.estimatedDurationMins} min</div>
                           <div>Coords: {stop.latitude?.toFixed(4)}, {stop.longitude?.toFixed(4)}</div>
+                          <PocContacts centerName={stop.centerName} />
                         </div>
                       )}
                       {!isDone && (
@@ -695,6 +745,7 @@ export const TechTrackerPage: React.FC = () => {
                         <div className="ml-14 mt-2 text-[11px] text-slate-500 space-y-0.5 border-l border-slate-800 pl-3">
                           <div>Ticket: <span className="text-slate-300 font-mono">{ticket.ticketId}</span></div>
                           <div>Center coords: {center.latitude.toFixed(4)}, {center.longitude.toFixed(4)}</div>
+                          <PocContacts centerName={ticket.centerName} />
                         </div>
                       )}
                       {!isDone && (
