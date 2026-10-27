@@ -38,7 +38,8 @@ import {
   Sparkles,
   Waypoints,
   Route,
-  BrainCircuit
+  BrainCircuit,
+  BookUser
 } from 'lucide-react';
 
 
@@ -107,6 +108,7 @@ const CityRoutesPage = lazyPage(() => import('./components/cityroutes/CityRoutes
 const SmartRoutePlannerPage = lazyPage(() => import('./components/smartrouter/SmartRoutePlannerPage').then(m => ({ default: m.SmartRoutePlannerPage })));
 const VroomRosterPage = lazyPage(() => import('./components/vroomroster/VroomRosterPage').then(m => ({ default: m.VroomRosterPage })));
 const ClusterRoutesPage = lazyPage(() => import('./components/clusterroutes/ClusterRoutesPage').then(m => ({ default: m.ClusterRoutesPage })));
+const DcPocPage = lazyPage(() => import('./components/dcpoc/DcPocPage').then(m => ({ default: m.DcPocPage })));
 
 type NavTab =
   | 'OVERVIEW'
@@ -133,7 +135,8 @@ type NavTab =
   | 'CITY ROUTES'
   | 'VROOM ROUTES'
   | 'CLUSTER ROUTES'
-  | 'VISIT LOG';
+  | 'VISIT LOG'
+  | 'DC POC';
 
 interface NavItem {
   id: NavTab;
@@ -182,6 +185,7 @@ const NAV_GROUPS: NavGroup[] = [
       { id: 'TECHNICIAN MANAGEMENT',   label: 'Technicians',          icon: Users },
       { id: 'CENTER MANAGEMENT',       label: 'Centers',              icon: Building2 },
       { id: 'TECHNICIAN PERFORMANCE',  label: 'Performance',          icon: Award },
+      { id: 'DC POC',                  label: 'DC POC',               icon: BookUser },
     ],
   },
   {
@@ -451,6 +455,7 @@ export default function App() {
           {activeTab === 'CITY ROUTES' && <CityRoutesPage />}
           {activeTab === 'VROOM ROUTES' && <CityRoutesPage engine="vroom" />}
           {activeTab === 'CLUSTER ROUTES' && <ClusterRoutesPage />}
+          {activeTab === 'DC POC' && <DcPocPage />}
 
           {activeTab === 'TICKETS' && (
             <TicketsPage onOpenUploadModal={handleOpenUpload} />
